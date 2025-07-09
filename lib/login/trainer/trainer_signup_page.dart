@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TrainerSignUpPage extends StatefulWidget {
   const TrainerSignUpPage({super.key});
@@ -8,10 +10,83 @@ class TrainerSignUpPage extends StatefulWidget {
 }
 
 class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
+  final Color primaryColor = const Color(0xFF4A90E2);
+
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+
   bool _isPasswordHidden = true;
   bool _isConfirmPasswordHidden = true;
+  bool _isLoading = false;
 
-  final Color primaryColor = const Color(0xFF4A90E2);
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _signUpTrainer() async {
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (firstName.isEmpty ||
+        lastName.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty) {
+      _showSnackBar('Please fill in all fields');
+      return;
+    }
+
+    if (password != confirmPassword) {
+      _showSnackBar('Passwords do not match');
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      UserCredential userCredential =
+          await _auth.createUserWithEmailAndPassword(
+        email: email,
+        password: password,
+      );
+
+      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+        'firstName': firstName,
+        'lastName': lastName,
+        'email': email,
+        'userType': 'Trainer',
+        'createdAt': Timestamp.now(),
+      });
+
+      _showSnackBar('Account created successfully!');
+      Navigator.pop(context); // Go back or navigate to home if needed
+    } on FirebaseAuthException catch (e) {
+      _showSnackBar(e.message ?? 'Sign up failed');
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,12 +140,14 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
                 children: [
                   Expanded(
                     child: TextField(
+                      controller: _firstNameController,
                       decoration: _inputDecoration(Icons.person, "First Name"),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
+                      controller: _lastNameController,
                       decoration: _inputDecoration(Icons.person, "Last Name"),
                     ),
                   ),
@@ -78,34 +155,34 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
               ),
               const SizedBox(height: 20),
               TextField(
+                controller: _emailController,
                 decoration:
                     _inputDecoration(Icons.email_outlined, "Enter email"),
               ),
               const SizedBox(height: 20),
               TextField(
+                controller: _passwordController,
                 obscureText: _isPasswordHidden,
                 decoration: _passwordDecoration(
                   Icons.lock_outline,
                   "Create password",
                   _isPasswordHidden,
                   () {
-                    setState(() {
-                      _isPasswordHidden = !_isPasswordHidden;
-                    });
+                    setState(() => _isPasswordHidden = !_isPasswordHidden);
                   },
                 ),
               ),
               const SizedBox(height: 20),
               TextField(
+                controller: _confirmPasswordController,
                 obscureText: _isConfirmPasswordHidden,
                 decoration: _passwordDecoration(
                   Icons.lock_outline,
                   "Confirm password",
                   _isConfirmPasswordHidden,
                   () {
-                    setState(() {
-                      _isConfirmPasswordHidden = !_isConfirmPasswordHidden;
-                    });
+                    setState(() =>
+                        _isConfirmPasswordHidden = !_isConfirmPasswordHidden);
                   },
                 ),
               ),
@@ -114,20 +191,23 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
-                      // TODO: Sign up logic
-                    },
+                    onPressed: _isLoading ? null : _signUpTrainer,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    child: const Text(
-                      "Sign Up",
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
+                            "Sign Up",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
                 ),
               ),
