@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1054031118120",
+    "project_id": "zeus-83b7e",
+    "storage_bucket": "zeus-83b7e.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1054031118120:android:58a2df4bde23789505da1d",
+        "android_client_info": {
+          "package_name": "com.example.zeus"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC2aI4b5m4fqi5UL4ZeVu1IwsRVF_SH_Io"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
