@@ -5,7 +5,7 @@ class AdminLoginPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color primaryColor = const Color(0xFF4A90E2); // Light blue
+    const Color primaryColor = Color(0xFF4A90E2); // Light blue
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -111,7 +111,7 @@ class AdminLoginPage extends StatelessWidget {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () {
-                      // TODO: Implement login logic
+                      
                     },
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),

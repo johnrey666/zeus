@@ -1,8 +1,14 @@
-// Paste the full ZeusLandingPage code here 👇
 import 'package:flutter/material.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 import 'package:zeus/pages/select_profile_page.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding
+      .ensureInitialized(); // 🔥 Required before Firebase initialization
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const ZeusLandingPage());
 }
 
@@ -24,20 +30,17 @@ class LandingScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white, // Light background
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // 🖼️ Logo Image
               Image.asset(
-                'assets/zeus_logo.png', // Make sure this file exists
+                'assets/zeus_logo.png',
                 height: 250,
               ),
               const SizedBox(height: 60),
-
-              // 🟠 Get Started Button
               ElevatedButton(
                 onPressed: () {
                   Navigator.push(

@@ -1,3 +1,8 @@
+
+// ignore_for_file: use_build_context_synchronously
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class MemberSignUpPage extends StatefulWidget {
@@ -11,7 +16,63 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
   bool _isPasswordHidden = true;
   bool _isConfirmPasswordHidden = true;
 
+  final TextEditingController _firstNameController = TextEditingController();
+  final TextEditingController _lastNameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
+
   final Color primaryColor = const Color(0xFF4A90E2);
+
+  bool _isLoading = false;
+
+  void _signUp() async {
+    final firstName = _firstNameController.text.trim();
+    final lastName = _lastNameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+      _showMessage("All fields are required.");
+      return;
+    }
+
+    if (password != confirmPassword) {
+      _showMessage("Passwords do not match.");
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      // Create user with email and password
+      UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password);
+
+      // Save user info to Firestore
+      await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+        'firstName': firstName,
+        'lastName': lastName,
+        'email': email,
+        'userType': 'Member',
+        'createdAt': FieldValue.serverTimestamp(),
+      });
+
+      _showMessage("Account created successfully!");
+
+      // Optionally, navigate somewhere
+      Navigator.pop(context);
+    } on FirebaseAuthException catch (e) {
+      _showMessage(e.message ?? "An error occurred.");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -65,12 +126,14 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                 children: [
                   Expanded(
                     child: TextField(
+                      controller: _firstNameController,
                       decoration: _inputDecoration(Icons.person, "First Name"),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: TextField(
+                      controller: _lastNameController,
                       decoration: _inputDecoration(Icons.person, "Last Name"),
                     ),
                   ),
@@ -78,10 +141,13 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
               ),
               const SizedBox(height: 20),
               TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
                 decoration: _inputDecoration(Icons.email_outlined, "Email"),
               ),
               const SizedBox(height: 20),
               TextField(
+                controller: _passwordController,
                 obscureText: _isPasswordHidden,
                 decoration: _passwordDecoration(
                   Icons.lock_outline,
@@ -96,6 +162,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
               ),
               const SizedBox(height: 20),
               TextField(
+                controller: _confirmPasswordController,
                 obscureText: _isConfirmPasswordHidden,
                 decoration: _passwordDecoration(
                   Icons.lock_outline,
@@ -113,20 +180,20 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
-                      // TODO: Sign up logic
-                    },
+                    onPressed: _isLoading ? null : _signUp,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text(
-                      "Sign Up",
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.w600),
-                    ),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
+                            "Sign Up",
+                            style: TextStyle(
+                                color: Colors.white, fontWeight: FontWeight.w600),
+                          ),
                   ),
                 ),
               ),
