@@ -18,10 +18,17 @@ class _MemberHomePageState extends State<MemberHomePage> {
   int _selectedIndex = 0;
 
   final List<Widget> _pages = [
-    const TrainingPage(), // Shown first after login
+    const TrainingPage(),
     const ReportPage(),
     const QRPage(),
     const MessagePage(),
+  ];
+
+  final List<String> _titles = [
+    'Training',
+    'Reports',
+    'QR Code',
+    'Messages',
   ];
 
   void _onItemTapped(int index) {
@@ -38,7 +45,7 @@ class _MemberHomePageState extends State<MemberHomePage> {
     return Scaffold(
       appBar: AppBar(
         leading: const Icon(Icons.home),
-        title: const Text('Home'),
+        title: Text(_titles[_selectedIndex]),
         actions: [
           IconButton(
               icon: const Icon(Icons.notifications_none), onPressed: () {}),
