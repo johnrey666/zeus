@@ -1,8 +1,72 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'member_signup_page.dart';
+import 'package:zeus/pages/member_pages/member_home_page.dart';
 
-class MemberLoginPage extends StatelessWidget {
+class MemberLoginPage extends StatefulWidget {
   const MemberLoginPage({super.key});
+
+  @override
+  State<MemberLoginPage> createState() => _MemberLoginPageState();
+}
+
+class _MemberLoginPageState extends State<MemberLoginPage> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  bool _isLoading = false;
+
+  void _loginUser() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final UserCredential userCredential =
+          await _auth.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+
+      final User? user = userCredential.user;
+
+      if (user != null) {
+        final DocumentSnapshot userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        // ✅ Make sure the field name is userType (case-sensitive)
+        final userType = userDoc.get('userType');
+
+        if (userType == 'Member') {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (_) => const MemberHomePage()),
+          );
+        } else {
+          await _auth.signOut();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Access denied. Not a Member account.')),
+          );
+        }
+      }
+    } on FirebaseAuthException catch (e) {
+      String message = 'Login failed';
+      if (e.code == 'user-not-found') {
+        message = 'No user found for that email.';
+      } else if (e.code == 'wrong-password') {
+        message = 'Wrong password provided.';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,6 +122,7 @@ class MemberLoginPage extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               TextField(
+                controller: _emailController,
                 decoration:
                     _inputDecoration(Icons.email_outlined, "Enter your email"),
               ),
@@ -66,6 +131,7 @@ class MemberLoginPage extends StatelessWidget {
                   style: TextStyle(fontWeight: FontWeight.w600)),
               const SizedBox(height: 8),
               TextField(
+                controller: _passwordController,
                 obscureText: true,
                 decoration:
                     _inputDecoration(Icons.lock_outline, "Enter your password"),
@@ -75,17 +141,21 @@ class MemberLoginPage extends StatelessWidget {
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
-                    },
+                    onPressed: _isLoading ? null : _loginUser,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12)),
                     ),
-                    child: const Text("Login",
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.w600)),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation(Colors.white),
+                          )
+                        : const Text("Login",
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600)),
                   ),
                 ),
               ),
