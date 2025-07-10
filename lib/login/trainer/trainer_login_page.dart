@@ -1,13 +1,65 @@
+// ignore_for_file: prefer_const_declarations, use_build_context_synchronously
+
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../pages/trainer_pages/trainer_home_page.dart';
 import 'trainer_signup_page.dart';
 
-class TrainerLoginPage extends StatelessWidget {
+class TrainerLoginPage extends StatefulWidget {
   const TrainerLoginPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    final Color primaryColor = const Color(0xFF4A90E2); // Light blue
+  State<TrainerLoginPage> createState() => _TrainerLoginPageState();
+}
 
+class _TrainerLoginPageState extends State<TrainerLoginPage> {
+  final Color primaryColor = const Color(0xFF4A90E2);
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  bool _isPasswordHidden = true;
+  bool _isLoading = false;
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loginTrainer() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      _showSnackBar("Please enter both email and password.");
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      await _auth.signInWithEmailAndPassword(email: email, password: password);
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const TrainerHomePage()),
+      );
+    } on FirebaseAuthException catch (e) {
+      _showSnackBar(e.message ?? "Login failed.");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -54,13 +106,12 @@ class TrainerLoginPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 40),
-              const Text("Username",
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
               TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.person),
-                  hintText: 'Enter your username',
+                  labelText: 'Email',
+                  prefixIcon: const Icon(Icons.email),
                   filled: true,
                   fillColor: Colors.grey.shade100,
                   contentPadding:
@@ -72,14 +123,12 @@ class TrainerLoginPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-              const Text("Password",
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
               TextField(
-                obscureText: true,
+                controller: _passwordController,
+                obscureText: _isPasswordHidden,
                 decoration: InputDecoration(
+                  labelText: 'Password',
                   prefixIcon: const Icon(Icons.lock),
-                  hintText: 'Enter your password',
                   filled: true,
                   fillColor: Colors.grey.shade100,
                   contentPadding:
@@ -88,6 +137,17 @@ class TrainerLoginPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
                   ),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _isPasswordHidden
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      color: Colors.grey,
+                    ),
+                    onPressed: () {
+                      setState(() => _isPasswordHidden = !_isPasswordHidden);
+                    },
+                  ),
                 ),
               ),
               const SizedBox(height: 40),
@@ -95,31 +155,52 @@ class TrainerLoginPage extends StatelessWidget {
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
-                      // TODO: Login logic
-                    },
+                    onPressed: _isLoading ? null : _loginTrainer,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: primaryColor,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12)),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
-                    child: const Text("Login",
-                        style: TextStyle(
-                            color: Colors.white, fontWeight: FontWeight.w600)),
+                    child: _isLoading
+                        ? const CircularProgressIndicator(color: Colors.white)
+                        : const Text(
+                            "Login",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Center(
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const TrainerSignUpPage()));
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                          builder: (_) => const TrainerSignUpPage()),
+                    );
                   },
-                  child: const Text('Sign Up'),
+                  child: RichText(
+                    text: TextSpan(
+                      text: "Don't have an account? ",
+                      style: const TextStyle(color: Colors.black),
+                      children: [
+                        TextSpan(
+                          text: "Register",
+                          style: TextStyle(
+                            color: primaryColor,
+                            decoration: TextDecoration.underline,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ],

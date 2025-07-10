@@ -1,6 +1,9 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'trainer_login_page.dart';
 
 class TrainerSignUpPage extends StatefulWidget {
   const TrainerSignUpPage({super.key});
@@ -18,9 +21,9 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController =
-      TextEditingController();
+  final TextEditingController _confirmPasswordController = TextEditingController();
 
   bool _isPasswordHidden = true;
   bool _isConfirmPasswordHidden = true;
@@ -31,6 +34,7 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
     _firstNameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
+    _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -40,12 +44,14 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
     final firstName = _firstNameController.text.trim();
     final lastName = _lastNameController.text.trim();
     final email = _emailController.text.trim();
+    final phone = _phoneController.text.trim();
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
     if (firstName.isEmpty ||
         lastName.isEmpty ||
         email.isEmpty ||
+        phone.isEmpty ||
         password.isEmpty ||
         confirmPassword.isEmpty) {
       _showSnackBar('Please fill in all fields');
@@ -60,8 +66,7 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
     setState(() => _isLoading = true);
 
     try {
-      UserCredential userCredential =
-          await _auth.createUserWithEmailAndPassword(
+      UserCredential userCredential = await _auth.createUserWithEmailAndPassword(
         email: email,
         password: password,
       );
@@ -70,12 +75,13 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
         'firstName': firstName,
         'lastName': lastName,
         'email': email,
+        'phone': phone,
         'userType': 'Trainer',
         'createdAt': Timestamp.now(),
       });
 
       _showSnackBar('Account created successfully!');
-      Navigator.pop(context); // Go back or navigate to home if needed
+      Navigator.pop(context);
     } on FirebaseAuthException catch (e) {
       _showSnackBar(e.message ?? 'Sign up failed');
     } finally {
@@ -84,8 +90,7 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -156,8 +161,13 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
               const SizedBox(height: 20),
               TextField(
                 controller: _emailController,
-                decoration:
-                    _inputDecoration(Icons.email_outlined, "Enter email"),
+                decoration: _inputDecoration(Icons.email_outlined, "Enter email"),
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: _phoneController,
+                keyboardType: TextInputType.phone,
+                decoration: _inputDecoration(Icons.phone, "Enter phone number"),
               ),
               const SizedBox(height: 20),
               TextField(
@@ -181,8 +191,7 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
                   "Confirm password",
                   _isConfirmPasswordHidden,
                   () {
-                    setState(() =>
-                        _isConfirmPasswordHidden = !_isConfirmPasswordHidden);
+                    setState(() => _isConfirmPasswordHidden = !_isConfirmPasswordHidden);
                   },
                 ),
               ),
@@ -208,6 +217,33 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Center(
+                child: GestureDetector(
+                  onTap: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (_) => const TrainerLoginPage()),
+                    );
+                  },
+                  child: RichText(
+                    text: TextSpan(
+                      text: "Already have an account? ",
+                      style: const TextStyle(color: Colors.black),
+                      children: [
+                        TextSpan(
+                          text: "Login",
+                          style: TextStyle(
+                            color: primaryColor,
+                            decoration: TextDecoration.underline,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
