@@ -23,11 +23,11 @@ class ReportPage extends StatelessWidget {
 
           final userData = userSnapshot.data!.data() as Map<String, dynamic>?;
 
-          final double height =
+          final height =
               double.tryParse(userData?['height'].toString() ?? '') ?? 0;
-          final double weight =
+          final weight =
               double.tryParse(userData?['weight'].toString() ?? '') ?? 0;
-          final double bmi = (height > 0 && weight > 0)
+          final bmi = (height > 0 && weight > 0)
               ? weight / ((height / 100) * (height / 100))
               : 0;
 
@@ -44,85 +44,156 @@ class ReportPage extends StatelessWidget {
               final planData = snapshot.data!.data() as Map<String, dynamic>;
               final weekPlan = Map<String, dynamic>.from(
                   planData["Set Up Your Workout Plan"] ?? {});
-              final chartData = _generateChartData(weekPlan);
+              final barData = _generateChartData(weekPlan);
 
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text("Health Summary",
-                        style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Row(
+              return StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(userId)
+                    .collection('calendar')
+                    .orderBy('timestamp')
+                    .snapshots(),
+                builder: (context, progressSnapshot) {
+                  final progressData = progressSnapshot.data?.docs ?? [];
+                  final lineSpots = progressData.asMap().entries.map((e) {
+                    final completed = e.value['completed'] == true;
+                    return FlSpot(e.key.toDouble(), completed ? 1 : 0);
+                  }).toList();
+
+                  return SingleChildScrollView(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _healthTile(
-                            "Height", "${height.toStringAsFixed(0)} cm"),
-                        const SizedBox(width: 16),
-                        _healthTile(
-                            "Weight", "${weight.toStringAsFixed(0)} kg"),
-                        const SizedBox(width: 16),
-                        _healthTile("BMI", bmi.toStringAsFixed(1)),
-                      ],
-                    ),
-                    const SizedBox(height: 24),
-                    const Text("Weekly Workout Overview",
-                        style: TextStyle(
-                            fontSize: 20, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 16),
-                    AspectRatio(
-                      aspectRatio: 1.7,
-                      child: BarChart(
-                        BarChartData(
-                          alignment: BarChartAlignment.spaceAround,
-                          maxY: 1,
-                          barTouchData: BarTouchData(enabled: true),
-                          titlesData: FlTitlesData(
-                            bottomTitles: AxisTitles(
-                              sideTitles: SideTitles(
-                                showTitles: true,
-                                getTitlesWidget: (value, _) => Text(
-                                  _dayInitial(value.toInt()),
-                                  style: const TextStyle(fontSize: 12),
+                        _sectionCard(
+                          title: "Health Summary",
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _healthTile("Height", "${height.toStringAsFixed(0)} cm", Icons.height),
+                              _healthTile("Weight", "${weight.toStringAsFixed(0)} kg", Icons.monitor_weight),
+                              _healthTile("BMI", bmi.toStringAsFixed(1), Icons.favorite),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        _sectionCard(
+                          title: "Weekly Workout Overview",
+                          child: AspectRatio(
+                            aspectRatio: 1.6,
+                            child: BarChart(
+                              BarChartData(
+                                alignment: BarChartAlignment.spaceAround,
+                                maxY: 1,
+                                titlesData: FlTitlesData(
+                                  bottomTitles: AxisTitles(
+                                    sideTitles: SideTitles(
+                                      showTitles: true,
+                                      getTitlesWidget: (val, _) => Text(
+                                        _dayInitial(val.toInt()),
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  ),
+                                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                                 ),
+                                borderData: FlBorderData(show: false),
+                                barGroups: barData,
                               ),
                             ),
-                            leftTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                            rightTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
-                            ),
-                            topTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        if (lineSpots.isNotEmpty) ...[
+                          _sectionCard(
+                            title: "Overall Progress",
+                            child: SizedBox(
+                              height: 180,
+                              child: LineChart(LineChartData(
+                                gridData: FlGridData(show: true),
+                                borderData: FlBorderData(show: false),
+                                lineBarsData: [
+                                  LineChartBarData(
+                                    isCurved: true,
+                                    color: Colors.greenAccent.shade700,
+                                    dotData: FlDotData(show: true),
+                                    belowBarData: BarAreaData(
+                                        show: true,
+                                        color: Colors.greenAccent.shade100),
+                                    spots: lineSpots,
+                                    barWidth: 3,
+                                  )
+                                ],
+                                titlesData: FlTitlesData(show: false),
+                              )),
                             ),
                           ),
-                          borderData: FlBorderData(show: false),
-                          barGroups: chartData,
+                          const SizedBox(height: 24),
+                        ],
+                        _sectionCard(
+                          title: "Daily Breakdown",
+                          child: Column(
+                            children: _orderedDays().map((day) {
+                              return ListTile(
+                                contentPadding: EdgeInsets.zero,
+                                leading:
+                                    Icon(Icons.calendar_today, color: Colors.blue.shade600),
+                                title: Text(day),
+                                trailing: Text(weekPlan[day] ?? "-"),
+                              );
+                            }).toList(),
+                          ),
                         ),
-                      ),
+                      ],
                     ),
-                    const SizedBox(height: 24),
-                    const Text("Daily Breakdown",
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 12),
-                    ..._orderedDays().map((day) {
-                      return ListTile(
-                        leading: Icon(Icons.fitness_center,
-                            color: Colors.blue.shade600),
-                        title: Text(day),
-                        trailing: Text(weekPlan[day] ?? "-"),
-                      );
-                    }),
-                  ],
-                ),
+                  );
+                },
               );
             },
           );
         },
       ),
+    );
+  }
+
+  Widget _sectionCard({required String title, required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(blurRadius: 8, color: Colors.black12, offset: Offset(0, 4))
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 16),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _healthTile(String label, String value, IconData icon) {
+    return Column(
+      children: [
+        CircleAvatar(
+          backgroundColor: Colors.blue.shade50,
+          child: Icon(icon, color: Colors.blue.shade700),
+        ),
+        const SizedBox(height: 8),
+        Text(value,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        const SizedBox(height: 4),
+        Text(label, style: const TextStyle(color: Colors.grey)),
+      ],
     );
   }
 
@@ -169,27 +240,5 @@ class ReportPage extends StatelessWidget {
       default:
         return Colors.grey;
     }
-  }
-
-  Widget _healthTile(String label, String value) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.grey[100],
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: Column(
-          children: [
-            Text(value,
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text(label, style: const TextStyle(color: Colors.grey)),
-          ],
-        ),
-      ),
-    );
   }
 }

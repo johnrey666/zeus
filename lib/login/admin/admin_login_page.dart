@@ -1,11 +1,67 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:google_fonts/google_fonts.dart';
+import 'package:zeus/pages/admin_pages/admin_home_page.dart';
 
-class AdminLoginPage extends StatelessWidget {
+class AdminLoginPage extends StatefulWidget {
   const AdminLoginPage({super.key});
 
   @override
+  State<AdminLoginPage> createState() => _AdminLoginPageState();
+}
+
+class _AdminLoginPageState extends State<AdminLoginPage> {
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  bool _isLoading = false;
+
+  void _showSnackbar(String message, [Color? color]) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message, style: const TextStyle(color: Colors.white)),
+        backgroundColor: color ?? Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  Future<void> _loginAdmin() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final userCredential = await _auth.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .get();
+
+      if (userDoc.exists && userDoc.data()?['userType'] == 'Admin') {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const AdminHomePage()),
+        );
+      } else {
+        _showSnackbar("🚫 You are not authorized as an Admin.");
+        await _auth.signOut();
+      }
+    } on FirebaseAuthException catch (e) {
+      _showSnackbar("❌ ${e.message}");
+    } finally {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    const Color primaryColor = Color(0xFF4A90E2); // Light blue
+    const Color primaryColor = Color(0xFF4A90E2);
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -15,14 +71,11 @@ class AdminLoginPage extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Back button
               IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new),
                 onPressed: () => Navigator.pop(context),
               ),
               const SizedBox(height: 30),
-
-              // Profile Image + Title
               Center(
                 child: Column(
                   children: [
@@ -49,7 +102,7 @@ class AdminLoginPage extends StatelessWidget {
                     const SizedBox(height: 16),
                     Text(
                       'Admin Login',
-                      style: TextStyle(
+                      style: GoogleFonts.poppins(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
                         color: Colors.grey.shade800,
@@ -59,17 +112,16 @@ class AdminLoginPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 40),
-
-              // Username Field
-              const Text(
-                "Username",
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-              ),
+              Text("Email",
+                  style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600, fontSize: 15)),
               const SizedBox(height: 8),
               TextField(
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.person_outline),
-                  hintText: 'Enter your username',
+                  hintText: 'Enter admin email',
                   filled: true,
                   fillColor: Colors.grey.shade100,
                   contentPadding:
@@ -81,14 +133,12 @@ class AdminLoginPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 20),
-
-              // Password Field
-              const Text(
-                "Password",
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-              ),
+              Text("Password",
+                  style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.w600, fontSize: 15)),
               const SizedBox(height: 8),
               TextField(
+                controller: _passwordController,
                 obscureText: true,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.lock_outline),
@@ -104,15 +154,11 @@ class AdminLoginPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 40),
-
-              // Login Button
               Center(
                 child: SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {
-                      
-                    },
+                    onPressed: _isLoading ? null : _loginAdmin,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       backgroundColor: primaryColor,
@@ -121,14 +167,23 @@ class AdminLoginPage extends StatelessWidget {
                       ),
                       elevation: 3,
                     ),
-                    child: const Text(
-                      "Login",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                      ),
-                    ),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text(
+                            "Login",
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                            ),
+                          ),
                   ),
                 ),
               ),
