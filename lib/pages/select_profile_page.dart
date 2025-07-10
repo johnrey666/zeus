@@ -9,7 +9,7 @@ class SelectProfilePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF0F2F5),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
@@ -17,59 +17,65 @@ class SelectProfilePage extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, size: 20),
+                icon: const Icon(Icons.arrow_back_ios_new, size: 22),
                 onPressed: () => Navigator.pop(context),
               ),
               const SizedBox(height: 10),
               const Text(
-                'Select Your\nProfile Type',
+                'Select Your Role',
                 style: TextStyle(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  height: 1.3,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                  color: Colors.black87,
                 ),
               ),
-              const SizedBox(height: 40),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _ProfileOption(
-                    title: 'Admin',
-                    icon: Icons.admin_panel_settings,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const AdminLoginPage(),
-                      ),
-                    ),
-                  ),
-                  _ProfileOption(
-                    title: 'Trainer',
-                    icon: Icons.fitness_center,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const TrainerLoginPage(),
-                      ),
-                    ),
-                  ),
-                ],
+              const SizedBox(height: 6),
+              const Text(
+                'Continue as a user type below',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Colors.black54,
+                ),
               ),
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  _ProfileOption(
-                    title: 'Member',
-                    icon: Icons.person_outline,
-                    onTap: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const MemberLoginPage(),
+              const SizedBox(height: 30),
+              Expanded(
+                child: GridView.count(
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 20,
+                  mainAxisSpacing: 20,
+                  children: [
+                    _ProfileCard(
+                      icon: Icons.admin_panel_settings_outlined,
+                      title: 'Admin',
+                      color: Colors.indigo,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const AdminLoginPage()),
                       ),
                     ),
-                  ),
-                ],
+                    _ProfileCard(
+                      icon: Icons.fitness_center_outlined,
+                      title: 'Trainer',
+                      color: Colors.deepPurple,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const TrainerLoginPage()),
+                      ),
+                    ),
+                    _ProfileCard(
+                      icon: Icons.person_outline,
+                      title: 'Member',
+                      color: Colors.teal,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const MemberLoginPage()),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -79,14 +85,16 @@ class SelectProfilePage extends StatelessWidget {
   }
 }
 
-class _ProfileOption extends StatelessWidget {
-  final String title;
+class _ProfileCard extends StatelessWidget {
   final IconData icon;
+  final String title;
+  final Color color;
   final VoidCallback onTap;
 
-  const _ProfileOption({
-    required this.title,
+  const _ProfileCard({
     required this.icon,
+    required this.title,
+    required this.color,
     required this.onTap,
   });
 
@@ -94,32 +102,35 @@ class _ProfileOption extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: Container(
-        width: 135,
-        height: 160,
-        margin: const EdgeInsets.symmetric(horizontal: 10),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeInOut,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.withOpacity(0.25),
-              blurRadius: 10,
+              color: color.withOpacity(0.15),
+              blurRadius: 12,
               offset: const Offset(0, 6),
             ),
           ],
-          border: Border.all(color: Colors.grey.shade300),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 60, color: Colors.blueAccent),
-            const SizedBox(height: 16),
+            CircleAvatar(
+              backgroundColor: color.withOpacity(0.1),
+              radius: 30,
+              child: Icon(icon, size: 30, color: color),
+            ),
+            const SizedBox(height: 18),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 18,
+              style: TextStyle(
+                fontSize: 16,
                 fontWeight: FontWeight.w600,
+                color: color,
               ),
             ),
           ],
