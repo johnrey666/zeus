@@ -34,7 +34,7 @@ class _TrainerHomePageState extends State<TrainerHomePage>
     MemberListPage(),
     SessionCalendarPage(),
     TrainerWorkoutPlanPage(),
-    MessagePage(),
+    TrainerMessagePage(),
   ];
 
   late final PageController _pageController;
