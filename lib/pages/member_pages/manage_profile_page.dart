@@ -1,10 +1,9 @@
 import 'dart:io';
-
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import 'registration_page.dart';
 
 class ManageProfilePage extends StatefulWidget {
@@ -25,6 +24,7 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
   final _weightController = TextEditingController();
 
   final ImagePicker _picker = ImagePicker();
+  final user = FirebaseAuth.instance.currentUser;
 
   @override
   void initState() {
@@ -33,12 +33,11 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
   }
 
   Future<void> _loadUserData() async {
-    final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     final doc = await FirebaseFirestore.instance
         .collection('users')
-        .doc(user.uid)
+        .doc(user!.uid)
         .get();
     if (doc.exists) {
       final data = doc.data()!;
@@ -66,7 +65,6 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
   }
 
   Future<void> _saveProfile() async {
-    final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     final userData = {
@@ -81,164 +79,218 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
 
     await FirebaseFirestore.instance
         .collection('users')
-        .doc(user.uid)
+        .doc(user!.uid)
         .set(userData, SetOptions(merge: true));
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Profile updated")),
+    _showModernSnackBar("✅ Profile updated successfully");
+  }
+
+  Future<void> _handleSubscription() async {
+    if (user == null) return;
+
+    final regSnapshot = await FirebaseFirestore.instance
+        .collection('registrations')
+        .where('userId', isEqualTo: user!.uid)
+        .where('status', isEqualTo: 'pending')
+        .get();
+
+    if (regSnapshot.docs.isNotEmpty) {
+      _showModernSnackBar("⏳ You already have a pending registration.");
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const RegistrationPage()),
     );
+  }
+
+  void _showModernSnackBar(String message) {
+    final snackBar = SnackBar(
+      backgroundColor: Colors.black87,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      content: Row(
+        children: [
+          const Icon(Icons.info_outline, color: Colors.white),
+          const SizedBox(width: 12),
+          Expanded(
+              child:
+                  Text(message, style: const TextStyle(color: Colors.white))),
+        ],
+      ),
+      duration: const Duration(seconds: 3),
+    );
+    ScaffoldMessenger.of(context).showSnackBar(snackBar);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFF6F6F6),
       appBar: AppBar(
         backgroundColor: Colors.white,
-        elevation: 0,
-        title:
-            const Text('Manage Profile', style: TextStyle(color: Colors.black)),
-        iconTheme: const IconThemeData(color: Colors.black),
+        elevation: 1,
+        title: Text('Manage Profile',
+            style: GoogleFonts.poppins(
+                color: Colors.black87, fontWeight: FontWeight.w600)),
+        iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
           IconButton(icon: const Icon(Icons.check), onPressed: _saveProfile),
-          const SizedBox(width: 12),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            GestureDetector(
-              onTap: _pickImage,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: Column(
-                  children: [
-                    CircleAvatar(
-                      radius: 45,
-                      backgroundColor: Colors.white,
-                      backgroundImage: _profileImage != null
-                          ? FileImage(_profileImage!)
-                          : null,
-                      child: _profileImage == null
-                          ? const Icon(Icons.person,
-                              size: 45, color: Colors.grey)
-                          : null,
-                    ),
-                    const SizedBox(height: 8),
-                    const Text('Change profile',
-                        style: TextStyle(fontSize: 12, color: Colors.black54)),
-                  ],
-                ),
+      body: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildProfileImageBox(),
+                  const SizedBox(height: 24),
+                  _buildLabel("Name"),
+                  Row(
+                    children: [
+                      Expanded(
+                          child: _buildTextField(Icons.person, 'First Name',
+                              _firstNameController)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: _buildTextField(
+                              Icons.person, 'Last Name', _lastNameController)),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _buildLabel("Age"),
+                  _buildTextField(Icons.cake, 'Age', _ageController),
+                  const SizedBox(height: 16),
+                  _buildLabel("Gender"),
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      Expanded(child: _buildGenderOption("Male")),
+                      const SizedBox(width: 0),
+                      Expanded(child: _buildGenderOption("Female")),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  _buildLabel("Body Info"),
+                  Row(
+                    children: [
+                      Expanded(
+                          child: _buildTextField(
+                              Icons.height, 'Height (cm)', _heightController)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: _buildTextField(Icons.monitor_weight,
+                              'Weight (kg)', _weightController)),
+                    ],
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 30),
-            const Text('Name', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                    child: _buildTextField(
-                        Icons.person, 'First Name', _firstNameController)),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: _buildTextField(
-                        Icons.person, 'Last Name', _lastNameController)),
-              ],
-            ),
-            const SizedBox(height: 20),
-            const Text('Age', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            _buildTextField(null, 'Age', _ageController),
-            const SizedBox(height: 20),
-            const Text('Gender', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-              children: [
-                Row(
-                  children: [
-                    Radio<String>(
-                      value: 'Female',
-                      groupValue: _selectedGender,
-                      onChanged: (value) =>
-                          setState(() => _selectedGender = value),
-                    ),
-                    const Text('Female'),
-                  ],
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+            child: SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: FilledButton(
+                style: FilledButton.styleFrom(
+                  backgroundColor: Colors.black87,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
                 ),
-                Row(
-                  children: [
-                    Radio<String>(
-                      value: 'Male',
-                      groupValue: _selectedGender,
-                      onChanged: (value) =>
-                          setState(() => _selectedGender = value),
-                    ),
-                    const Text('Male'),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            const Text('Body Info',
-                style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                Expanded(
-                    child: _buildTextField(
-                        null, 'Height (cm)', _heightController)),
-                const SizedBox(width: 12),
-                Expanded(
-                    child: _buildTextField(
-                        null, 'Weight (kg)', _weightController)),
-              ],
-            ),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                        builder: (_) => const RegistrationPage()));
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.grey[700],
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 32, vertical: 14),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                onPressed: _handleSubscription,
+                child: Text("Subscribe to Plan",
+                    style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white)),
               ),
-              child: const Text('Subscription',
-                  style: TextStyle(color: Colors.white)),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildTextField(
-      IconData? icon, String hint, TextEditingController controller) {
+      IconData icon, String hint, TextEditingController controller) {
     return TextField(
       controller: controller,
+      style: GoogleFonts.poppins(),
       decoration: InputDecoration(
-        prefixIcon: icon != null ? Icon(icon) : null,
+        prefixIcon: Icon(icon),
         hintText: hint,
+        hintStyle: GoogleFonts.poppins(),
         filled: true,
         fillColor: Colors.white,
         contentPadding:
-            const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(14),
           borderSide: BorderSide.none,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child:
+          Text(text, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
+    );
+  }
+
+  Widget _buildGenderOption(String gender) {
+    return SizedBox(
+      height: 42,
+      child: ChoiceChip(
+        label: Text(gender, style: GoogleFonts.poppins()),
+        selected: _selectedGender == gender,
+        onSelected: (_) => setState(() => _selectedGender = gender),
+        selectedColor: Colors.blueAccent,
+        backgroundColor: Colors.grey[300],
+        labelStyle: TextStyle(
+          color: _selectedGender == gender ? Colors.white : Colors.black,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  Widget _buildProfileImageBox() {
+    return GestureDetector(
+      onTap: _pickImage,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        decoration: BoxDecoration(
+          border: Border.all(color: Colors.grey.shade300),
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Column(
+          children: [
+            CircleAvatar(
+              radius: 45,
+              backgroundColor: Colors.grey[200],
+              backgroundImage:
+                  _profileImage != null ? FileImage(_profileImage!) : null,
+              child: _profileImage == null
+                  ? const Icon(Icons.person, size: 45, color: Colors.grey)
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            Text("Upload Profile Picture",
+                style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.grey[700],
+                    fontWeight: FontWeight.w500)),
+          ],
         ),
       ),
     );

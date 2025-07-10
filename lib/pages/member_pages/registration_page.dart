@@ -1,6 +1,9 @@
 import 'dart:io';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({super.key});
@@ -30,7 +33,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
       firstDate: DateTime.now(),
       lastDate: DateTime(2100),
     );
-
     if (picked != null) {
       setState(() {
         _startDateController.text =
@@ -46,6 +48,49 @@ class _RegistrationPageState extends State<RegistrationPage> {
         _proofImage = File(picked.path);
       });
     }
+  }
+
+  Future<void> _submitRegistration() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final name = _memberNameController.text.trim();
+    final date = _startDateController.text.trim();
+
+    if (name.isEmpty ||
+        date.isEmpty ||
+        _selectedPlan == null ||
+        _proofImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text("Please fill all fields and upload proof")),
+      );
+      return;
+    }
+
+    final bytes = await _proofImage!.readAsBytes();
+    final base64Image = base64Encode(bytes);
+
+    final registrationData = {
+      'userId': user.uid,
+      'name': name,
+      'plan': _selectedPlan,
+      'startDate': date,
+      'paymentMethod': _selectedPayment,
+      'proofImageBase64': base64Image,
+      'status': 'pending',
+      'timestamp': Timestamp.now(),
+    };
+
+    await FirebaseFirestore.instance
+        .collection('registrations')
+        .add(registrationData);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Registration submitted for approval.")),
+    );
+
+    Navigator.pop(context);
   }
 
   @override
@@ -138,9 +183,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
             const SizedBox(height: 30),
             Center(
               child: ElevatedButton(
-                onPressed: () {
-                  // handle registration later
-                },
+                onPressed: _submitRegistration,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.grey[400],
                   padding:

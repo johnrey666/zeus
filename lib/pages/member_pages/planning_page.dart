@@ -18,7 +18,12 @@ class _PlanningPageState extends State<PlanningPage> {
   final List<Map<String, dynamic>> questions = [
     {
       'question': "What is your fitness goal?",
-      'options': ["Loss Weight", "Gain Weight", "Maintain Weight", "Muscle Gain"],
+      'options': [
+        "Loss Weight",
+        "Gain Weight",
+        "Maintain Weight",
+        "Muscle Gain"
+      ],
       'type': 'radio',
     },
     {
@@ -38,12 +43,25 @@ class _PlanningPageState extends State<PlanningPage> {
     },
     {
       'question': "Set Up Your Workout Plan",
-      'days': ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+      'days': [
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+        "Sunday"
+      ],
       'type': 'dropdown',
     },
   ];
 
-  final List<String> workoutTypes = ['Cardio', 'Strength', 'Flexibility', 'Rest'];
+  final List<String> workoutTypes = [
+    'Cardio',
+    'Strength',
+    'Flexibility',
+    'Rest'
+  ];
 
   @override
   void initState() {
@@ -66,7 +84,10 @@ class _PlanningPageState extends State<PlanningPage> {
         if (user == null) throw Exception("User not logged in");
         final uid = user.uid;
 
-        await FirebaseFirestore.instance.collection('workout_plans').doc(uid).set(answers);
+        await FirebaseFirestore.instance
+            .collection('workout_plans')
+            .doc(uid)
+            .set(answers);
         if (!mounted) return;
         Navigator.pop(context, true); // Signal success
       } catch (e) {
@@ -90,7 +111,8 @@ class _PlanningPageState extends State<PlanningPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(question, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(question,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
         ...options.map((option) => Container(
               margin: const EdgeInsets.symmetric(vertical: 4),
@@ -131,7 +153,8 @@ class _PlanningPageState extends State<PlanningPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(question, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        Text(question,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
         Expanded(
           child: ListView.builder(
@@ -140,7 +163,8 @@ class _PlanningPageState extends State<PlanningPage> {
               final day = days[index];
               return Container(
                 margin: const EdgeInsets.symmetric(vertical: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                 decoration: BoxDecoration(
                   color: Colors.grey[100],
                   borderRadius: BorderRadius.circular(12),
@@ -153,10 +177,12 @@ class _PlanningPageState extends State<PlanningPage> {
                   ],
                 ),
                 child: DropdownButtonFormField<String>(
-                  decoration: InputDecoration(labelText: day, border: InputBorder.none),
+                  decoration:
+                      InputDecoration(labelText: day, border: InputBorder.none),
                   value: answers[question][day],
                   items: workoutTypes
-                      .map((type) => DropdownMenuItem(value: type, child: Text(type)))
+                      .map((type) =>
+                          DropdownMenuItem(value: type, child: Text(type)))
                       .toList(),
                   onChanged: (value) {
                     setState(() {
@@ -191,7 +217,8 @@ class _PlanningPageState extends State<PlanningPage> {
             Expanded(
               child: currentQuestion['type'] == 'dropdown'
                   ? _buildDropdownQuestion(currentQuestion)
-                  : SingleChildScrollView(child: _buildRadioQuestion(currentQuestion)),
+                  : SingleChildScrollView(
+                      child: _buildRadioQuestion(currentQuestion)),
             ),
             const SizedBox(height: 16),
             Row(
@@ -200,8 +227,10 @@ class _PlanningPageState extends State<PlanningPage> {
                 if (currentIndex > 0)
                   ElevatedButton(
                     onPressed: back,
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.grey[300]),
-                    child: const Text("Back", style: TextStyle(color: Colors.black)),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey[300]),
+                    child: const Text("Back",
+                        style: TextStyle(color: Colors.black)),
                   )
                 else
                   const SizedBox(width: 80),
@@ -209,8 +238,10 @@ class _PlanningPageState extends State<PlanningPage> {
                   onPressed: next,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12, horizontal: 24),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8)),
                   ),
                   child: Text(
                     currentIndex == questions.length - 1 ? "Submit" : "Next",

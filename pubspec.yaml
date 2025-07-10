@@ -19,6 +19,10 @@ dependencies:
   image_picker: ^1.0.4
   fl_chart: ^0.63.0
   table_calendar: ^3.0.10
+  google_fonts: ^6.2.0
+  intl: 0.20.2
+  csv: ^5.0.2
+  path_provider: ^2.1.2
 
 dev_dependencies:
   flutter_test:
