@@ -8,11 +8,22 @@ import 'dart:typed_data';
 class PendingRegistrationsPage extends StatelessWidget {
   const PendingRegistrationsPage({super.key});
 
-  Future<void> _acceptRequest(String docId) async {
+  Future<void> _acceptRequest(String docId, Map<String, dynamic> data) async {
     await FirebaseFirestore.instance
         .collection('registrations')
         .doc(docId)
         .update({'status': 'accepted'});
+
+    // Send notification to member
+    final userId = data['userId'];
+    if (userId != null && userId.toString().isNotEmpty) {
+      await FirebaseFirestore.instance.collection('notifications').add({
+        'toUserId': userId,
+        'text':
+            '🎉 You have successfully registered! You can now communicate with your Trainer.',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    }
   }
 
   Future<void> _deleteRequest(String docId) async {
@@ -113,7 +124,7 @@ class PendingRegistrationsPage extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () => _acceptRequest(docId),
+                        onPressed: () => _acceptRequest(docId, data),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blueGrey.shade700,
                           foregroundColor: Colors.white,
