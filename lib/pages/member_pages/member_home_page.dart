@@ -1,9 +1,10 @@
-// imports
+// ... other imports
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+
 import 'training_page.dart';
 import 'report_page.dart';
 import 'qr_page.dart';
@@ -12,6 +13,7 @@ import 'manage_profile_page.dart';
 
 class MemberHomePage extends StatefulWidget {
   const MemberHomePage({super.key});
+
   @override
   State<MemberHomePage> createState() => _MemberHomePageState();
 }
@@ -56,12 +58,14 @@ class _MemberHomePageState extends State<MemberHomePage>
   }
 
   void _handleMenu(String v) {
-    if (v == 'profile')
+    if (v == 'profile') {
       Navigator.push(context,
           MaterialPageRoute(builder: (_) => const ManageProfilePage()));
-    else if (v == 'logout')
+    } else if (v == 'logout') {
       _showLogoutDialog();
-    else if (v == 'toggle_theme') setState(() => _isDarkMode = !_isDarkMode);
+    } else if (v == 'toggle_theme') {
+      setState(() => _isDarkMode = !_isDarkMode);
+    }
   }
 
   void _showLogoutDialog() {
@@ -114,11 +118,10 @@ class _MemberHomePageState extends State<MemberHomePage>
     final size = renderBox?.size ?? const Size(40, 40);
     _animController.forward(from: 0);
 
-    _notifOverlay = OverlayEntry(builder: (ctx) {
+    _notifOverlay = OverlayEntry(builder: (_) {
       return Positioned(
         top: offset.dy + size.height + 8,
-        right: MediaQuery.of(context).size.width -
-            (offset.dx + size.width / 2 + 150),
+        right: 16,
         child: Material(
           color: Colors.transparent,
           child: FadeTransition(
@@ -127,70 +130,13 @@ class _MemberHomePageState extends State<MemberHomePage>
               position: _slideAnimation,
               child: Container(
                 width: 300,
+                constraints: const BoxConstraints(maxHeight: 400),
                 decoration: BoxDecoration(
                   color: Theme.of(context).cardColor,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)],
                 ),
-                child: StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('notifications')
-                      .where('toUserId', isEqualTo: user?.uid)
-                      .orderBy('timestamp', descending: true)
-                      .snapshots(),
-                  builder: (c, s) {
-                    if (!s.hasData)
-                      return const SizedBox(
-                          height: 100,
-                          child: Center(child: CircularProgressIndicator()));
-                    final docs = s.data!.docs;
-                    if (docs.isEmpty)
-                      return const SizedBox(
-                          height: 60,
-                          child: Center(child: Text("No Notifications")));
-                    return Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        ...docs.map((d) {
-                          final data = d.data() as Map<String, dynamic>;
-                          final text = data['text'] ?? '';
-                          final ts = data['timestamp'] as Timestamp?;
-                          final timeStr = ts != null
-                              ? DateFormat('MMM d, h:mm a').format(ts.toDate())
-                              : '';
-                          return ListTile(
-                            title: Text(text,
-                                style: GoogleFonts.poppins(fontSize: 14)),
-                            subtitle: Text(timeStr,
-                                style: GoogleFonts.poppins(
-                                    color: Colors.grey, fontSize: 12)),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.close),
-                              onPressed: () {
-                                FirebaseFirestore.instance
-                                    .collection('notifications')
-                                    .doc(d.id)
-                                    .delete();
-                              },
-                            ),
-                          );
-                        }),
-                        TextButton(
-                          onPressed: () {
-                            for (var doc in s.data!.docs) {
-                              FirebaseFirestore.instance
-                                  .collection('notifications')
-                                  .doc(doc.id)
-                                  .delete();
-                            }
-                          },
-                          child:
-                              Text("Clear All", style: GoogleFonts.poppins()),
-                        )
-                      ],
-                    );
-                  },
-                ),
+                child: NotificationDropdown(userId: user?.uid ?? ""),
               ),
             ),
           ),
@@ -209,7 +155,7 @@ class _MemberHomePageState extends State<MemberHomePage>
   }
 
   @override
-  Widget build(BuildContext c) {
+  Widget build(BuildContext context) {
     final themeData = _isDarkMode ? ThemeData.dark() : ThemeData.light();
 
     return Theme(
@@ -341,6 +287,74 @@ class _MemberHomePageState extends State<MemberHomePage>
           ),
         ),
       ),
+    );
+  }
+}
+
+class NotificationDropdown extends StatelessWidget {
+  final String userId;
+  const NotificationDropdown({super.key, required this.userId});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('notifications')
+          .where('toUserId', isEqualTo: userId)
+          .snapshots(), // <-- REMOVED .orderBy()
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const SizedBox(
+              height: 100, child: Center(child: CircularProgressIndicator()));
+        }
+
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text('Error loading notifications: ${snapshot.error}'),
+          );
+        }
+
+        final docs = snapshot.data?.docs ?? [];
+        print('Notification count: ${docs.length}');
+
+        if (docs.isEmpty) {
+          return const SizedBox(
+              height: 60, child: Center(child: Text("No Notifications")));
+        }
+
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ...docs.map((d) {
+              final data = d.data() as Map<String, dynamic>;
+              final text = data['text'] ?? '';
+              final ts = data['timestamp'] as Timestamp?;
+              final timeStr = ts != null
+                  ? DateFormat('MMM d, h:mm a').format(ts.toDate())
+                  : '';
+              return ListTile(
+                title: Text(text, style: GoogleFonts.poppins(fontSize: 14)),
+                subtitle: Text(timeStr,
+                    style:
+                        GoogleFonts.poppins(color: Colors.grey, fontSize: 12)),
+                trailing: const Icon(Icons.notifications),
+              );
+            }),
+            TextButton(
+              onPressed: () {
+                for (var doc in docs) {
+                  FirebaseFirestore.instance
+                      .collection('notifications')
+                      .doc(doc.id)
+                      .delete();
+                }
+              },
+              child: Text("Clear All", style: GoogleFonts.poppins()),
+            )
+          ],
+        );
+      },
     );
   }
 }
