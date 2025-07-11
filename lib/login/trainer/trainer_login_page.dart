@@ -54,8 +54,7 @@ class _TrainerLoginPageState extends State<TrainerLoginPage> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(message)));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -68,9 +67,12 @@ class _TrainerLoginPageState extends State<TrainerLoginPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new),
-                onPressed: () => Navigator.pop(context),
+              Padding(
+                padding: const EdgeInsets.only(left: 0),
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new),
+                  onPressed: () => Navigator.pop(context),
+                ),
               ),
               const SizedBox(height: 30),
               Center(
@@ -108,46 +110,22 @@ class _TrainerLoginPageState extends State<TrainerLoginPage> {
               const SizedBox(height: 40),
               TextField(
                 controller: _emailController,
+                cursorColor: primaryColor,
                 keyboardType: TextInputType.emailAddress,
-                decoration: InputDecoration(
-                  labelText: 'Email',
-                  prefixIcon: const Icon(Icons.email),
-                  filled: true,
-                  fillColor: Colors.grey.shade100,
-                  contentPadding:
-                      const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
+                decoration: _inputDecoration(Icons.email, "Enter email"),
               ),
               const SizedBox(height: 20),
               TextField(
                 controller: _passwordController,
+                cursorColor: primaryColor,
                 obscureText: _isPasswordHidden,
-                decoration: InputDecoration(
-                  labelText: 'Password',
-                  prefixIcon: const Icon(Icons.lock),
-                  filled: true,
-                  fillColor: Colors.grey.shade100,
-                  contentPadding:
-                      const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
-                  ),
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _isPasswordHidden
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                      color: Colors.grey,
-                    ),
-                    onPressed: () {
-                      setState(() => _isPasswordHidden = !_isPasswordHidden);
-                    },
-                  ),
+                decoration: _passwordDecoration(
+                  Icons.lock,
+                  "Enter password",
+                  _isPasswordHidden,
+                  () {
+                    setState(() => _isPasswordHidden = !_isPasswordHidden);
+                  },
                 ),
               ),
               const SizedBox(height: 40),
@@ -206,6 +184,46 @@ class _TrainerLoginPageState extends State<TrainerLoginPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  InputDecoration _inputDecoration(IconData icon, String hint) {
+    return InputDecoration(
+      prefixIcon: Icon(icon),
+      hintText: hint,
+      filled: true,
+      fillColor: Colors.grey.shade100,
+      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+    );
+  }
+
+  InputDecoration _passwordDecoration(
+    IconData icon,
+    String hint,
+    bool isHidden,
+    VoidCallback toggleVisibility,
+  ) {
+    return InputDecoration(
+      prefixIcon: Icon(icon),
+      hintText: hint,
+      filled: true,
+      fillColor: Colors.grey.shade100,
+      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      suffixIcon: IconButton(
+        icon: Icon(
+          isHidden ? Icons.visibility_off : Icons.visibility,
+          color: Colors.grey,
+        ),
+        onPressed: toggleVisibility,
       ),
     );
   }

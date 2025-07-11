@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'notification_page.dart';
+import 'profile_page.dart';
 
 // Dummy pages (replace with actual implementations)
 import 'dashboard_page.dart';
@@ -23,8 +25,8 @@ class _TrainerHomePageState extends State<TrainerHomePage>
 
   final List<String> _titles = [
     'Dashboard',
-    'Member List',
-    'Sessions',
+    "Member's List",
+    'Session Calendar',
     'Workout Plans',
     'Messages',
   ];
@@ -57,7 +59,10 @@ class _TrainerHomePageState extends State<TrainerHomePage>
   void _handleMenuSelection(String value) {
     switch (value) {
       case 'profile':
-        // TODO: Navigate to trainer profile page
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const ProfilePage()),
+        );
         break;
       case 'toggle_theme':
         setState(() {
@@ -72,8 +77,8 @@ class _TrainerHomePageState extends State<TrainerHomePage>
 
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
-    if (mounted) Navigator.pop(context); // Close dialog
-    if (mounted) Navigator.pop(context); // Go back
+    if (mounted) Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
   }
 
   void _showLogoutDialog() {
@@ -82,44 +87,56 @@ class _TrainerHomePageState extends State<TrainerHomePage>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Wrap(
-          children: [
-            const Center(
-              child: Icon(Icons.logout, size: 40, color: Colors.redAccent),
-            ),
-            const SizedBox(height: 16),
-            const Center(
-              child: Text(
-                'Confirm Logout',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Wrap(
+            children: [
+              const Center(
+                child: Icon(Icons.logout, size: 40, color: Colors.redAccent),
               ),
-            ),
-            const SizedBox(height: 10),
-            const Center(child: Text("Are you sure you want to log out?")),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    child: const Text("Cancel"),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+              const SizedBox(height: 16),
+              const Center(
+                child: Text(
+                  'Confirm Logout',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
+              ),
+              const SizedBox(height: 10),
+              const Center(child: Text("Are you sure you want to log out?")),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      child: const Text(
+                        "Cancel",
+                        style: TextStyle(color: Colors.black),
+                      ),
+                      onPressed: () => Navigator.pop(context),
                     ),
-                    child: const Text("Logout"),
-                    onPressed: _logout,
                   ),
-                ),
-              ],
-            )
-          ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                      ),
+                      child: const Text(
+                        "Logout",
+                        style: TextStyle(color: Colors.white),
+                      ),
+                      onPressed: _logout,
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
         ),
       ),
     );
@@ -154,36 +171,36 @@ class _TrainerHomePageState extends State<TrainerHomePage>
                   ),
                   Row(
                     children: [
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.notifications_none_rounded),
-                            onPressed: () {
-                              // TODO: navigate to trainer notifications
-                            },
-                          ),
-                          Positioned(
-                            right: 8,
-                            top: 8,
-                            child: Container(
-                              width: 10,
-                              height: 10,
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                        ],
+                      IconButton(
+                        icon: const Icon(Icons.notifications_none_rounded),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const NotificationPage()),
+                          );
+                        },
                       ),
                       PopupMenuButton<String>(
                         onSelected: _handleMenuSelection,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),
                         ),
-                        icon: const CircleAvatar(
-                          backgroundColor: Colors.grey,
-                          child: Icon(Icons.person, color: Colors.white),
+                        color: Colors.white,
+                        icon: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color: _isDarkMode ? Colors.white : Colors.black,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Icon(
+                            Icons.person,
+                            color: _isDarkMode ? Colors.white : Colors.black,
+                            size: 20,
+                          ),
                         ),
                         itemBuilder: (context) => [
                           const PopupMenuItem(
@@ -199,15 +216,16 @@ class _TrainerHomePageState extends State<TrainerHomePage>
                               leading: Icon(_isDarkMode
                                   ? Icons.light_mode
                                   : Icons.dark_mode),
-                              title: Text(
-                                  _isDarkMode ? 'Light Mode' : 'Dark Mode'),
+                              title: Text(_isDarkMode
+                                  ? 'Light Mode'
+                                  : 'Dark Mode'),
                             ),
                           ),
                           const PopupMenuItem(
                             value: 'logout',
                             child: ListTile(
-                              leading:
-                                  Icon(Icons.logout, color: Colors.redAccent),
+                              leading: Icon(Icons.logout,
+                                  color: Colors.redAccent),
                               title: Text('Logout'),
                             ),
                           ),
@@ -251,12 +269,14 @@ class _TrainerHomePageState extends State<TrainerHomePage>
               currentIndex: _selectedIndex,
               onTap: _onItemTapped,
               backgroundColor: themeData.cardColor,
-              selectedItemColor: themeData.colorScheme.primary,
+              selectedItemColor: Colors.black,
               unselectedItemColor: Colors.grey,
               type: BottomNavigationBarType.fixed,
               showSelectedLabels: true,
               showUnselectedLabels: false,
               elevation: 0,
+              selectedLabelStyle: const TextStyle(fontSize: 10), // ✅ small text
+              unselectedLabelStyle: const TextStyle(fontSize: 10), // ✅ small text
               items: const [
                 BottomNavigationBarItem(
                   icon: Icon(Icons.dashboard_outlined),
@@ -264,15 +284,15 @@ class _TrainerHomePageState extends State<TrainerHomePage>
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.group_outlined),
-                  label: 'Members',
+                  label: "Member's List",
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.calendar_today_outlined),
-                  label: 'Sessions',
+                  label: 'Session Calendar',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.fitness_center),
-                  label: 'Plans',
+                  label: 'Workout Plans',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.chat_bubble_outline),

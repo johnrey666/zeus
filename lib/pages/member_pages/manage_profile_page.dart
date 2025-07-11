@@ -21,6 +21,7 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
 
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
+  final _phoneController = TextEditingController();
   final _ageController = TextEditingController();
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
@@ -46,6 +47,7 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
       setState(() {
         _firstNameController.text = data['firstName'] ?? '';
         _lastNameController.text = data['lastName'] ?? '';
+        _phoneController.text = data['phone'] ?? '';
         _ageController.text = data['age'] ?? '';
         _selectedGender = data['gender'];
         _heightController.text = data['height'] ?? '';
@@ -72,6 +74,7 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
     final userData = {
       'firstName': _firstNameController.text.trim(),
       'lastName': _lastNameController.text.trim(),
+      'phone': _phoneController.text.trim(),
       'age': _ageController.text.trim(),
       'gender': _selectedGender,
       'height': _heightController.text.trim(),
@@ -163,6 +166,9 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
                               Icons.person, 'Last Name', _lastNameController)),
                     ],
                   ),
+                  const SizedBox(height: 16),
+                  _buildLabel("Phone Number"),
+                  _buildTextField(Icons.phone, 'Phone Number', _phoneController),
                   const SizedBox(height: 16),
                   _buildLabel("Age"),
                   _buildTextField(Icons.cake, 'Age', _ageController),

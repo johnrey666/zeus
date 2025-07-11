@@ -1,6 +1,6 @@
-
 // ignore_for_file: use_build_context_synchronously
 
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -23,8 +23,15 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
   final TextEditingController _confirmPasswordController = TextEditingController();
 
   final Color primaryColor = const Color(0xFF4A90E2);
-
   bool _isLoading = false;
+
+  /// Generates a numeric Member ID like MBR29458371
+String _generateRandomMemberId() {
+  final rand = Random.secure();
+  final number = rand.nextInt(90000000) + 10000000; // ensures 8-digit number
+  return 'MBR$number';
+}
+
 
   void _signUp() async {
     final firstName = _firstNameController.text.trim();
@@ -50,18 +57,20 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: password);
 
+      // Generate random member ID
+      final generatedMemberId = _generateRandomMemberId();
+
       // Save user info to Firestore
       await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
         'firstName': firstName,
         'lastName': lastName,
         'email': email,
         'userType': 'Member',
+        'memberId': generatedMemberId,
         'createdAt': FieldValue.serverTimestamp(),
       });
 
       _showMessage("Account created successfully!");
-
-      // Optionally, navigate somewhere
       Navigator.pop(context);
     } on FirebaseAuthException catch (e) {
       _showMessage(e.message ?? "An error occurred.");

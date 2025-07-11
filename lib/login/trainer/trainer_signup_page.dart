@@ -103,9 +103,12 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new),
-                onPressed: () => Navigator.pop(context),
+              Padding(
+                padding: const EdgeInsets.only(left: 0), // Move back button to the left
+                child: IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new),
+                  onPressed: () => Navigator.pop(context),
+                ),
               ),
               const SizedBox(height: 30),
               Center(
@@ -146,6 +149,7 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
                   Expanded(
                     child: TextField(
                       controller: _firstNameController,
+                      cursorColor: primaryColor,
                       decoration: _inputDecoration(Icons.person, "First Name"),
                     ),
                   ),
@@ -153,6 +157,7 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
                   Expanded(
                     child: TextField(
                       controller: _lastNameController,
+                      cursorColor: primaryColor,
                       decoration: _inputDecoration(Icons.person, "Last Name"),
                     ),
                   ),
@@ -161,18 +166,21 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
               const SizedBox(height: 20),
               TextField(
                 controller: _emailController,
+                cursorColor: primaryColor,
                 decoration: _inputDecoration(Icons.email_outlined, "Enter email"),
               ),
               const SizedBox(height: 20),
               TextField(
                 controller: _phoneController,
                 keyboardType: TextInputType.phone,
+                cursorColor: primaryColor,
                 decoration: _inputDecoration(Icons.phone, "Enter phone number"),
               ),
               const SizedBox(height: 20),
               TextField(
                 controller: _passwordController,
                 obscureText: _isPasswordHidden,
+                cursorColor: primaryColor,
                 decoration: _passwordDecoration(
                   Icons.lock_outline,
                   "Create password",
@@ -186,6 +194,7 @@ class _TrainerSignUpPageState extends State<TrainerSignUpPage> {
               TextField(
                 controller: _confirmPasswordController,
                 obscureText: _isConfirmPasswordHidden,
+                cursorColor: primaryColor,
                 decoration: _passwordDecoration(
                   Icons.lock_outline,
                   "Confirm password",
