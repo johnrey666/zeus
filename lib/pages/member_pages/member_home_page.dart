@@ -10,7 +10,6 @@ import 'report_page.dart';
 import 'qr_page.dart';
 import 'message_page.dart';
 import 'manage_profile_page.dart';
-import 'member_notification_page.dart';
 
 class MemberHomePage extends StatefulWidget {
   const MemberHomePage({super.key});
@@ -69,40 +68,64 @@ class _MemberHomePageState extends State<MemberHomePage>
     }
   }
 
+  Future<void> _logout() async {
+    await FirebaseAuth.instance.signOut();
+    if (mounted) Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
+  }
+
   void _showLogoutDialog() {
     showModalBottomSheet(
       context: context,
       shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
-      builder: (_) => Wrap(children: [
-        const SizedBox(height: 20),
-        const Icon(Icons.logout, size: 40, color: Colors.redAccent),
-        const SizedBox(height: 16),
-        const Text('Confirm Logout',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 10),
-        const Text("Are you sure you want to log out?"),
-        const SizedBox(height: 20),
-        Row(children: [
-          Expanded(
-              child: OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text("Cancel"))),
-          const SizedBox(width: 10),
-          Expanded(
-              child: ElevatedButton(
-                  onPressed: () {
-                    FirebaseAuth.instance.signOut().then((_) {
-                      Navigator.pop(context);
-                      Navigator.pop(context);
-                    });
-                  },
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent),
-                  child: const Text("Logout"))),
-        ]),
-        const SizedBox(height: 20),
-      ]),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Wrap(
+            children: [
+              const Center(
+                child: Icon(Icons.logout, size: 40, color: Colors.redAccent),
+              ),
+              const SizedBox(height: 16),
+              const Center(
+                child: Text(
+                  'Confirm Logout',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+                ),
+              ),
+              const SizedBox(height: 10),
+              const Center(child: Text("Are you sure you want to log out?")),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      child: const Text("Cancel", style: TextStyle(color: Colors.black)),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                      ),
+                      child: const Text("Logout", style: TextStyle(color: Colors.white)),
+                      onPressed: _logout,
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -164,6 +187,8 @@ class _MemberHomePageState extends State<MemberHomePage>
           textTheme: GoogleFonts.poppinsTextTheme(themeData.textTheme)),
       child: Scaffold(
         extendBody: true,
+        resizeToAvoidBottomInset: false,
+        backgroundColor: Colors.white,
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(80),
           child: SafeArea(
@@ -175,14 +200,15 @@ class _MemberHomePageState extends State<MemberHomePage>
                 children: [
                   Text(_titles[_selectedIndex],
                       style: GoogleFonts.poppins(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: _isDarkMode ? Colors.white : Colors.black87)),
+                          fontSize: 22,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87)),
                   Row(children: [
                     Stack(children: [
                       IconButton(
                         key: _notifKey,
-                        icon: const Icon(Icons.notifications_none_rounded),
+                        icon: const Icon(Icons.notifications_none_rounded,
+                            color: Colors.black87),
                         onPressed: _toggleNotifications,
                       ),
                       Positioned(
@@ -210,11 +236,18 @@ class _MemberHomePageState extends State<MemberHomePage>
                     const SizedBox(width: 12),
                     PopupMenuButton<String>(
                       onSelected: _handleMenu,
-                      icon: const CircleAvatar(
-                          backgroundColor: Colors.grey,
-                          child: Icon(Icons.person, color: Colors.white)),
                       shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15)),
+                      color: Colors.white,
+                      icon: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.black, width: 1.5),
+                        ),
+                        child: const Icon(Icons.person,
+                            color: Colors.black, size: 20),
+                      ),
                       itemBuilder: (_) => [
                         const PopupMenuItem(
                           value: 'profile',
@@ -256,7 +289,7 @@ class _MemberHomePageState extends State<MemberHomePage>
         bottomNavigationBar: Container(
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           decoration: BoxDecoration(
-              color: themeData.cardColor,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(30),
               boxShadow: [
                 BoxShadow(
@@ -270,11 +303,13 @@ class _MemberHomePageState extends State<MemberHomePage>
                 currentIndex: _selectedIndex,
                 onTap: _onItemTapped,
                 type: BottomNavigationBarType.fixed,
-                backgroundColor: themeData.cardColor,
-                selectedItemColor: themeData.colorScheme.primary,
+                backgroundColor: Colors.white,
+                selectedItemColor: Colors.black,
                 unselectedItemColor: Colors.grey,
                 showUnselectedLabels: false,
                 showSelectedLabels: true,
+                selectedLabelStyle: const TextStyle(fontSize: 10),
+                unselectedLabelStyle: const TextStyle(fontSize: 10),
                 items: const [
                   BottomNavigationBarItem(
                       icon: Icon(Icons.fitness_center_outlined),
@@ -303,7 +338,7 @@ class NotificationDropdown extends StatelessWidget {
       stream: FirebaseFirestore.instance
           .collection('notifications')
           .where('toUserId', isEqualTo: userId)
-          .snapshots(), // <-- REMOVED .orderBy()
+          .snapshots(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const SizedBox(
@@ -318,7 +353,6 @@ class NotificationDropdown extends StatelessWidget {
         }
 
         final docs = snapshot.data?.docs ?? [];
-        print('Notification count: ${docs.length}');
 
         if (docs.isEmpty) {
           return const SizedBox(
