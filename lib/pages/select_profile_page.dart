@@ -8,73 +8,92 @@ class SelectProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double cardWidth =
+        (MediaQuery.of(context).size.width - 24 * 2 - 20) / 2;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF0F2F5),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Back button
               IconButton(
                 icon: const Icon(Icons.arrow_back_ios_new, size: 22),
                 onPressed: () => Navigator.pop(context),
+                color: Colors.black,
               ),
               const SizedBox(height: 10),
-              const Text(
-                'Select Your Role',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Continue as a user type below',
-                style: TextStyle(
-                  fontSize: 15,
-                  color: Colors.black54,
-                ),
-              ),
-              const SizedBox(height: 30),
+
+              // Centered content
               Expanded(
-                child: GridView.count(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 20,
-                  mainAxisSpacing: 20,
-                  children: [
-                    _ProfileCard(
-                      icon: Icons.admin_panel_settings_outlined,
-                      title: 'Admin',
-                      color: Colors.indigo,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const AdminLoginPage()),
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Text(
+                        'Select Your Profile Type',
+                        style: TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.black87,
+                        ),
                       ),
-                    ),
-                    _ProfileCard(
-                      icon: Icons.fitness_center_outlined,
-                      title: 'Trainer',
-                      color: Colors.deepPurple,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const TrainerLoginPage()),
+                      const SizedBox(height: 30),
+
+                      // Admin & Trainer cards
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: _ProfileCard(
+                              icon: Icons.admin_panel_settings_outlined,
+                              title: 'Admin',
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const AdminLoginPage()),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 20),
+                          Expanded(
+                            child: _ProfileCard(
+                              icon: Icons.fitness_center_outlined,
+                              title: 'Trainer',
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const TrainerLoginPage()),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                    _ProfileCard(
-                      icon: Icons.person_outline,
-                      title: 'Member',
-                      color: Colors.teal,
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const MemberLoginPage()),
+                      const SizedBox(height: 20),
+
+                      // Centered Member card
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: cardWidth,
+                            child: _ProfileCard(
+                              icon: Icons.person_outline,
+                              title: 'Member',
+                              onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (_) => const MemberLoginPage()),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -88,13 +107,11 @@ class SelectProfilePage extends StatelessWidget {
 class _ProfileCard extends StatelessWidget {
   final IconData icon;
   final String title;
-  final Color color;
   final VoidCallback onTap;
 
   const _ProfileCard({
     required this.icon,
     required this.title,
-    required this.color,
     required this.onTap,
   });
 
@@ -110,27 +127,28 @@ class _ProfileCard extends StatelessWidget {
           borderRadius: BorderRadius.circular(20),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.15),
-              blurRadius: 12,
-              offset: const Offset(0, 6),
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
+        padding: const EdgeInsets.all(20),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             CircleAvatar(
-              backgroundColor: color.withOpacity(0.1),
+              backgroundColor: Colors.grey[300],
               radius: 30,
-              child: Icon(icon, size: 30, color: color),
+              child: Icon(icon, size: 30, color: Colors.black54), // ✅ icon color
             ),
             const SizedBox(height: 18),
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: color,
+                color: Colors.black, // ✅ text color
               ),
             ),
           ],

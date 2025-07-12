@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'member_login_page.dart';
 
 class MemberSignUpPage extends StatefulWidget {
   const MemberSignUpPage({super.key});
@@ -26,12 +27,11 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
   bool _isLoading = false;
 
   /// Generates a numeric Member ID like MBR29458371
-String _generateRandomMemberId() {
-  final rand = Random.secure();
-  final number = rand.nextInt(90000000) + 10000000; // ensures 8-digit number
-  return 'MBR$number';
-}
-
+  String _generateRandomMemberId() {
+    final rand = Random.secure();
+    final number = rand.nextInt(90000000) + 10000000;
+    return 'MBR$number';
+  }
 
   void _signUp() async {
     final firstName = _firstNameController.text.trim();
@@ -53,14 +53,11 @@ String _generateRandomMemberId() {
     setState(() => _isLoading = true);
 
     try {
-      // Create user with email and password
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: password);
 
-      // Generate random member ID
       final generatedMemberId = _generateRandomMemberId();
 
-      // Save user info to Firestore
       await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
         'firstName': firstName,
         'lastName': lastName,
@@ -136,6 +133,7 @@ String _generateRandomMemberId() {
                   Expanded(
                     child: TextField(
                       controller: _firstNameController,
+                      cursorColor: Colors.blue,
                       decoration: _inputDecoration(Icons.person, "First Name"),
                     ),
                   ),
@@ -143,6 +141,7 @@ String _generateRandomMemberId() {
                   Expanded(
                     child: TextField(
                       controller: _lastNameController,
+                      cursorColor: Colors.blue,
                       decoration: _inputDecoration(Icons.person, "Last Name"),
                     ),
                   ),
@@ -152,12 +151,14 @@ String _generateRandomMemberId() {
               TextField(
                 controller: _emailController,
                 keyboardType: TextInputType.emailAddress,
+                cursorColor: Colors.blue,
                 decoration: _inputDecoration(Icons.email_outlined, "Email"),
               ),
               const SizedBox(height: 20),
               TextField(
                 controller: _passwordController,
                 obscureText: _isPasswordHidden,
+                cursorColor: Colors.blue,
                 decoration: _passwordDecoration(
                   Icons.lock_outline,
                   "Create password",
@@ -173,6 +174,7 @@ String _generateRandomMemberId() {
               TextField(
                 controller: _confirmPasswordController,
                 obscureText: _isConfirmPasswordHidden,
+                cursorColor: Colors.blue,
                 decoration: _passwordDecoration(
                   Icons.lock_outline,
                   "Confirm password",
@@ -204,6 +206,34 @@ String _generateRandomMemberId() {
                                 color: Colors.white, fontWeight: FontWeight.w600),
                           ),
                   ),
+                ),
+              ),
+              const SizedBox(height: 20),
+              Center(
+                child: Wrap(
+                  children: [
+                    const Text(
+                      "Already have an account? ",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (_) => const MemberLoginPage()),
+                        );
+                      },
+                      child: const Text(
+                        "Login",
+                        style: TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                          decorationColor: Colors.blue, // underline color
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

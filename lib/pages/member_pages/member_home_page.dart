@@ -7,6 +7,7 @@ import 'report_page.dart';
 import 'qr_page.dart';
 import 'message_page.dart';
 import 'manage_profile_page.dart';
+import 'member_notification_page.dart';
 
 class MemberHomePage extends StatefulWidget {
   const MemberHomePage({super.key});
@@ -59,21 +60,21 @@ class _MemberHomePageState extends State<MemberHomePage>
           MaterialPageRoute(builder: (_) => const ManageProfilePage()),
         );
         break;
-      case 'logout':
-        _showLogoutDialog();
-        break;
       case 'toggle_theme':
         setState(() {
           _isDarkMode = !_isDarkMode;
         });
+        break;
+      case 'logout':
+        _showLogoutDialog();
         break;
     }
   }
 
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
-    if (mounted) Navigator.pop(context); // Close dialog
-    if (mounted) Navigator.pop(context); // Pop back
+    if (mounted) Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
   }
 
   void _showLogoutDialog() {
@@ -82,44 +83,50 @@ class _MemberHomePageState extends State<MemberHomePage>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Wrap(
-          children: [
-            const Center(
-              child: Icon(Icons.logout, size: 40, color: Colors.redAccent),
-            ),
-            const SizedBox(height: 16),
-            const Center(
-              child: Text(
-                'Confirm Logout',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Wrap(
+            children: [
+              const Center(
+                child: Icon(Icons.logout, size: 40, color: Colors.redAccent),
               ),
-            ),
-            const SizedBox(height: 10),
-            const Center(child: Text("Are you sure you want to log out?")),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    child: const Text("Cancel"),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+              const SizedBox(height: 16),
+              const Center(
+                child: Text(
+                  'Confirm Logout',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
+              ),
+              const SizedBox(height: 10),
+              const Center(child: Text("Are you sure you want to log out?")),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      child: const Text("Cancel", style: TextStyle(color: Colors.black)),
+                      onPressed: () => Navigator.pop(context),
                     ),
-                    child: const Text("Logout"),
-                    onPressed: _logout,
                   ),
-                ),
-              ],
-            )
-          ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                      ),
+                      child: const Text("Logout", style: TextStyle(color: Colors.white)),
+                      onPressed: _logout,
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
         ),
       ),
     );
@@ -136,10 +143,12 @@ class _MemberHomePageState extends State<MemberHomePage>
       child: Scaffold(
         extendBody: true,
         resizeToAvoidBottomInset: false,
+        backgroundColor: Colors.white,
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(80),
           child: SafeArea(
-            child: Padding(
+            child: Container(
+              color: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -147,43 +156,35 @@ class _MemberHomePageState extends State<MemberHomePage>
                   Text(
                     _titles[_selectedIndex],
                     style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: _isDarkMode ? Colors.white : Colors.black87,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
                     ),
                   ),
                   Row(
                     children: [
-                      Stack(
-                        children: [
-                          IconButton(
-                            icon: const Icon(Icons.notifications_none_rounded),
-                            onPressed: () {
-                              // future: navigate to notifications
-                            },
-                          ),
-                          Positioned(
-                            right: 8,
-                            top: 8,
-                            child: Container(
-                              width: 10,
-                              height: 10,
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          ),
-                        ],
+                      IconButton(
+                        icon: const Icon(Icons.notifications_none_rounded, color: Colors.black87),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const MemberNotificationPage()),
+                          );
+                        },
                       ),
                       PopupMenuButton<String>(
                         onSelected: _handleMenuSelection,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(15),
                         ),
-                        icon: const CircleAvatar(
-                          backgroundColor: Colors.grey,
-                          child: Icon(Icons.person, color: Colors.white),
+                        color: Colors.white,
+                        icon: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.black, width: 1.5),
+                          ),
+                          child: const Icon(Icons.person, color: Colors.black, size: 20),
                         ),
                         itemBuilder: (context) => [
                           const PopupMenuItem(
@@ -196,18 +197,16 @@ class _MemberHomePageState extends State<MemberHomePage>
                           PopupMenuItem(
                             value: 'toggle_theme',
                             child: ListTile(
-                              leading: Icon(_isDarkMode
-                                  ? Icons.light_mode
-                                  : Icons.dark_mode),
-                              title: Text(
-                                  _isDarkMode ? 'Light Mode' : 'Dark Mode'),
+                              leading: Icon(
+                                _isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                              ),
+                              title: Text(_isDarkMode ? 'Light Mode' : 'Dark Mode'),
                             ),
                           ),
                           const PopupMenuItem(
                             value: 'logout',
                             child: ListTile(
-                              leading:
-                                  Icon(Icons.logout, color: Colors.redAccent),
+                              leading: Icon(Icons.logout, color: Colors.redAccent),
                               title: Text('Logout'),
                             ),
                           ),
@@ -221,30 +220,28 @@ class _MemberHomePageState extends State<MemberHomePage>
           ),
         ),
         body: Padding(
-          padding: const EdgeInsets.only(bottom: 80), // prevent nav overlap
+          padding: const EdgeInsets.only(bottom: 80),
           child: PageView.builder(
             controller: _pageController,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: _pages.length,
-            itemBuilder: (_, index) {
-              return AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
-                child: _pages[index],
-              );
-            },
+            itemBuilder: (_, index) => AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              child: _pages[index],
+            ),
           ),
         ),
         bottomNavigationBar: Container(
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           decoration: BoxDecoration(
-            color: themeData.cardColor,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
-              )
+              ),
             ],
           ),
           child: ClipRRect(
@@ -252,13 +249,15 @@ class _MemberHomePageState extends State<MemberHomePage>
             child: BottomNavigationBar(
               currentIndex: _selectedIndex,
               onTap: _onItemTapped,
-              backgroundColor: themeData.cardColor,
-              selectedItemColor: themeData.colorScheme.primary,
+              backgroundColor: Colors.white,
+              selectedItemColor: Colors.black,
               unselectedItemColor: Colors.grey,
               type: BottomNavigationBarType.fixed,
-              elevation: 0,
-              showUnselectedLabels: false,
               showSelectedLabels: true,
+              showUnselectedLabels: false,
+              elevation: 0,
+              selectedLabelStyle: const TextStyle(fontSize: 10),
+              unselectedLabelStyle: const TextStyle(fontSize: 10),
               items: const [
                 BottomNavigationBarItem(
                   icon: Icon(Icons.fitness_center_outlined),

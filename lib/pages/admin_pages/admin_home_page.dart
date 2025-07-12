@@ -53,19 +53,13 @@ class _AdminHomePageState extends State<AdminHomePage>
   }
 
   void _handleMenuSelection(String value) {
-    switch (value) {
-      case 'logout':
-        _showLogoutDialog();
-        break;
-    }
+    if (value == 'logout') _showLogoutDialog();
   }
 
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
-    if (mounted) {
-      Navigator.pop(context); // close modal
-      Navigator.pop(context); // go back to login
-    }
+    if (mounted) Navigator.pop(context); // close modal
+    if (mounted) Navigator.pop(context); // go back to login
   }
 
   void _showLogoutDialog() {
@@ -74,44 +68,50 @@ class _AdminHomePageState extends State<AdminHomePage>
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
       ),
-      builder: (context) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Wrap(
-          children: [
-            const Center(
-              child: Icon(Icons.logout, size: 40, color: Colors.redAccent),
-            ),
-            const SizedBox(height: 16),
-            const Center(
-              child: Text(
-                'Confirm Logout',
-                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Wrap(
+            children: [
+              const Center(
+                child: Icon(Icons.logout, size: 40, color: Colors.redAccent),
               ),
-            ),
-            const SizedBox(height: 10),
-            const Center(child: Text("Are you sure you want to log out?")),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    child: const Text("Cancel"),
-                    onPressed: () => Navigator.pop(context),
-                  ),
+              const SizedBox(height: 16),
+              const Center(
+                child: Text(
+                  'Confirm Logout',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.redAccent,
+              ),
+              const SizedBox(height: 10),
+              const Center(child: Text("Are you sure you want to log out?")),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      child: const Text("Cancel", style: TextStyle(color: Colors.black)),
+                      onPressed: () => Navigator.pop(context),
                     ),
-                    child: const Text("Logout"),
-                    onPressed: _logout,
                   ),
-                ),
-              ],
-            )
-          ],
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                      ),
+                      child: const Text("Logout", style: TextStyle(color: Colors.white)),
+                      onPressed: _logout,
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
         ),
       ),
     );
@@ -119,22 +119,21 @@ class _AdminHomePageState extends State<AdminHomePage>
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
+    final themeData = ThemeData.light();
 
     return Theme(
-      data: ThemeData.light().copyWith(
-        textTheme: GoogleFonts.poppinsTextTheme(
-          Theme.of(context).textTheme,
-        ),
+      data: themeData.copyWith(
+        textTheme: GoogleFonts.poppinsTextTheme(themeData.textTheme),
       ),
       child: Scaffold(
         extendBody: true,
         resizeToAvoidBottomInset: false,
+        backgroundColor: Colors.white,
         appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(70),
+          preferredSize: const Size.fromHeight(80),
           child: SafeArea(
-            child: Padding(
+            child: Container(
+              color: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -142,9 +141,9 @@ class _AdminHomePageState extends State<AdminHomePage>
                   Text(
                     _titles[_selectedIndex],
                     style: GoogleFonts.poppins(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: isDarkMode ? Colors.white : Colors.black87,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black87,
                     ),
                   ),
                   PopupMenuButton<String>(
@@ -152,12 +151,24 @@ class _AdminHomePageState extends State<AdminHomePage>
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(15),
                     ),
-                    icon: const CircleAvatar(
-                      backgroundColor: Colors.grey,
-                      child: Icon(Icons.person, color: Colors.white),
+                    color: Colors.white,
+                    icon: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: Colors.black,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.person,
+                        color: Colors.black,
+                        size: 20,
+                      ),
                     ),
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
+                    itemBuilder: (context) => const [
+                      PopupMenuItem(
                         value: 'logout',
                         child: ListTile(
                           leading: Icon(Icons.logout, color: Colors.redAccent),
@@ -186,14 +197,14 @@ class _AdminHomePageState extends State<AdminHomePage>
         bottomNavigationBar: Container(
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           decoration: BoxDecoration(
-            color: theme.cardColor,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
                 color: Colors.black.withOpacity(0.05),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
-              )
+              ),
             ],
           ),
           child: ClipRRect(
@@ -201,17 +212,19 @@ class _AdminHomePageState extends State<AdminHomePage>
             child: BottomNavigationBar(
               currentIndex: _selectedIndex,
               onTap: _onItemTapped,
-              backgroundColor: theme.cardColor,
-              selectedItemColor: theme.colorScheme.primary,
+              backgroundColor: Colors.white,
+              selectedItemColor: Colors.black,
               unselectedItemColor: Colors.grey,
               type: BottomNavigationBarType.fixed,
-              elevation: 0,
-              showUnselectedLabels: false,
               showSelectedLabels: true,
+              showUnselectedLabels: false,
+              elevation: 0,
+              selectedLabelStyle: const TextStyle(fontSize: 10),
+              unselectedLabelStyle: const TextStyle(fontSize: 10),
               items: const [
                 BottomNavigationBarItem(
                   icon: Icon(Icons.dashboard_customize_outlined),
-                  label: 'Home',
+                  label: 'Dashboard',
                 ),
                 BottomNavigationBarItem(
                   icon: Icon(Icons.group_outlined),
