@@ -169,7 +169,7 @@ class _TrainerLoginPageState extends State<TrainerLoginPage> {
                       style: const TextStyle(color: Colors.black),
                       children: [
                         TextSpan(
-                          text: "Register",
+                          text: "Sign Up",
                           style: TextStyle(
                             color: primaryColor,
                             decoration: TextDecoration.underline,

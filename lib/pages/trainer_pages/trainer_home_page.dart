@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+
 import 'notification_page.dart';
 import 'profile_page.dart';
-
-// Dummy pages (replace with actual implementations)
 import 'dashboard_page.dart';
 import 'member_list_page.dart';
 import 'session_calendar_page.dart';
@@ -113,10 +112,7 @@ class _TrainerHomePageState extends State<TrainerHomePage>
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      child: const Text(
-                        "Cancel",
-                        style: TextStyle(color: Colors.black),
-                      ),
+                      child: const Text("Cancel", style: TextStyle(color: Colors.black)),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
@@ -126,10 +122,7 @@ class _TrainerHomePageState extends State<TrainerHomePage>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.redAccent,
                       ),
-                      child: const Text(
-                        "Logout",
-                        style: TextStyle(color: Colors.white),
-                      ),
+                      child: const Text("Logout", style: TextStyle(color: Colors.white)),
                       onPressed: _logout,
                     ),
                   ),
@@ -153,10 +146,12 @@ class _TrainerHomePageState extends State<TrainerHomePage>
       child: Scaffold(
         extendBody: true,
         resizeToAvoidBottomInset: false,
+        backgroundColor: Colors.white,
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(80),
           child: SafeArea(
-            child: Padding(
+            child: Container(
+              color: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -166,18 +161,17 @@ class _TrainerHomePageState extends State<TrainerHomePage>
                     style: GoogleFonts.poppins(
                       fontSize: 22,
                       fontWeight: FontWeight.w600,
-                      color: _isDarkMode ? Colors.white : Colors.black87,
+                      color: Colors.black87,
                     ),
                   ),
                   Row(
                     children: [
                       IconButton(
-                        icon: const Icon(Icons.notifications_none_rounded),
+                        icon: const Icon(Icons.notifications_none_rounded, color: Colors.black87),
                         onPressed: () {
                           Navigator.push(
                             context,
-                            MaterialPageRoute(
-                                builder: (_) => const NotificationPage()),
+                            MaterialPageRoute(builder: (_) => const NotificationPage()),
                           );
                         },
                       ),
@@ -191,16 +185,9 @@ class _TrainerHomePageState extends State<TrainerHomePage>
                           padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(
-                              color: _isDarkMode ? Colors.white : Colors.black,
-                              width: 1.5,
-                            ),
+                            border: Border.all(color: Colors.black, width: 1.5),
                           ),
-                          child: Icon(
-                            Icons.person,
-                            color: _isDarkMode ? Colors.white : Colors.black,
-                            size: 20,
-                          ),
+                          child: const Icon(Icons.person, color: Colors.black, size: 20),
                         ),
                         itemBuilder: (context) => [
                           const PopupMenuItem(
@@ -213,19 +200,16 @@ class _TrainerHomePageState extends State<TrainerHomePage>
                           PopupMenuItem(
                             value: 'toggle_theme',
                             child: ListTile(
-                              leading: Icon(_isDarkMode
-                                  ? Icons.light_mode
-                                  : Icons.dark_mode),
-                              title: Text(_isDarkMode
-                                  ? 'Light Mode'
-                                  : 'Dark Mode'),
+                              leading: Icon(
+                                _isDarkMode ? Icons.light_mode : Icons.dark_mode,
+                              ),
+                              title: Text(_isDarkMode ? 'Light Mode' : 'Dark Mode'),
                             ),
                           ),
                           const PopupMenuItem(
                             value: 'logout',
                             child: ListTile(
-                              leading: Icon(Icons.logout,
-                                  color: Colors.redAccent),
+                              leading: Icon(Icons.logout, color: Colors.redAccent),
                               title: Text('Logout'),
                             ),
                           ),
@@ -253,7 +237,7 @@ class _TrainerHomePageState extends State<TrainerHomePage>
         bottomNavigationBar: Container(
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
           decoration: BoxDecoration(
-            color: themeData.cardColor,
+            color: Colors.white,
             borderRadius: BorderRadius.circular(30),
             boxShadow: [
               BoxShadow(
@@ -268,15 +252,15 @@ class _TrainerHomePageState extends State<TrainerHomePage>
             child: BottomNavigationBar(
               currentIndex: _selectedIndex,
               onTap: _onItemTapped,
-              backgroundColor: themeData.cardColor,
+              backgroundColor: Colors.white,
               selectedItemColor: Colors.black,
               unselectedItemColor: Colors.grey,
               type: BottomNavigationBarType.fixed,
               showSelectedLabels: true,
               showUnselectedLabels: false,
               elevation: 0,
-              selectedLabelStyle: const TextStyle(fontSize: 10), // ✅ small text
-              unselectedLabelStyle: const TextStyle(fontSize: 10), // ✅ small text
+              selectedLabelStyle: const TextStyle(fontSize: 10),
+              unselectedLabelStyle: const TextStyle(fontSize: 10),
               items: const [
                 BottomNavigationBarItem(
                   icon: Icon(Icons.dashboard_outlined),

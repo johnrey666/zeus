@@ -30,10 +30,8 @@ class _DashboardPageState extends State<DashboardPage> {
     final now = DateTime.now();
     final monthStart = DateTime(now.year, now.month, 1);
 
-    final salesSnap =
-        await FirebaseFirestore.instance.collection('sales').get();
-    final usersSnap =
-        await FirebaseFirestore.instance.collection('users').get();
+    final salesSnap = await FirebaseFirestore.instance.collection('sales').get();
+    final usersSnap = await FirebaseFirestore.instance.collection('users').get();
 
     double todayTotal = 0;
     double monthTotal = 0;
@@ -78,6 +76,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     final textTheme = GoogleFonts.poppinsTextTheme();
+    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
@@ -87,34 +86,33 @@ class _DashboardPageState extends State<DashboardPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text("Dashboard",
-                  style: textTheme.headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 24),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   _buildStatCard("Today’s Earnings", todaysEarning),
+                  const SizedBox(width: 16),
                   _buildStatCard("This Month", monthlyEarning),
                 ],
               ),
               const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
                 children: [
-                  _buildCountCard("Members", memberCount, Icons.group),
-                  _buildCountCard(
-                      "Trainers", trainerCount, Icons.fitness_center),
+                  _buildCountCard("Members", memberCount, Icons.group,
+                      width: (size.width - 56) / 2),
+                  _buildCountCard("Trainers", trainerCount, Icons.fitness_center,
+                      width: (size.width - 56) / 2),
                 ],
               ),
               const SizedBox(height: 30),
               Text("Sales Graph",
-                  style: textTheme.titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w600)),
+                  style:
+                      textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
               const SizedBox(height: 10),
               AspectRatio(
-                aspectRatio: 1.5,
+                aspectRatio: 1.3,
                 child: Card(
+                  color: Colors.white,
                   elevation: 3,
                   shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16)),
@@ -128,12 +126,10 @@ class _DashboardPageState extends State<DashboardPage> {
                             sideTitles: SideTitles(
                               showTitles: true,
                               reservedSize: 40,
-                              getTitlesWidget: (value, _) {
-                                return Text(
-                                  '₱${value.toInt()}',
-                                  style: const TextStyle(fontSize: 10),
-                                );
-                              },
+                              getTitlesWidget: (value, _) => Text(
+                                '${value.toInt()}',
+                                style: const TextStyle(fontSize: 10),
+                              ),
                             ),
                           ),
                           bottomTitles: AxisTitles(
@@ -141,21 +137,25 @@ class _DashboardPageState extends State<DashboardPage> {
                               showTitles: true,
                               getTitlesWidget: (value, _) {
                                 if (value.toInt() < monthlySales.length) {
-                                  return Text(
-                                    monthlySales[value.toInt()]['month']
-                                        .toString()
-                                        .split(' ')[0],
-                                    style: const TextStyle(fontSize: 10),
+                                  final label = monthlySales[value.toInt()]['month'];
+                                  final parts = label.split(' ');
+                                  return Column(
+                                    children: [
+                                      Text(parts[0],
+                                          style: const TextStyle(fontSize: 10)),
+                                      Text(parts[1],
+                                          style: const TextStyle(fontSize: 10)),
+                                    ],
                                   );
                                 }
                                 return const SizedBox();
                               },
                             ),
                           ),
-                          topTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: AxisTitles(
-                              sideTitles: SideTitles(showTitles: false)),
+                          topTitles:
+                              AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles:
+                              AxisTitles(sideTitles: SideTitles(showTitles: false)),
                         ),
                         barGroups: monthlySales
                             .asMap()
@@ -165,9 +165,9 @@ class _DashboardPageState extends State<DashboardPage> {
                                   barRods: [
                                     BarChartRodData(
                                       toY: entry.value['amount'],
-                                      width: 14,
-                                      color: Colors.blueAccent,
-                                      borderRadius: BorderRadius.circular(6),
+                                      width: 18,
+                                      color: _getBarColor(entry.key),
+                                      borderRadius: BorderRadius.circular(4),
                                     ),
                                   ],
                                 ))
@@ -186,10 +186,22 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  Color _getBarColor(int index) {
+    const colors = [
+      Colors.grey,
+      Colors.purple,
+      Colors.lightGreen,
+      Colors.cyan,
+      Colors.redAccent,
+    ];
+    return colors[index % colors.length];
+  }
+
   Widget _buildStatCard(String title, double amount) {
+    final currencyFormatter = NumberFormat.currency(locale: 'en_PH', symbol: '₱');
     return Expanded(
       child: Container(
-        margin: const EdgeInsets.only(right: 12),
+        height: 100,
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -200,43 +212,44 @@ class _DashboardPageState extends State<DashboardPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(title,
-                style:
-                    const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-            const SizedBox(height: 10),
-            Text('₱${amount.toStringAsFixed(2)}',
-                style:
-                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+            const Spacer(),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                currencyFormatter.format(amount),
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCountCard(String title, int count, IconData icon) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.only(right: 12),
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: Colors.blueAccent),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('$count',
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
-                Text(title, style: const TextStyle(fontSize: 12)),
-              ],
-            ),
-          ],
-        ),
+  Widget _buildCountCard(String title, int count, IconData icon,
+      {required double width}) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+      ),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.blueAccent),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('$count',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(title, style: const TextStyle(fontSize: 12)),
+            ],
+          ),
+        ],
       ),
     );
   }

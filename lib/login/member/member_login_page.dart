@@ -19,6 +19,7 @@ class _MemberLoginPageState extends State<MemberLoginPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   void _loginUser() async {
     setState(() => _isLoading = true);
@@ -38,7 +39,6 @@ class _MemberLoginPageState extends State<MemberLoginPage> {
             .doc(user.uid)
             .get();
 
-        // ✅ Make sure the field name is userType (case-sensitive)
         final userType = userDoc.get('userType');
 
         if (userType == 'Member') {
@@ -120,25 +120,47 @@ class _MemberLoginPageState extends State<MemberLoginPage> {
                 ),
               ),
               const SizedBox(height: 40),
-              const Text("Email",
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
+
+              // Email field (no label)
               TextField(
                 controller: _emailController,
-                decoration:
-                    _inputDecoration(Icons.email_outlined, "Enter your email"),
+                cursorColor: Colors.blue,
+                keyboardType: TextInputType.emailAddress,
+                decoration: _inputDecoration(Icons.email_outlined, "Enter your email"),
               ),
               const SizedBox(height: 20),
-              const Text("Password",
-                  style: TextStyle(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
+
+              // Password field with eye icon (no label)
               TextField(
                 controller: _passwordController,
-                obscureText: true,
-                decoration:
-                    _inputDecoration(Icons.lock_outline, "Enter your password"),
+                cursorColor: Colors.blue,
+                obscureText: _obscurePassword,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      color: Colors.grey,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
+                  hintText: "Enter your password",
+                  filled: true,
+                  fillColor: Colors.grey.shade100,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
               ),
               const SizedBox(height: 40),
+
+              // Login button
               Center(
                 child: SizedBox(
                   width: double.infinity,
@@ -161,16 +183,35 @@ class _MemberLoginPageState extends State<MemberLoginPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 20),
+
+              // Custom styled sign up prompt
               Center(
-                child: TextButton(
-                  onPressed: () {
-                    Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (_) => const MemberSignUpPage()));
-                  },
-                  child: const Text('Sign Up'),
+                child: Wrap(
+                  children: [
+                    const Text(
+                      "Don't have an account? ",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                    GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const MemberSignUpPage()),
+                        );
+                      },
+                      child: const Text(
+                        "Sign Up",
+                        style: TextStyle(
+                          color: Colors.blue,
+                          decoration: TextDecoration.underline,
+                          decorationColor: Colors.blue,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],

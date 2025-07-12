@@ -10,6 +10,7 @@ import 'report_page.dart';
 import 'qr_page.dart';
 import 'message_page.dart';
 import 'manage_profile_page.dart';
+import 'member_notification_page.dart';
 
 class MemberHomePage extends StatefulWidget {
   const MemberHomePage({super.key});
@@ -166,7 +167,8 @@ class _MemberHomePageState extends State<MemberHomePage>
         appBar: PreferredSize(
           preferredSize: const Size.fromHeight(80),
           child: SafeArea(
-            child: Padding(
+            child: Container(
+              color: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,

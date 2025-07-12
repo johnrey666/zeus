@@ -17,6 +17,7 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
   bool _isLoading = false;
+  bool _obscurePassword = true;
 
   void _showSnackbar(String message, [Color? color]) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -112,12 +113,11 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                 ),
               ),
               const SizedBox(height: 40),
-              Text("Email",
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600, fontSize: 15)),
-              const SizedBox(height: 8),
+
+              // Email input
               TextField(
                 controller: _emailController,
+                cursorColor: Colors.blue,
                 keyboardType: TextInputType.emailAddress,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.person_outline),
@@ -133,15 +133,27 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                 ),
               ),
               const SizedBox(height: 20),
-              Text("Password",
-                  style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.w600, fontSize: 15)),
-              const SizedBox(height: 8),
+
+              // Password input with toggle
               TextField(
                 controller: _passwordController,
-                obscureText: true,
+                cursorColor: Colors.blue,
+                obscureText: _obscurePassword,
                 decoration: InputDecoration(
                   prefixIcon: const Icon(Icons.lock_outline),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                      color: Colors.grey,
+                    ),
+                    onPressed: () {
+                      setState(() {
+                        _obscurePassword = !_obscurePassword;
+                      });
+                    },
+                  ),
                   hintText: 'Enter your password',
                   filled: true,
                   fillColor: Colors.grey.shade100,
@@ -154,6 +166,8 @@ class _AdminLoginPageState extends State<AdminLoginPage> {
                 ),
               ),
               const SizedBox(height: 40),
+
+              // Login button
               Center(
                 child: SizedBox(
                   width: double.infinity,
