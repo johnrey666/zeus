@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:zeus/login/admin/admin_login_page.dart';
 import 'package:zeus/login/member/member_login_page.dart';
-import 'package:zeus/login/trainer/trainer_login_page.dart';
 
 class SelectProfilePage extends StatelessWidget {
   const SelectProfilePage({super.key});
@@ -43,11 +42,12 @@ class SelectProfilePage extends StatelessWidget {
                       ),
                       const SizedBox(height: 30),
 
-                      // Admin & Trainer cards
+                      // Admin & Member side by side
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Expanded(
+                          SizedBox(
+                            width: cardWidth,
                             child: _ProfileCard(
                               icon: Icons.admin_panel_settings_outlined,
                               title: 'Admin',
@@ -59,25 +59,6 @@ class SelectProfilePage extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(width: 20),
-                          Expanded(
-                            child: _ProfileCard(
-                              icon: Icons.fitness_center_outlined,
-                              title: 'Trainer',
-                              onTap: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (_) => const TrainerLoginPage()),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-
-                      // Centered Member card
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
                           SizedBox(
                             width: cardWidth,
                             child: _ProfileCard(
@@ -140,7 +121,7 @@ class _ProfileCard extends StatelessWidget {
             CircleAvatar(
               backgroundColor: Colors.grey[300],
               radius: 30,
-              child: Icon(icon, size: 30, color: Colors.black54), // ✅ icon color
+              child: Icon(icon, size: 30, color: Colors.black54),
             ),
             const SizedBox(height: 18),
             Text(
@@ -148,7 +129,7 @@ class _ProfileCard extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Colors.black, // ✅ text color
+                color: Colors.black,
               ),
             ),
           ],
