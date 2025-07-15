@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'member_login_page.dart';
+import 'package:zeus/pages/member_pages/planning_page.dart';
 
 class MemberSignUpPage extends StatefulWidget {
   const MemberSignUpPage({super.key});
@@ -21,16 +22,77 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
   final Color primaryColor = const Color(0xFF4A90E2);
   bool _isLoading = false;
 
-  /// Generates a numeric Member ID like MBR29458371
   String _generateRandomMemberId() {
     final rand = Random.secure();
     final number = rand.nextInt(90000000) + 10000000;
     return 'MBR$number';
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showWelcomeBanner() {
+    final overlay = Overlay.of(context);
+    final entry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 50,
+        left: 20,
+        right: 20,
+        child: Material(
+          elevation: 10,
+          borderRadius: BorderRadius.circular(16),
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.1),
+                  blurRadius: 10,
+                  offset: const Offset(0, 6),
+                ),
+              ],
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.celebration, color: Colors.blue, size: 32),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text(
+                        "Welcome!",
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        "Account created successfully. Let’s personalize your workout.",
+                        style: TextStyle(fontSize: 13, color: Colors.black87),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    overlay.insert(entry);
+    Future.delayed(const Duration(seconds: 3), () => entry.remove());
   }
 
   void _signUp() async {
@@ -40,7 +102,11 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (firstName.isEmpty || lastName.isEmpty || email.isEmpty || password.isEmpty || confirmPassword.isEmpty) {
+    if (firstName.isEmpty ||
+        lastName.isEmpty ||
+        email.isEmpty ||
+        password.isEmpty ||
+        confirmPassword.isEmpty) {
       _showMessage("All fields are required.");
       return;
     }
@@ -58,7 +124,10 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
 
       final generatedMemberId = _generateRandomMemberId();
 
-      await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userCredential.user!.uid)
+          .set({
         'firstName': firstName,
         'lastName': lastName,
         'email': email,
@@ -67,17 +136,18 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      _showMessage("Account created successfully!");
-      Navigator.pop(context);
+      _showWelcomeBanner();
+      await Future.delayed(const Duration(milliseconds: 1000));
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const PlanningPage()),
+      );
     } on FirebaseAuthException catch (e) {
       _showMessage(e.message ?? "An error occurred.");
     } finally {
       setState(() => _isLoading = false);
     }
-  }
-
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
@@ -203,7 +273,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                         : const Text(
                             "Sign Up",
                             style: TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.w600),
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600),
                           ),
                   ),
                 ),
@@ -220,7 +291,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (_) => const MemberLoginPage()),
+                          MaterialPageRoute(
+                              builder: (_) => const MemberLoginPage()),
                         );
                       },
                       child: const Text(
@@ -228,7 +300,6 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                         style: TextStyle(
                           color: Colors.blue,
                           decoration: TextDecoration.underline,
-                          decorationColor: Colors.blue, // underline color
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -257,8 +328,12 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     );
   }
 
-  InputDecoration _passwordDecoration(IconData icon, String hint, bool isHidden,
-      VoidCallback toggleVisibility) {
+  InputDecoration _passwordDecoration(
+    IconData icon,
+    String hint,
+    bool isHidden,
+    VoidCallback toggleVisibility,
+  ) {
     return InputDecoration(
       prefixIcon: Icon(icon),
       hintText: hint,

@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'planning_page.dart';
-import 'report_page.dart';
+// ignore: unused_import
+import 'package:zeus/pages/member_pages/report_page.dart';
 
 class TrainingPage extends StatefulWidget {
   const TrainingPage({super.key});
@@ -18,6 +18,8 @@ class _TrainingPageState extends State<TrainingPage> {
   final user = FirebaseAuth.instance.currentUser;
   bool _isLoading = true;
   bool _hasPlan = false;
+  bool _isTrainer = false;
+  // ignore: unused_field
   String _registrationStatus = '';
   Map<String, dynamic>? _planData;
   DateTime _focusedDay = DateTime.now();
@@ -34,29 +36,32 @@ class _TrainingPageState extends State<TrainingPage> {
     setState(() => _isLoading = true);
     final uid = user!.uid;
 
-    // Get registration status using userId field
-    final regSnap = await FirebaseFirestore.instance
-        .collection('registrations')
-        .where('userId', isEqualTo: uid)
-        .limit(1)
-        .get();
+    final userDoc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    _isTrainer = userDoc.data()?['userType'] == 'Trainer';
 
-    _registrationStatus = regSnap.docs.isNotEmpty
-        ? regSnap.docs.first.data()['status']?.toString().toLowerCase() ?? ''
-        : '';
+    if (!_isTrainer) {
+      final regSnap = await FirebaseFirestore.instance
+          .collection('registrations')
+          .where('userId', isEqualTo: uid)
+          .limit(1)
+          .get();
 
-    // Get workout plan
-    final planDoc = await FirebaseFirestore.instance
-        .collection('workout_plans')
-        .doc(uid)
-        .get();
+      _registrationStatus = regSnap.docs.isNotEmpty
+          ? regSnap.docs.first.data()['status']?.toString().toLowerCase() ?? ''
+          : '';
 
-    if (planDoc.exists) {
-      _hasPlan = true;
-      _planData = planDoc.data();
+      final planDoc = await FirebaseFirestore.instance
+          .collection('workout_plans')
+          .doc(uid)
+          .get();
+
+      if (planDoc.exists) {
+        _hasPlan = true;
+        _planData = planDoc.data();
+      }
     }
 
-    // Get calendar events
     final calendarSnapshot = await FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
@@ -78,17 +83,6 @@ class _TrainingPageState extends State<TrainingPage> {
       _events = tempEvents;
       _isLoading = false;
     });
-  }
-
-  void _navigateToPlanner({bool isEditing = false}) async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) =>
-            PlanningPage(existingData: isEditing ? _planData : null),
-      ),
-    );
-    if (result == true) _initializeData();
   }
 
   void _showWorkoutDetails(String workoutName) {
@@ -191,60 +185,6 @@ class _TrainingPageState extends State<TrainingPage> {
     );
   }
 
-  void _showAccessDeniedDialog() {
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: const BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [Colors.redAccent, Colors.deepOrangeAccent],
-                ),
-              ),
-              child: const Icon(Icons.lock, color: Colors.white, size: 32),
-            ),
-            const SizedBox(height: 20),
-            Text("Plan Access Restricted",
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(fontWeight: FontWeight.bold),
-                textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            Text(
-                "You must be subscribed and accepted before creating a workout plan.",
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 24),
-            Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Dismiss"),
-              ),
-              const SizedBox(width: 8),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.redAccent,
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: () => Navigator.pop(context),
-                child: const Text("OK"),
-              ),
-            ])
-          ]),
-        ),
-      ),
-    );
-  }
-
   Map<String, dynamic> _generateWorkoutSchedule(String workout) {
     final lower = workout.toLowerCase();
     if (lower.contains('deadlift')) return {'days': 2, 'minutes': 45};
@@ -325,127 +265,75 @@ class _TrainingPageState extends State<TrainingPage> {
         ? const Center(child: CircularProgressIndicator())
         : SingleChildScrollView(
             padding: const EdgeInsets.all(16),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.blue.shade50,
-                  borderRadius: BorderRadius.circular(16),
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black12, blurRadius: 6)
-                  ],
-                ),
-                child: Column(children: [
-                  Text(
-                      _hasPlan
-                          ? 'Workout Plan Set!'
-                          : 'Customize Your Workout Plan',
-                      style: const TextStyle(
-                          fontSize: 18, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 6),
-                  const Text('Move. Sweat. Conquer!',
-                      style: TextStyle(fontSize: 12)),
-                  const SizedBox(height: 14),
-                  Center(
-                    child: _hasPlan
-                        ? Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              FilledButton.tonal(
-                                onPressed: () => Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (_) => const ReportPage()),
-                                ),
-                                child: const Text("View Report"),
-                              ),
-                              FilledButton(
-                                onPressed: () =>
-                                    _navigateToPlanner(isEditing: true),
-                                child: const Text("Edit Plan"),
-                              ),
-                            ],
-                          )
-                        : FilledButton.icon(
-                            icon: const Icon(Icons.add),
-                            label: const Text('Create Plan'),
-                            onPressed: () async {
-                              if (_registrationStatus == 'accepted') {
-                                _navigateToPlanner();
-                              } else {
-                                _showAccessDeniedDialog();
-                              }
-                            },
-                          ),
-                  ),
-                ]),
-              ),
-              const SizedBox(height: 24),
-              if (_hasPlan) ...[
-                const Text("Recommended Workouts",
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (!_isTrainer && _hasPlan) ...[
+                  const Text("Recommended Workouts",
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  ...suggestions
+                      .map((s) => _buildWorkoutCard(s['title'], s['icon'])),
+                  const SizedBox(height: 24),
+                ],
+                const Text("Your Workout Calendar",
                     style:
                         TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 12),
-                ...suggestions
-                    .map((s) => _buildWorkoutCard(s['title'], s['icon'])),
-                const SizedBox(height: 24),
-              ],
-              const Text("Your Workout Calendar",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              TableCalendar(
-                firstDay: DateTime.utc(2020, 1, 1),
-                lastDay: DateTime.utc(2100, 12, 31),
-                focusedDay: _focusedDay,
-                selectedDayPredicate: (day) =>
-                    isSameDay(_selectedDay ?? DateTime.now(), day),
-                onDaySelected: (selected, focused) => setState(() {
-                  _selectedDay = selected;
-                  _focusedDay = focused;
-                }),
-                eventLoader: (day) =>
-                    _events[DateTime(day.year, day.month, day.day)] ?? [],
-                calendarStyle: CalendarStyle(
-                  todayDecoration: BoxDecoration(
-                      color: Colors.blue.shade100, shape: BoxShape.circle),
-                  selectedDecoration: const BoxDecoration(
-                      color: Colors.blue, shape: BoxShape.circle),
-                  markerDecoration: const BoxDecoration(
-                      color: Colors.blueAccent, shape: BoxShape.circle),
+                TableCalendar(
+                  firstDay: DateTime.utc(2020, 1, 1),
+                  lastDay: DateTime.utc(2100, 12, 31),
+                  focusedDay: _focusedDay,
+                  selectedDayPredicate: (day) =>
+                      isSameDay(_selectedDay ?? DateTime.now(), day),
+                  onDaySelected: (selected, focused) => setState(() {
+                    _selectedDay = selected;
+                    _focusedDay = focused;
+                  }),
+                  eventLoader: (day) =>
+                      _events[DateTime(day.year, day.month, day.day)] ?? [],
+                  calendarStyle: CalendarStyle(
+                    todayDecoration: BoxDecoration(
+                        color: Colors.blue.shade100, shape: BoxShape.circle),
+                    selectedDecoration: const BoxDecoration(
+                        color: Colors.blue, shape: BoxShape.circle),
+                    markerDecoration: const BoxDecoration(
+                        color: Colors.blueAccent, shape: BoxShape.circle),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              if (_selectedDay != null &&
-                  _events[_selectedDay!] != null &&
-                  _events[_selectedDay!]!.isNotEmpty)
-                ..._events[_selectedDay!]!.map((e) => ListTile(
-                      leading: Icon(
-                        e['completed']
-                            ? Icons.check_circle
-                            : Icons.fitness_center,
-                        color: e['completed'] ? Colors.green : Colors.grey,
-                      ),
-                      title: Text(e['workout']),
-                      subtitle: Text("${e['minutes']} min"),
-                      trailing: e['completed']
-                          ? const Text("✅ Done",
-                              style: TextStyle(color: Colors.green))
-                          : TextButton.icon(
-                              onPressed: () async {
-                                await FirebaseFirestore.instance
-                                    .collection('users')
-                                    .doc(user!.uid)
-                                    .collection('calendar')
-                                    .doc(e['id'])
-                                    .update({'completed': true});
-                                _initializeData();
-                              },
-                              icon: const Icon(Icons.check),
-                              label: const Text("Mark Done"),
-                            ),
-                    )),
-            ]),
+                const SizedBox(height: 16),
+                if (_selectedDay != null &&
+                    _events[_selectedDay!] != null &&
+                    _events[_selectedDay!]!.isNotEmpty)
+                  ..._events[_selectedDay!]!.map((e) => ListTile(
+                        leading: Icon(
+                          e['completed']
+                              ? Icons.check_circle
+                              : Icons.fitness_center,
+                          color: e['completed'] ? Colors.green : Colors.grey,
+                        ),
+                        title: Text(e['workout']),
+                        subtitle: Text("${e['minutes']} min"),
+                        trailing: e['completed']
+                            ? const Text("✅ Done",
+                                style: TextStyle(color: Colors.green))
+                            : TextButton.icon(
+                                onPressed: () async {
+                                  await FirebaseFirestore.instance
+                                      .collection('users')
+                                      .doc(user!.uid)
+                                      .collection('calendar')
+                                      .doc(e['id'])
+                                      .update({'completed': true});
+                                  _initializeData();
+                                },
+                                icon: const Icon(Icons.check),
+                                label: const Text("Mark Done"),
+                              ),
+                      ))
+              ],
+            ),
           );
   }
 }

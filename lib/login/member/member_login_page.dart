@@ -44,7 +44,7 @@ class _MemberLoginPageState extends State<MemberLoginPage> {
         if (userType == 'Member') {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const MemberHomePage()),
+            MaterialPageRoute(builder: (_) => const MemberHomePage(initialTabIndex: 0)),
           );
         } else {
           await _auth.signOut();

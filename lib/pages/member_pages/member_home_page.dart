@@ -12,7 +12,7 @@ import 'message_page.dart';
 import 'manage_profile_page.dart';
 
 class MemberHomePage extends StatefulWidget {
-  const MemberHomePage({super.key});
+  const MemberHomePage({super.key, required int initialTabIndex});
 
   @override
   State<MemberHomePage> createState() => _MemberHomePageState();

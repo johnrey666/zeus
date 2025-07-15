@@ -1,11 +1,12 @@
-import 'package:flutter/material.dart';
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:zeus/pages/member_pages/member_home_page.dart';
 
 class PlanningPage extends StatefulWidget {
-  final Map<String, dynamic>? existingData;
-
-  const PlanningPage({super.key, this.existingData});
+  const PlanningPage({super.key});
 
   @override
   State<PlanningPage> createState() => _PlanningPageState();
@@ -14,87 +15,94 @@ class PlanningPage extends StatefulWidget {
 class _PlanningPageState extends State<PlanningPage> {
   int currentIndex = 0;
   final Map<String, dynamic> answers = {};
+  final TextEditingController heightController = TextEditingController();
+  final TextEditingController weightController = TextEditingController();
+  bool _isTrainer = false;
+  bool _isGenerating = false;
 
   final List<Map<String, dynamic>> questions = [
     {
       'question': "What is your fitness goal?",
+      'subtitle': "It will help us to choose a best program for you",
       'options': [
-        "Loss Weight",
-        "Gain Weight",
-        "Maintain Weight",
-        "Muscle Gain"
+        "Build Muscle",
+        "Lose Weight",
+        "Improve Endurance",
+        "Increase Strength"
       ],
       'type': 'radio',
     },
     {
-      'question': "How many days a week do you want to train?",
-      'options': ["1-2 days", "3-4 days", "5-6 days", "Everyday"],
-      'type': 'radio',
-    },
-    {
-      'question': "Do you follow any of these diets?",
-      'options': ["Vegetarian", "Non-Vegetarian", "None of the above"],
-      'type': 'radio',
-    },
-    {
-      'question': "Select Fitness Level",
-      'options': ["Beginner", "Intermediate", "Advanced"],
-      'type': 'radio',
-    },
-    {
-      'question': "Set Up Your Workout Plan",
-      'days': [
-        "Monday",
-        "Tuesday",
-        "Wednesday",
-        "Thursday",
-        "Friday",
-        "Saturday",
-        "Sunday"
+      'question': "Select Your Fitness Level",
+      'options': [
+        "Beginner\nnew to exercise or training",
+        "Intermediate\nexercise 2 - 3 times per week",
+        "Expert\nexercise 4+ times per week",
       ],
-      'type': 'dropdown',
+      'type': 'radio',
     },
-  ];
-
-  final List<String> workoutTypes = [
-    'Cardio',
-    'Strength',
-    'Flexibility',
-    'Rest'
+    {
+      'question': "Select your activity level",
+      'options': [
+        "Sedentary (1-2 days/week)",
+        "Lightly Active (1-3 days/week)",
+        "Moderately Active (3-5 days/week)",
+        "Very Active (6-7 days/week)",
+        "Extra Active (2x training)"
+      ],
+      'type': 'radio',
+    },
+    {
+      'question': "Let us know you better",
+      'type': 'form',
+    }
   ];
 
   @override
   void initState() {
     super.initState();
-    _initializeAnswers();
+    _checkUserType();
   }
 
-  void _initializeAnswers() {
-    if (widget.existingData != null) {
-      answers.addAll(widget.existingData!);
-    }
+  Future<void> _checkUserType() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    setState(() {
+      _isTrainer = doc.exists && doc['userType'] == 'Trainer';
+    });
   }
 
   void next() async {
     if (currentIndex < questions.length - 1) {
       setState(() => currentIndex++);
     } else {
-      try {
-        final user = FirebaseAuth.instance.currentUser;
-        if (user == null) throw Exception("User not logged in");
-        final uid = user.uid;
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
 
-        await FirebaseFirestore.instance
-            .collection('workout_plans')
-            .doc(uid)
-            .set(answers);
-        if (!mounted) return;
-        Navigator.pop(context, true); // Signal success
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to save workout plan: $e")),
-        );
-      }
+      answers['Height'] = heightController.text.trim();
+      answers['Weight'] = weightController.text.trim();
+
+      setState(() => _isGenerating = true);
+
+      await FirebaseFirestore.instance
+          .collection('workout_plans')
+          .doc(user.uid)
+          .set(answers);
+
+      await Future.delayed(const Duration(seconds: 3));
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+            builder: (_) => const MemberHomePage(initialTabIndex: 1)),
+      );
     }
   }
 
@@ -107,28 +115,29 @@ class _PlanningPageState extends State<PlanningPage> {
   Widget _buildRadioQuestion(Map<String, dynamic> questionData) {
     final String question = questionData['question'];
     final List<String> options = List<String>.from(questionData['options']);
+    final String? subtitle = questionData['subtitle'];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(question,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        if (subtitle != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6.0),
+            child: Text(subtitle,
+                style: const TextStyle(color: Colors.grey, fontSize: 14)),
+          ),
+        const SizedBox(height: 20),
         ...options.map((option) => Container(
-              margin: const EdgeInsets.symmetric(vertical: 4),
+              margin: const EdgeInsets.symmetric(vertical: 6),
               decoration: BoxDecoration(
                 color: Colors.grey[100],
                 borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.grey.withOpacity(0.2),
-                    blurRadius: 5,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
               ),
               child: RadioListTile<String>(
-                title: Text(option),
+                title: Text(option.replaceAll('\n', '\n'),
+                    style: const TextStyle(fontSize: 16)),
                 value: option,
                 groupValue: answers[question],
                 onChanged: (value) {
@@ -137,63 +146,43 @@ class _PlanningPageState extends State<PlanningPage> {
                   });
                 },
               ),
-            )),
+            ))
       ],
     );
   }
 
-  Widget _buildDropdownQuestion(Map<String, dynamic> questionData) {
-    final String question = questionData['question'];
-    final List<String> days = List<String>.from(questionData['days']);
-
-    answers.putIfAbsent(question, () {
-      return {for (var day in days) day: null};
-    });
-
+  Widget _buildHeightWeightForm() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(question,
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+        const Text("Let us know you better",
+            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
         const SizedBox(height: 16),
-        Expanded(
-          child: ListView.builder(
-            itemCount: days.length,
-            itemBuilder: (context, index) {
-              final day = days[index];
-              return Container(
-                margin: const EdgeInsets.symmetric(vertical: 8),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: Colors.grey[100],
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.grey.withOpacity(0.2),
-                      blurRadius: 5,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
+        Row(
+          children: [
+            Expanded(
+              child: TextField(
+                controller: weightController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Weight (kg)",
+                  border: OutlineInputBorder(),
                 ),
-                child: DropdownButtonFormField<String>(
-                  decoration:
-                      InputDecoration(labelText: day, border: InputBorder.none),
-                  value: answers[question][day],
-                  items: workoutTypes
-                      .map((type) =>
-                          DropdownMenuItem(value: type, child: Text(type)))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      answers[question][day] = value;
-                    });
-                  },
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: heightController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: "Height (cm)",
+                  border: OutlineInputBorder(),
                 ),
-              );
-            },
-          ),
-        ),
+              ),
+            )
+          ],
+        )
       ],
     );
   }
@@ -203,53 +192,95 @@ class _PlanningPageState extends State<PlanningPage> {
     final currentQuestion = questions[currentIndex];
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Plan Your Workout"),
-        centerTitle: true,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0.5,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Expanded(
-              child: currentQuestion['type'] == 'dropdown'
-                  ? _buildDropdownQuestion(currentQuestion)
-                  : SingleChildScrollView(
-                      child: _buildRadioQuestion(currentQuestion)),
-            ),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                if (currentIndex > 0)
-                  ElevatedButton(
-                    onPressed: back,
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey[300]),
-                    child: const Text("Back",
-                        style: TextStyle(color: Colors.black)),
-                  )
-                else
-                  const SizedBox(width: 80),
-                ElevatedButton(
-                  onPressed: next,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 12, horizontal: 24),
-                    shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8)),
-                  ),
-                  child: Text(
-                    currentIndex == questions.length - 1 ? "Submit" : "Next",
-                    style: const TextStyle(color: Colors.white),
+      body: _isGenerating
+          ? const _LoadingScreen()
+          : _isTrainer
+              ? const Center(
+                  child: Text("Trainers cannot create workout plans."))
+              : Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: [
+                      AppBar(
+                        title: const Text("Plan Your Workout"),
+                        centerTitle: true,
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
+                        elevation: 0.5,
+                      ),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: SingleChildScrollView(
+                          child: currentQuestion['type'] == 'radio'
+                              ? _buildRadioQuestion(currentQuestion)
+                              : _buildHeightWeightForm(),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (currentIndex > 0)
+                            ElevatedButton(
+                              onPressed: back,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.grey[300],
+                              ),
+                              child: const Text("Back",
+                                  style: TextStyle(color: Colors.black)),
+                            )
+                          else
+                            const SizedBox(width: 80),
+                          ElevatedButton(
+                            onPressed: next,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              padding: const EdgeInsets.symmetric(
+                                  vertical: 12, horizontal: 24),
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8)),
+                            ),
+                            child: Text(
+                              currentIndex == questions.length - 1
+                                  ? "Get My Plan"
+                                  : "Next",
+                              style: const TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      )
+                    ],
                   ),
                 ),
-              ],
+    );
+  }
+}
+
+class _LoadingScreen extends StatelessWidget {
+  const _LoadingScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: Colors.white,
+      width: double.infinity,
+      child: const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            SizedBox(
+              width: 60,
+              height: 60,
+              child: CircularProgressIndicator(strokeWidth: 6),
             ),
+            SizedBox(height: 24),
+            Text(
+              "Generating Your Plan...",
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+            SizedBox(height: 8),
+            Text("Analyzing your data and preferences...",
+                style: TextStyle(color: Colors.grey)),
           ],
         ),
       ),
