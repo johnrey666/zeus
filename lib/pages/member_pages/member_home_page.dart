@@ -106,7 +106,8 @@ class _MemberHomePageState extends State<MemberHomePage>
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      child: const Text("Cancel", style: TextStyle(color: Colors.black)),
+                      child: const Text("Cancel",
+                          style: TextStyle(color: Colors.black)),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
@@ -116,7 +117,8 @@ class _MemberHomePageState extends State<MemberHomePage>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.redAccent,
                       ),
-                      child: const Text("Logout", style: TextStyle(color: Colors.white)),
+                      child: const Text("Logout",
+                          style: TextStyle(color: Colors.white)),
                       onPressed: _logout,
                     ),
                   ),
