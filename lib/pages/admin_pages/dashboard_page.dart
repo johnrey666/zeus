@@ -1,80 +1,100 @@
+// ignore_for_file: unused_local_variable, unused_import
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:zeus/pages/admin_pages/attendance_page.dart';
 
 class DashboardPage extends StatefulWidget {
-  const DashboardPage({super.key});
+  final VoidCallback onNavigateToAttendance;
+
+  const DashboardPage({super.key, required this.onNavigateToAttendance});
 
   @override
   State<DashboardPage> createState() => _DashboardPageState();
 }
 
 class _DashboardPageState extends State<DashboardPage> {
-  double todaysEarning = 0;
-  double monthlyEarning = 0;
-  int memberCount = 0;
-  int trainerCount = 0;
-
+  double todaysRevenue = 0;
+  int totalMembers = 0;
+  int checkInsToday = 0;
+  int activeMemberships = 0;
   List<Map<String, dynamic>> monthlySales = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchDashboardData();
+    _listenToDashboardData();
   }
 
-  Future<void> _fetchDashboardData() async {
+  void _listenToDashboardData() {
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final now = DateTime.now();
-    final monthStart = DateTime(now.year, now.month, 1);
 
-    final salesSnap = await FirebaseFirestore.instance.collection('sales').get();
-    final usersSnap = await FirebaseFirestore.instance.collection('users').get();
+    FirebaseFirestore.instance.collection('sales').snapshots().listen((salesSnap) {
+      double todayTotal = 0;
+      Map<String, double> monthMap = {};
 
-    double todayTotal = 0;
-    double monthTotal = 0;
-    Map<String, double> monthMap = {};
+      for (var doc in salesSnap.docs) {
+        final data = doc.data();
+        final dateStr = data['date'] ?? '';
+        final date = DateTime.tryParse(dateStr) ?? DateTime(1970);
+        final amount = (data['amount'] ?? 0).toDouble();
 
-    for (var doc in salesSnap.docs) {
-      final data = doc.data();
-      final date = DateTime.parse(data['date']);
-      final amount = (data['amount'] ?? 0).toDouble();
+        if (DateFormat('yyyy-MM-dd').format(date) == today) {
+          todayTotal += amount;
+        }
 
-      if (DateFormat('yyyy-MM-dd').format(date) == today) {
-        todayTotal += amount;
-      }
-      if (date.isAfter(monthStart.subtract(const Duration(days: 1)))) {
-        monthTotal += amount;
+        final label = DateFormat('MMMM yyyy').format(date);
+        monthMap[label] = (monthMap[label] ?? 0) + amount;
       }
 
-      final label = DateFormat('MMM yyyy').format(date);
-      monthMap[label] = (monthMap[label] ?? 0) + amount;
-    }
+      final sortedMap = monthMap.entries.toList()
+        ..sort((a, b) => DateFormat('MMMM yyyy').parse(a.key).compareTo(DateFormat('MMMM yyyy').parse(b.key)));
 
-    int members = 0;
-    int trainers = 0;
-    for (var user in usersSnap.docs) {
-      final type = user['userType'];
-      if (type == 'Member') members++;
-      if (type == 'Trainer') trainers++;
-    }
+      setState(() {
+        todaysRevenue = todayTotal;
+        monthlySales = sortedMap.map((e) => {'month': e.key, 'amount': e.value}).toList();
+      });
+    });
 
-    setState(() {
-      todaysEarning = todayTotal;
-      monthlyEarning = monthTotal;
-      memberCount = members;
-      trainerCount = trainers;
-      monthlySales = monthMap.entries
-          .map((e) => {'month': e.key, 'amount': e.value})
-          .toList();
-      monthlySales.sort((a, b) => a['month'].compareTo(b['month']));
+    FirebaseFirestore.instance.collection('users').snapshots().listen((usersSnap) {
+      int members = usersSnap.docs.where((u) => u['userType'] == 'Member').length;
+
+      setState(() {
+        totalMembers = members;
+      });
+    });
+
+    FirebaseFirestore.instance.collection('registrations').snapshots().listen((regSnap) {
+      int accepted = regSnap.docs.where((r) => r['status']?.toString().toLowerCase() == 'accepted').length;
+
+      setState(() {
+        activeMemberships = accepted;
+      });
+    });
+
+    // ✅ NEW: Check-ins today from attendance collection
+    FirebaseFirestore.instance
+        .collection('attendance')
+        .doc(today)
+        .collection('entries')
+        .snapshots()
+        .listen((entriesSnap) {
+      int checkIns = entriesSnap.docs
+          .where((doc) => doc['timeIn'] != null && doc['timeIn'].toString().isNotEmpty)
+          .length;
+
+      setState(() {
+        checkInsToday = checkIns;
+      });
     });
   }
 
   @override
   Widget build(BuildContext context) {
+    final currencyFormatter = NumberFormat.currency(locale: 'en_PH', symbol: '₱');
     final textTheme = GoogleFonts.poppinsTextTheme();
     final size = MediaQuery.of(context).size;
 
@@ -82,15 +102,29 @@ class _DashboardPageState extends State<DashboardPage> {
       backgroundColor: const Color(0xFFF9F9F9),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 60),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Text("Admin Dashboard",
+                  style: textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+              const Text("Welcome Back!"),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
                 children: [
-                  _buildStatCard("Today’s Earnings", todaysEarning),
-                  const SizedBox(width: 16),
-                  _buildStatCard("This Month", monthlyEarning),
+                  _buildStatCard(
+                    "Total Members",
+                    totalMembers.toDouble(),
+                    const Icon(Icons.people, color: Colors.black),
+                  ),
+                  _buildStatCard(
+                    "Today's Revenue",
+                    todaysRevenue,
+                    const Text('₱',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black)),
+                  ),
                 ],
               ),
               const SizedBox(height: 16),
@@ -98,38 +132,184 @@ class _DashboardPageState extends State<DashboardPage> {
                 spacing: 16,
                 runSpacing: 16,
                 children: [
-                  _buildCountCard("Members", memberCount, Icons.group,
+                  _buildVerticalCountCard("Check-ins Today", checkInsToday, Icons.qr_code,
                       width: (size.width - 56) / 2),
-                  _buildCountCard("Trainers", trainerCount, Icons.fitness_center,
+                  _buildVerticalCountCard("Active Memberships", activeMemberships, Icons.trending_up,
                       width: (size.width - 56) / 2),
                 ],
               ),
               const SizedBox(height: 30),
-              Text("Sales Graph",
-                  style:
-                      textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600)),
-              const SizedBox(height: 10),
-              AspectRatio(
-                aspectRatio: 1.3,
-                child: Card(
-                  color: Colors.white,
-                  elevation: 3,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16)),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
+              _buildActionCard(
+                icon: Icons.trending_up,
+                title: "Sales Tracking",
+                subtitle: "View daily sales and revenue reports",
+                buttonLabel: "Open Sales Tracking",
+                onPressed: _showSalesModal,
+              ),
+              const SizedBox(height: 16),
+              _buildActionCard(
+                icon: Icons.qr_code,
+                title: "QR Attendance",
+                subtitle: "Manage QR code check-in system",
+                buttonLabel: "Open QR Attendance",
+                onPressed: widget.onNavigateToAttendance,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatCard(String title, double value, Widget icon) {
+    final isCurrency = title.toLowerCase().contains("revenue");
+    final currencyFormatter = NumberFormat.currency(locale: 'en_PH', symbol: '₱');
+
+    return SizedBox(
+      width: (MediaQuery.of(context).size.width - 56) / 2,
+      child: Container(
+        height: 100,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+        ),
+        child: Stack(
+          children: [
+            Align(alignment: Alignment.centerRight, child: icon),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF6D5F5F))),
+                const Spacer(),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    isCurrency ? currencyFormatter.format(value) : value.toInt().toString(),
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF6D5F5F)),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerticalCountCard(String title, int count, IconData icon, {required double width}) {
+    return Container(
+      width: width,
+      padding: const EdgeInsets.all(16),
+      height: 100,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+      ),
+      child: Stack(
+        children: [
+          Align(alignment: Alignment.centerRight, child: Icon(icon, color: Colors.black)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: Color(0xFF6D5F5F))),
+              const Spacer(),
+              Text('$count',
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF6D5F5F))),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required String buttonLabel,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Icon(icon, color: Colors.black),
+            const SizedBox(width: 8),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.bold)),
+          ]),
+          const SizedBox(height: 4),
+          Text(subtitle, style: const TextStyle(fontSize: 12)),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6D9FFF),
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: onPressed,
+              child: Text(buttonLabel, style: const TextStyle(color: Colors.white)),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _showSalesModal() {
+    showDialog(
+      context: context,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          constraints: const BoxConstraints(maxHeight: 400),
+          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+          child: Column(
+            children: [
+              const Text("Sales Graph", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: (monthlySales.length * 80).toDouble(),
                     child: BarChart(
                       BarChartData(
+                        barTouchData: BarTouchData(
+                          touchTooltipData: BarTouchTooltipData(
+                            tooltipBgColor: Colors.grey.shade200,
+                            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                              final month = monthlySales[groupIndex]['month'];
+                              return BarTooltipItem(
+                                '$month\n₱${rod.toY.toStringAsFixed(2)}',
+                                const TextStyle(fontSize: 12),
+                              );
+                            },
+                          ),
+                        ),
                         borderData: FlBorderData(show: false),
                         titlesData: FlTitlesData(
                           leftTitles: AxisTitles(
                             sideTitles: SideTitles(
                               showTitles: true,
                               reservedSize: 40,
-                              getTitlesWidget: (value, _) => Text(
-                                '${value.toInt()}',
-                                style: const TextStyle(fontSize: 10),
-                              ),
+                              getTitlesWidget: (value, _) => Text('${value.toInt()}',
+                                  style: const TextStyle(fontSize: 10)),
                             ),
                           ),
                           bottomTitles: AxisTitles(
@@ -141,22 +321,20 @@ class _DashboardPageState extends State<DashboardPage> {
                                   final parts = label.split(' ');
                                   return Column(
                                     children: [
-                                      Text(parts[0],
-                                          style: const TextStyle(fontSize: 10)),
-                                      Text(parts[1],
-                                          style: const TextStyle(fontSize: 10)),
+                                      Text(parts[0], style: const TextStyle(fontSize: 10)),
+                                      Text(parts[1], style: const TextStyle(fontSize: 10)),
                                     ],
                                   );
                                 }
                                 return const SizedBox();
                               },
+                              reservedSize: 32,
                             ),
                           ),
-                          topTitles:
-                              AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          rightTitles:
-                              AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
                         ),
+                        gridData: FlGridData(show: true, drawHorizontalLine: true),
                         barGroups: monthlySales
                             .asMap()
                             .entries
@@ -172,8 +350,6 @@ class _DashboardPageState extends State<DashboardPage> {
                                   ],
                                 ))
                             .toList(),
-                        gridData:
-                            FlGridData(show: true, drawHorizontalLine: true),
                       ),
                     ),
                   ),
@@ -193,64 +369,10 @@ class _DashboardPageState extends State<DashboardPage> {
       Colors.lightGreen,
       Colors.cyan,
       Colors.redAccent,
+      Colors.orange,
+      Colors.indigo,
+      Colors.teal
     ];
     return colors[index % colors.length];
-  }
-
-  Widget _buildStatCard(String title, double amount) {
-    final currencyFormatter = NumberFormat.currency(locale: 'en_PH', symbol: '₱');
-    return Expanded(
-      child: Container(
-        height: 100,
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title,
-                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-            const Spacer(),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                currencyFormatter.format(amount),
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildCountCard(String title, int count, IconData icon,
-      {required double width}) {
-    return Container(
-      width: width,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 4)],
-      ),
-      child: Row(
-        children: [
-          Icon(icon, color: Colors.blueAccent),
-          const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('$count',
-                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              Text(title, style: const TextStyle(fontSize: 12)),
-            ],
-          ),
-        ],
-      ),
-    );
   }
 }

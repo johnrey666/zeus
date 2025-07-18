@@ -21,19 +21,13 @@ class _AdminHomePageState extends State<AdminHomePage>
 
   final List<String> _titles = [
     'Admin Dashboard',
-    'Member Lists',
+    'Members Update',
     'Pending Registrations',
     'Announcements',
     'Attendance',
   ];
 
-  final List<Widget> _pages = const [
-    DashboardPage(),
-    MemberListPage(),
-    PendingRegistrationsPage(),
-    NotificationsPage(),
-    AttendancePage(),
-  ];
+  late List<Widget> _pages; // Moved from top-level to initState
 
   late final PageController _pageController;
 
@@ -41,6 +35,18 @@ class _AdminHomePageState extends State<AdminHomePage>
   void initState() {
     super.initState();
     _pageController = PageController();
+
+    _pages = [
+      DashboardPage(
+        onNavigateToAttendance: () {
+          _onItemTapped(4); // Attendance tab index
+        },
+      ),
+      const MemberListPage(),
+      const PendingRegistrationsPage(),
+      const NotificationsPage(),
+      const AttendancePage(),
+    ];
   }
 
   void _onItemTapped(int index) {

@@ -2,11 +2,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:zeus/pages/admin_pages/attendance_page.dart';
 import 'firebase_options.dart';
 import 'package:zeus/pages/select_profile_page.dart';
 // ignore: unused_import
 import 'package:intl/intl.dart';
-
 
 void main() async {
   WidgetsFlutterBinding
@@ -22,9 +22,12 @@ class ZeusLandingPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
+    return MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: LandingScreen(),
+      home: const LandingScreen(),
+      routes: {
+        '/attendance_page': (context) => const AttendancePage(),
+      },
     );
   }
 }
