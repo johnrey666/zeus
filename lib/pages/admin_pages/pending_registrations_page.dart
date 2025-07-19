@@ -1,30 +1,54 @@
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
-import 'dart:typed_data';
 
 class PendingRegistrationsPage extends StatelessWidget {
   const PendingRegistrationsPage({super.key});
 
   Future<void> _acceptRequest(String docId, Map<String, dynamic> data) async {
-    await FirebaseFirestore.instance
-        .collection('registrations')
-        .doc(docId)
-        .update({'status': 'accepted'});
+  await FirebaseFirestore.instance
+      .collection('registrations')
+      .doc(docId)
+      .update({'status': 'accepted'});
 
-    // Send notification to member
-    final userId = data['userId'];
-    if (userId != null && userId.toString().isNotEmpty) {
-      await FirebaseFirestore.instance.collection('notifications').add({
-        'toUserId': userId,
-        'text':
-            '🎉 You have successfully registered! You can now communicate with your Trainer.',
-        'timestamp': FieldValue.serverTimestamp(),
-      });
-    }
+  final userId = data['userId'];
+  final plan = data['plan'] ?? '';
+  final timestamp = DateTime.now();
+
+  // ✅ Extract price from plan text (e.g., '1 month - 650PHP')
+  final RegExp priceRegex = RegExp(r'(\d+)PHP');
+  final match = priceRegex.firstMatch(plan);
+  double amount = 0;
+  if (match != null) {
+    amount = double.tryParse(match.group(1)!) ?? 0;
   }
+
+  // ✅ Add sales entry
+  await FirebaseFirestore.instance.collection('sales').add({
+    'userId': userId,
+    'amount': amount,
+    'date': DateFormat('yyyy-MM-dd').format(timestamp),
+    'source': 'Registration',
+    'plan': plan,
+  });
+
+  // ✅ Update user status to Active
+  if (userId != null && userId.toString().isNotEmpty) {
+    await FirebaseFirestore.instance.collection('users').doc(userId).update({
+      'membershipStatus': 'Active',
+    });
+
+    // ✅ Send notification
+    await FirebaseFirestore.instance.collection('notifications').add({
+      'toUserId': userId,
+      'text': '🎉 You have successfully registered! You can now communicate with your Trainer.',
+      'timestamp': FieldValue.serverTimestamp(),
+    });
+  }
+}
 
   Future<void> _deleteRequest(String docId) async {
     await FirebaseFirestore.instance
@@ -124,7 +148,10 @@ class PendingRegistrationsPage extends StatelessWidget {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () => _acceptRequest(docId, data),
+                        onPressed: () async {
+                          Navigator.pop(context); // Close the modal first
+                          await _acceptRequest(docId, data);
+                        },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.blueGrey.shade700,
                           foregroundColor: Colors.white,
@@ -259,8 +286,8 @@ class PendingRegistrationsPage extends StatelessWidget {
                     if (docs.isEmpty) {
                       return Padding(
                         padding: const EdgeInsets.symmetric(vertical: 20),
-                        child:
-                            Text('No accepted registrations.', style: subStyle),
+                        child: Text('No accepted registrations.',
+                            style: subStyle),
                       );
                     }
 

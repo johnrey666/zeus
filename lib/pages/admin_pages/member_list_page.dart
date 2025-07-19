@@ -16,21 +16,19 @@ class _MemberListPageState extends State<MemberListPage> {
   final int _itemsPerPage = 10;
   List<QueryDocumentSnapshot> _allMembers = [];
   List<QueryDocumentSnapshot> _filteredMembers = [];
-  List<QueryDocumentSnapshot> _trainers = [];
 
   @override
   void initState() {
     super.initState();
-    _fetchUsers();
+    _fetchMembers();
     _searchController.addListener(_filterSearchResults);
   }
 
-  Future<void> _fetchUsers() async {
+  Future<void> _fetchMembers() async {
     final snapshot = await FirebaseFirestore.instance.collection('users').get();
 
     final docs = snapshot.docs;
     setState(() {
-      _trainers = docs.where((d) => d['userType'] == 'Trainer').toList();
       _allMembers = docs.where((d) => d['userType'] == 'Member').toList();
       _filteredMembers = List.from(_allMembers);
     });
@@ -44,8 +42,8 @@ class _MemberListPageState extends State<MemberListPage> {
       } else {
         _filteredMembers = _allMembers.where((doc) {
           final data = doc.data() as Map<String, dynamic>;
-          final name = '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'
-              .toLowerCase();
+          final name =
+              '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'.toLowerCase();
           return name.contains(query);
         }).toList();
       }
@@ -94,20 +92,6 @@ class _MemberListPageState extends State<MemberListPage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 24),
-              Text('Trainers', style: styleHeader),
-              const SizedBox(height: 12),
-              ..._trainers.map((doc) {
-                final data = doc.data() as Map<String, dynamic>;
-                final name = '${data['firstName']} ${data['lastName']}';
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    leading: const Icon(Icons.fitness_center),
-                    title: Text(name, style: styleName),
-                  ),
-                );
-              }),
               const SizedBox(height: 24),
               Text('Members', style: styleHeader),
               const SizedBox(height: 12),
