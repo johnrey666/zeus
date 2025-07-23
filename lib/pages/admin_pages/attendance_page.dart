@@ -14,7 +14,7 @@ class AttendancePage extends StatelessWidget {
         .collection('entries');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F6FA),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
@@ -51,15 +51,38 @@ class AttendancePage extends StatelessWidget {
               ),
               const SizedBox(height: 16),
 
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6D9FFF),
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                ),
-                onPressed: () {},
-                child: const Text('Start QR Scanner', style: TextStyle(color: Colors.white)),
-              ),
+              GestureDetector(
+  onTap: () {
+    // Start QR Scanner logic
+  },
+  child: Container(
+    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      borderRadius: BorderRadius.circular(30),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.15),
+          blurRadius: 4,
+          offset: const Offset(2, 2),
+        ),
+      ],
+    ),
+    child: const Text(
+      'Start QR Scanner',
+      style: TextStyle(
+        color: Colors.white,
+        fontSize: 12,
+        fontWeight: FontWeight.w400,
+      ),
+    ),
+  ),
+),
+
               const SizedBox(height: 24),
 
               StreamBuilder<QuerySnapshot>(

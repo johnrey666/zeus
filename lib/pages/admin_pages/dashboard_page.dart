@@ -6,6 +6,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:zeus/pages/admin_pages/attendance_page.dart';
+import 'sales_tracking_page.dart';
 
 class DashboardPage extends StatefulWidget {
   final VoidCallback onNavigateToAttendance;
@@ -144,7 +145,13 @@ class _DashboardPageState extends State<DashboardPage> {
                 title: "Sales Tracking",
                 subtitle: "View daily sales and revenue reports",
                 buttonLabel: "Open Sales Tracking",
-                onPressed: _showSalesModal,
+                onPressed: () {
+  Navigator.push(
+    context,
+    MaterialPageRoute(builder: (_) => const SalesTrackingPage()),
+  );
+},
+
               ),
               const SizedBox(height: 16),
               _buildActionCard(
@@ -255,124 +262,36 @@ class _DashboardPageState extends State<DashboardPage> {
           const SizedBox(height: 16),
           SizedBox(
             width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6D9FFF),
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: onPressed,
-              child: Text(buttonLabel, style: const TextStyle(color: Colors.white)),
-            ),
+            child: GestureDetector(
+  onTap: onPressed,
+  child: Container(
+    width: double.infinity,
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    decoration: BoxDecoration(
+      gradient: const LinearGradient(
+        colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      ),
+      borderRadius: BorderRadius.circular(12),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withOpacity(0.15),
+          blurRadius: 4,
+          offset: const Offset(2, 2),
+        ),
+      ],
+    ),
+    alignment: Alignment.center,
+    child: Text(
+      buttonLabel,
+      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w400),
+    ),
+  ),
+),
           )
         ],
       ),
     );
-  }
-
-  void _showSalesModal() {
-    showDialog(
-      context: context,
-      builder: (_) => Dialog(
-        backgroundColor: Colors.transparent,
-        child: Container(
-          padding: const EdgeInsets.all(16),
-          constraints: const BoxConstraints(maxHeight: 400),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-          child: Column(
-            children: [
-              const Text("Sales Graph", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(
-                    width: (monthlySales.length * 80).toDouble(),
-                    child: BarChart(
-                      BarChartData(
-                        barTouchData: BarTouchData(
-                          touchTooltipData: BarTouchTooltipData(
-                            tooltipBgColor: Colors.grey.shade200,
-                            getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                              final month = monthlySales[groupIndex]['month'];
-                              return BarTooltipItem(
-                                '$month\n₱${rod.toY.toStringAsFixed(2)}',
-                                const TextStyle(fontSize: 12),
-                              );
-                            },
-                          ),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        titlesData: FlTitlesData(
-                          leftTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              reservedSize: 40,
-                              getTitlesWidget: (value, _) => Text('${value.toInt()}',
-                                  style: const TextStyle(fontSize: 10)),
-                            ),
-                          ),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(
-                              showTitles: true,
-                              getTitlesWidget: (value, _) {
-                                if (value.toInt() < monthlySales.length) {
-                                  final label = monthlySales[value.toInt()]['month'];
-                                  final parts = label.split(' ');
-                                  return Column(
-                                    children: [
-                                      Text(parts[0], style: const TextStyle(fontSize: 10)),
-                                      Text(parts[1], style: const TextStyle(fontSize: 10)),
-                                    ],
-                                  );
-                                }
-                                return const SizedBox();
-                              },
-                              reservedSize: 32,
-                            ),
-                          ),
-                          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                        ),
-                        gridData: FlGridData(show: true, drawHorizontalLine: true),
-                        barGroups: monthlySales
-                            .asMap()
-                            .entries
-                            .map((entry) => BarChartGroupData(
-                                  x: entry.key,
-                                  barRods: [
-                                    BarChartRodData(
-                                      toY: entry.value['amount'],
-                                      width: 18,
-                                      color: _getBarColor(entry.key),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                  ],
-                                ))
-                            .toList(),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Color _getBarColor(int index) {
-    const colors = [
-      Colors.grey,
-      Colors.purple,
-      Colors.lightGreen,
-      Colors.cyan,
-      Colors.redAccent,
-      Colors.orange,
-      Colors.indigo,
-      Colors.teal
-    ];
-    return colors[index % colors.length];
   }
 }

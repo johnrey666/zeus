@@ -160,7 +160,7 @@ class _MemberHomePageState extends State<MemberHomePage>
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)],
                 ),
-                child: NotificationDropdown(userId: user?.uid ?? ""),
+                child: AnnouncementDropdown(userId: user?.uid ?? ""),
               ),
             ),
           ),
@@ -216,18 +216,26 @@ class _MemberHomePageState extends State<MemberHomePage>
                         top: 8,
                         child: StreamBuilder<QuerySnapshot>(
                           stream: FirebaseFirestore.instance
-                              .collection('notifications')
-                              .where('toUserId', isEqualTo: user?.uid)
+                              .collection('announcements')
                               .snapshots(),
                           builder: (__, snapshot) {
-                            final count = snapshot.data?.docs.length ?? 0;
-                            return count > 0
+                            if (!snapshot.hasData || user == null) {
+                              return const SizedBox();
+                            }
+                            final unread = snapshot.data!.docs.where((doc) {
+                              final data = doc.data() as Map<String, dynamic>;
+                              final readBy = List<String>.from(data['readBy'] ?? []);
+                              return !readBy.contains(user!.uid);
+                            }).length;
+
+                            return unread > 0
                                 ? Container(
                                     width: 10,
                                     height: 10,
                                     decoration: const BoxDecoration(
                                         color: Colors.red,
-                                        shape: BoxShape.circle))
+                                        shape: BoxShape.circle),
+                                  )
                                 : const SizedBox();
                           },
                         ),
@@ -326,67 +334,68 @@ class _MemberHomePageState extends State<MemberHomePage>
   }
 }
 
-class NotificationDropdown extends StatelessWidget {
+class AnnouncementDropdown extends StatelessWidget {
   final String userId;
-  const NotificationDropdown({super.key, required this.userId});
+  const AnnouncementDropdown({super.key, required this.userId});
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
-          .collection('notifications')
-          .where('toUserId', isEqualTo: userId)
+          .collection('announcements')
+          .orderBy('timestamp', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (!snapshot.hasData) {
           return const SizedBox(
               height: 100, child: Center(child: CircularProgressIndicator()));
         }
 
-        if (snapshot.hasError) {
-          return Padding(
-            padding: const EdgeInsets.all(16),
-            child: Text('Error loading notifications: ${snapshot.error}'),
-          );
-        }
-
-        final docs = snapshot.data?.docs ?? [];
+        final docs = snapshot.data!.docs;
 
         if (docs.isEmpty) {
           return const SizedBox(
-              height: 60, child: Center(child: Text("No Notifications")));
+              height: 60, child: Center(child: Text("No Announcements")));
         }
 
         return Column(
           mainAxisSize: MainAxisSize.min,
-          children: [
-            ...docs.map((d) {
-              final data = d.data() as Map<String, dynamic>;
-              final text = data['text'] ?? '';
-              final ts = data['timestamp'] as Timestamp?;
-              final timeStr = ts != null
-                  ? DateFormat('MMM d, h:mm a').format(ts.toDate())
-                  : '';
-              return ListTile(
-                title: Text(text, style: GoogleFonts.poppins(fontSize: 14)),
-                subtitle: Text(timeStr,
-                    style:
-                        GoogleFonts.poppins(color: Colors.grey, fontSize: 12)),
-                trailing: const Icon(Icons.notifications),
-              );
-            }),
-            TextButton(
-              onPressed: () {
-                for (var doc in docs) {
-                  FirebaseFirestore.instance
-                      .collection('notifications')
-                      .doc(doc.id)
-                      .delete();
-                }
+          children: docs.map((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final text = data['text'] ?? '';
+            final ts = data['timestamp'] as Timestamp?;
+            final timeStr = ts != null
+                ? DateFormat('MMM d, h:mm a').format(ts.toDate())
+                : '';
+            final readBy = List<String>.from(data['readBy'] ?? []);
+            final isNew = !readBy.contains(userId);
+
+            return ListTile(
+              title: Text(text, style: GoogleFonts.poppins(fontSize: 14)),
+              subtitle: Text(timeStr,
+                  style: GoogleFonts.poppins(color: Colors.grey, fontSize: 12)),
+              trailing: isNew
+                  ? Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text('New',
+                          style: TextStyle(color: Colors.white, fontSize: 12)),
+                    )
+                  : null,
+              onTap: () {
+                FirebaseFirestore.instance
+                    .collection('announcements')
+                    .doc(doc.id)
+                    .update({
+                  'readBy': FieldValue.arrayUnion([userId])
+                });
               },
-              child: Text("Clear All", style: GoogleFonts.poppins()),
-            )
-          ],
+            );
+          }).toList(),
         );
       },
     );

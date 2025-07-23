@@ -206,7 +206,7 @@ class PendingRegistrationsPage extends StatelessWidget {
     );
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF4F6FA),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
@@ -245,6 +245,7 @@ class PendingRegistrationsPage extends StatelessWidget {
                         final name = data['name'] ?? 'No Name';
                         final plan = data['plan'] ?? '-';
                         return Card(
+                          color: Colors.white,
                           margin: const EdgeInsets.only(bottom: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -297,6 +298,7 @@ class PendingRegistrationsPage extends StatelessWidget {
                         final name = data['name'] ?? 'No Name';
                         final plan = data['plan'] ?? '-';
                         return Card(
+                          color: Colors.white,
                           margin: const EdgeInsets.only(bottom: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
