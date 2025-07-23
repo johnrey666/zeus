@@ -20,12 +20,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
   String? _selectedPlan;
   String? _selectedPayment = 'Gcash';
-  String? _selectedTrainerId;
   File? _proofImage;
 
   final List<String> _plans = [
     '1 month - 650PHP',
-    '1 m w/ trainer - 1650PHP',
     '1 m w/ treadmill - 1300PHP',
   ];
 
@@ -63,7 +61,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
     if (name.isEmpty ||
         date.isEmpty ||
         _selectedPlan == null ||
-        _selectedTrainerId == null ||
         _proofImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -81,7 +78,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
       'plan': _selectedPlan,
       'startDate': date,
       'paymentMethod': _selectedPayment,
-      'trainerId': _selectedTrainerId,
       'proofImageBase64': base64Image,
       'status': 'pending',
       'timestamp': Timestamp.now(),
@@ -137,9 +133,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   .toList(),
               onChanged: (value) => setState(() => _selectedPlan = value),
             ),
-            const SizedBox(height: 20),
-            _sectionTitle("Select Trainer"),
-            _buildTrainerDropdown(),
             const SizedBox(height: 20),
             _sectionTitle("Start Date"),
             TextField(
@@ -210,41 +203,6 @@ class _RegistrationPageState extends State<RegistrationPage> {
           ],
         ),
       ),
-    );
-  }
-
-  Widget _buildTrainerDropdown() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('users')
-          .where('userType', isEqualTo: 'Trainer')
-          .snapshots(),
-      builder: (context, snapshot) {
-        final isLoading = snapshot.connectionState == ConnectionState.waiting;
-
-        final trainers = snapshot.data?.docs ?? [];
-
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 300),
-          child: isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _styledDropdown<String>(
-                  key: ValueKey(trainers.length),
-                  icon: Icons.fitness_center,
-                  value: _selectedTrainerId,
-                  hint: "Choose Trainer",
-                  items: trainers.map((doc) {
-                    final data = doc.data() as Map<String, dynamic>;
-                    return DropdownMenuItem(
-                      value: doc.id,
-                      child: Text("${data['firstName']} ${data['lastName']}"),
-                    );
-                  }).toList(),
-                  onChanged: (value) =>
-                      setState(() => _selectedTrainerId = value),
-                ),
-        );
-      },
     );
   }
 
