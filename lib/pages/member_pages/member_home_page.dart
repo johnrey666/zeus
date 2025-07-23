@@ -8,7 +8,6 @@ import 'package:intl/intl.dart';
 import 'training_page.dart';
 import 'report_page.dart';
 import 'qr_page.dart';
-import 'message_page.dart';
 import 'manage_profile_page.dart';
 
 class MemberHomePage extends StatefulWidget {
@@ -25,12 +24,11 @@ class _MemberHomePageState extends State<MemberHomePage>
   OverlayEntry? _notifOverlay;
   final GlobalKey _notifKey = GlobalKey();
 
-  final List<String> _titles = ['Training', 'Reports', 'Scan QR', 'Messages'];
+  final List<String> _titles = ['Training', 'Reports', 'Scan QR'];
   final List<Widget> _pages = const [
     TrainingPage(),
     ReportPage(),
     QRPage(),
-    MessagePage(),
   ];
   late final PageController _pageController;
   final user = FirebaseAuth.instance.currentUser;
@@ -320,8 +318,6 @@ class _MemberHomePageState extends State<MemberHomePage>
                       icon: Icon(Icons.bar_chart_outlined), label: 'Reports'),
                   BottomNavigationBarItem(
                       icon: Icon(Icons.qr_code_scanner), label: 'QR'),
-                  BottomNavigationBarItem(
-                      icon: Icon(Icons.message_outlined), label: 'Chat'),
                 ]),
           ),
         ),
