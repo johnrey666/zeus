@@ -62,6 +62,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                   child: TextField(
                     controller: _controller,
                     maxLines: null,
+                    cursorColor: Colors.blue,
                     decoration: const InputDecoration.collapsed(hintText: ''),
                   ),
                 ),

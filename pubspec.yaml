@@ -26,6 +26,8 @@ dependencies:
   font_awesome_flutter: ^10.8.0
   iconly: ^1.0.1
   flutter_animate: ^4.5.0
+  qr_flutter: ^4.0.0
+  qr_code_scanner: ^1.0.1
 
 dev_dependencies:
   flutter_test:

@@ -9,46 +9,50 @@ class PendingRegistrationsPage extends StatelessWidget {
   const PendingRegistrationsPage({super.key});
 
   Future<void> _acceptRequest(String docId, Map<String, dynamic> data) async {
-  await FirebaseFirestore.instance
-      .collection('registrations')
-      .doc(docId)
-      .update({'status': 'accepted'});
+    await FirebaseFirestore.instance
+        .collection('registrations')
+        .doc(docId)
+        .update({'status': 'accepted'});
 
-  final userId = data['userId'];
-  final plan = data['plan'] ?? '';
-  final timestamp = DateTime.now();
+    final userId = data['userId'];
+    final plan = data['plan'] ?? '';
+    double amount = 0;
+    final RegExp priceRegex = RegExp(r'(\d+)PHP');
+    final match = priceRegex.firstMatch(plan);
+    if (match != null) {
+      amount = double.tryParse(match.group(1)!) ?? 0;
+    }
 
-  // ✅ Extract price from plan text (e.g., '1 month - 650PHP')
-  final RegExp priceRegex = RegExp(r'(\d+)PHP');
-  final match = priceRegex.firstMatch(plan);
-  double amount = 0;
-  if (match != null) {
-    amount = double.tryParse(match.group(1)!) ?? 0;
-  }
+    final timestamp = DateTime.now();
+    final startDateStr = DateFormat('yyyy-MM-dd').format(timestamp);
 
-  // ✅ Add sales entry
-  await FirebaseFirestore.instance.collection('sales').add({
-    'userId': userId,
-    'amount': amount,
-    'date': DateFormat('yyyy-MM-dd').format(timestamp),
-    'source': 'Registration',
-    'plan': plan,
-  });
-
-  // ✅ Update user status to Active
-  if (userId != null && userId.toString().isNotEmpty) {
-    await FirebaseFirestore.instance.collection('users').doc(userId).update({
-      'membershipStatus': 'Active',
+    // Add sales record
+    await FirebaseFirestore.instance.collection('sales').add({
+      'userId': userId,
+      'amount': amount,
+      'date': startDateStr,
+      'source': 'Registration',
+      'plan': plan,
     });
 
-    // ✅ Send notification
-    await FirebaseFirestore.instance.collection('notifications').add({
-      'toUserId': userId,
-      'text': '🎉 You have successfully registered! You can now communicate with your Trainer.',
-      'timestamp': FieldValue.serverTimestamp(),
-    });
+    // Update user record
+    if (userId != null && userId.toString().isNotEmpty) {
+      await FirebaseFirestore.instance.collection('users').doc(userId).update({
+        'membershipStatus': 'Active',
+        'plan': plan,
+        'amount': amount,
+        'startDate': startDateStr,
+        'planExpiry': DateFormat('yyyy-MM-dd')
+            .format(timestamp.add(const Duration(days: 30))),
+      });
+
+      await FirebaseFirestore.instance.collection('notifications').add({
+        'toUserId': userId,
+        'text': '🎉 You have successfully registered! You can now communicate with your Trainer.',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    }
   }
-}
 
   Future<void> _deleteRequest(String docId) async {
     await FirebaseFirestore.instance

@@ -123,18 +123,22 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
           .createUserWithEmailAndPassword(email: email, password: password);
 
       final generatedMemberId = _generateRandomMemberId();
+final uid = userCredential.user!.uid;
+final qrCodeValue = 'member:$uid:$generatedMemberId';
 
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(userCredential.user!.uid)
-          .set({
-        'firstName': firstName,
-        'lastName': lastName,
-        'email': email,
-        'userType': 'Member',
-        'memberId': generatedMemberId,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
+await FirebaseFirestore.instance
+    .collection('users')
+    .doc(uid)
+    .set({
+  'firstName': firstName,
+  'lastName': lastName,
+  'email': email,
+  'userType': 'Member',
+  'memberId': generatedMemberId,
+  'createdAt': FieldValue.serverTimestamp(),
+  'qrCode': qrCodeValue, // Save QR code string
+});
+
 
       _showWelcomeBanner();
       await Future.delayed(const Duration(milliseconds: 1000));

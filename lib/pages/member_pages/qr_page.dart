@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 
 class QRPage extends StatefulWidget {
@@ -12,179 +12,180 @@ class QRPage extends StatefulWidget {
 }
 
 class _QRPageState extends State<QRPage> {
-  final user = FirebaseAuth.instance.currentUser;
-  DateTime _focusedDay = DateTime.now();
-  DateTime? _selectedDay;
-  bool _hasTimedInToday = false;
-  bool _hasTimedOutToday = false;
-  String? _timeInDisplay;
-  String? _timeOutDisplay;
+  String fullName = '';
+  String memberId = '';
+  Stream<QuerySnapshot<Map<String, dynamic>>>? attendanceStream;
 
   @override
   void initState() {
     super.initState();
-    _selectedDay = DateTime.now();
-    _fetchTodayAttendance();
+    _loadUserData();
   }
 
-  Future<void> _fetchTodayAttendance() async {
-    if (user == null) return;
+  Future<void> _loadUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      final userData = userDoc.data();
 
-    final todayDocId = DateFormat('yyyy-MM-dd').format(DateTime.now());
-    final doc = await FirebaseFirestore.instance
-        .collection('attendance')
-        .doc(todayDocId)
-        .collection('entries')
-        .doc(user!.uid)
-        .get();
+      if (userData != null) {
+        final fetchedMemberId = userData['memberId'] ?? '';
+        final fetchedName =
+            '${userData['firstName'] ?? ''} ${userData['lastName'] ?? ''}';
 
-    if (doc.exists) {
-      final data = doc.data()!;
-      setState(() {
-        _hasTimedInToday = data.containsKey('timeIn');
-        _hasTimedOutToday = data.containsKey('timeOut');
-        _timeInDisplay = data['timeIn'] ?? '';
-        _timeOutDisplay = data['timeOut'] ?? '';
-      });
+        setState(() {
+          memberId = fetchedMemberId;
+          fullName = fetchedName;
+        });
+
+        _initializeAttendanceStream(fetchedMemberId);
+      }
     }
   }
 
-  Future<void> _handleTimeIn() async {
-    if (user == null) return;
-
-    final now = DateTime.now();
-    final todayDocId = DateFormat('yyyy-MM-dd').format(now);
-
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user!.uid)
-        .get();
-
-    final userData = userDoc.data();
-
-    await FirebaseFirestore.instance
+  void _initializeAttendanceStream(String memberId) {
+    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final entriesRef = FirebaseFirestore.instance
         .collection('attendance')
-        .doc(todayDocId)
-        .collection('entries')
-        .doc(user!.uid)
-        .set({
-      'timeIn': DateFormat.Hm().format(now),
-      'firstName': userData?['firstName'] ?? '',
-      'lastName': userData?['lastName'] ?? '',
-      'timestamp': now,
-    });
+        .doc(today)
+        .collection('entries');
 
     setState(() {
-      _hasTimedInToday = true;
-      _timeInDisplay = DateFormat.Hm().format(now);
+      attendanceStream = entriesRef
+          .where('memberId', isEqualTo: memberId)
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .snapshots();
     });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Time-in recorded successfully.")),
-    );
-  }
-
-  Future<void> _handleTimeOut() async {
-    if (user == null) return;
-
-    final now = DateTime.now();
-    final todayDocId = DateFormat('yyyy-MM-dd').format(now);
-
-    await FirebaseFirestore.instance
-        .collection('attendance')
-        .doc(todayDocId)
-        .collection('entries')
-        .doc(user!.uid)
-        .update({
-      'timeOut': DateFormat.Hm().format(now),
-    });
-
-    setState(() {
-      _hasTimedOutToday = true;
-      _timeOutDisplay = DateFormat.Hm().format(now);
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Time-out recorded successfully.")),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          const SizedBox(height: 20),
-          const Text("Attendance Tracker",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 12),
-          TableCalendar(
-            firstDay: DateTime.utc(2020, 1, 1),
-            lastDay: DateTime.utc(2100, 12, 31),
-            focusedDay: _focusedDay,
-            selectedDayPredicate: (day) =>
-                isSameDay(_selectedDay ?? DateTime.now(), day),
-            onDaySelected: (selected, focused) {
-              setState(() {
-                _selectedDay = selected;
-                _focusedDay = focused;
-              });
-            },
-            calendarStyle: CalendarStyle(
-              todayDecoration: BoxDecoration(
-                  color: Colors.blue.shade100, shape: BoxShape.circle),
-              selectedDecoration:
-                  BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
-              markerDecoration: const BoxDecoration(
-                  color: Colors.green, shape: BoxShape.circle),
-            ),
-          ),
-          const SizedBox(height: 24),
-          Card(
-            elevation: 3,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              child: Column(
-                children: [
-                  const Icon(Icons.access_time,
-                      size: 48, color: Colors.blueAccent),
-                  const SizedBox(height: 12),
-                  Text(
-                    _hasTimedInToday
-                        ? _hasTimedOutToday
-                            ? "You timed in at $_timeInDisplay and out at $_timeOutDisplay today"
-                            : "You timed in at $_timeInDisplay today"
-                        : "You haven’t timed in today yet",
-                    style: const TextStyle(fontSize: 16),
-                  ),
-                  const SizedBox(height: 20),
-                  ElevatedButton.icon(
-                    onPressed: _hasTimedInToday
-                        ? (_hasTimedOutToday ? null : _handleTimeOut)
-                        : _handleTimeIn,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor:
-                          _hasTimedOutToday ? Colors.grey : Colors.blueAccent,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
+    return Scaffold(
+      backgroundColor: Colors.white,
+      body: memberId.isEmpty || attendanceStream == null
+          ? const Center(child: CircularProgressIndicator())
+          : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+              stream: attendanceStream,
+              builder: (context, snapshot) {
+                String timeIn = '-';
+                String timeOut = '-';
+                String date = '-';
+
+                if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+                  final doc = snapshot.data!.docs.first;
+                  final data = doc.data();
+
+                  // Debug log
+                  print("Fetched attendance data: $data");
+
+                  if (data.containsKey('timeIn')) {
+                    timeIn = _formatTo12Hour(data['timeIn']);
+                  }
+                  if (data.containsKey('timeOut')) {
+                    timeOut = _formatTo12Hour(data['timeOut']);
+                  }
+                  if (data.containsKey('timestamp') &&
+                      data['timestamp'] is Timestamp) {
+                    date = DateFormat('MM/dd/yy')
+                        .format((data['timestamp'] as Timestamp).toDate());
+                  }
+                }
+
+                return SafeArea(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const SizedBox(height: 16),
+                        Text(
+                          fullName,
+                          style: const TextStyle(
+                              fontSize: 24, fontWeight: FontWeight.bold),
+                        ),
+                        Text(
+                          'ID: $memberId',
+                          style:
+                              const TextStyle(fontSize: 16, color: Colors.grey),
+                        ),
+                        const SizedBox(height: 40),
+                        Center(
+                          child: Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                  color: Colors.grey.shade300, width: 2),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: QrImageView(
+                              data: memberId,
+                              version: QrVersions.auto,
+                              size: 250.0,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Scan this code for attendance',
+                          style:
+                              TextStyle(fontSize: 16, color: Colors.black87),
+                        ),
+                        const SizedBox(height: 30),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            Column(
+                              children: [
+                                const Text('Check In',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                                Text(timeIn),
+                              ],
+                            ),
+                            Column(
+                              children: [
+                                const Text('Check Out',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                                Text(timeOut),
+                              ],
+                            ),
+                            Column(
+                              children: [
+                                const Text('Date',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                                Text(date),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 40),
+                      ],
                     ),
-                    icon: const Icon(Icons.qr_code_scanner),
-                    label: Text(
-                        _hasTimedInToday ? "Time Out Now" : "Time In Now"),
                   ),
-                ],
-              ),
+                );
+              },
             ),
-          ),
-        ],
-      ),
     );
+  }
+
+  String _formatTo12Hour(dynamic timeStr) {
+    if (timeStr == null || timeStr.toString().trim().isEmpty) return '-';
+    try {
+      DateTime parsed;
+      if (timeStr.toString().length <= 5) {
+        parsed = DateFormat("HH:mm").parse(timeStr.toString());
+      } else {
+        parsed = DateFormat("HH:mm:ss").parse(timeStr.toString());
+      }
+      return DateFormat("h:mm a").format(parsed);
+    } catch (_) {
+      return '-';
+    }
   }
 }

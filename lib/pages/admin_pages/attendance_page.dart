@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'qr_scanner_page.dart';
 
 class AttendancePage extends StatelessWidget {
   const AttendancePage({super.key});
@@ -37,7 +38,6 @@ class AttendancePage extends StatelessWidget {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 20),
-
               Container(
                 height: 180,
                 width: 180,
@@ -52,36 +52,39 @@ class AttendancePage extends StatelessWidget {
               const SizedBox(height: 16),
 
               GestureDetector(
-  onTap: () {
-    // Start QR Scanner logic
-  },
-  child: Container(
-    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-    decoration: BoxDecoration(
-      gradient: const LinearGradient(
-        colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-      ),
-      borderRadius: BorderRadius.circular(30),
-      boxShadow: [
-        BoxShadow(
-          color: Colors.black.withOpacity(0.15),
-          blurRadius: 4,
-          offset: const Offset(2, 2),
-        ),
-      ],
-    ),
-    child: const Text(
-      'Start QR Scanner',
-      style: TextStyle(
-        color: Colors.white,
-        fontSize: 12,
-        fontWeight: FontWeight.w400,
-      ),
-    ),
-  ),
-),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const QRScannerPage()),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(30),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.15),
+                        blurRadius: 4,
+                        offset: const Offset(2, 2),
+                      ),
+                    ],
+                  ),
+                  child: const Text(
+                    'Start QR Scanner',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  ),
+                ),
+              ),
 
               const SizedBox(height: 24),
 
@@ -89,17 +92,13 @@ class AttendancePage extends StatelessWidget {
                 stream: attendanceRef.snapshots(),
                 builder: (context, snapshot) {
                   final docs = snapshot.data?.docs ?? [];
-
                   final checkInsCount = docs.length;
-
-                  // Safe currentlyInGym count
                   final currentlyInGym = docs.where((doc) {
                     final data = doc.data() as Map<String, dynamic>;
                     final timeOut = data['timeOut'];
                     return timeOut == null || timeOut.toString().isEmpty;
                   }).length;
 
-                  // Peak Hour and Avg Duration
                   Map<String, int> hourlyCount = {};
                   List<int> durationsInMinutes = [];
 
@@ -121,58 +120,38 @@ class AttendancePage extends StatelessWidget {
 
                   final peakHour = hourlyCount.entries.isEmpty
                       ? '-'
-                      : DateFormat('h:00 a').format(DateTime(
-                          0,
-                          1,
-                          1,
-                          int.parse(hourlyCount.entries
-                              .reduce((a, b) => a.value > b.value ? a : b)
-                              .key),
-                        ));
+                      : DateFormat('h:00 a').format(
+                          DateTime(0, 1, 1,
+                              int.parse(hourlyCount.entries.reduce((a, b) => a.value > b.value ? a : b).key)));
 
                   final avgDuration = durationsInMinutes.isEmpty
                       ? '-'
-                      : '${(durationsInMinutes.reduce((a, b) => a + b) ~/ durationsInMinutes.length)} mins';
+                      : _formatDuration(
+                          durationsInMinutes.reduce((a, b) => a + b) ~/ durationsInMinutes.length);
 
                   return Column(
                     children: [
                       Row(
                         children: [
                           Flexible(
-                            child: _buildStatCard(
-                              icon: Icons.calendar_today,
-                              title: "Today's Check-ins",
-                              value: '$checkInsCount',
-                            ),
-                          ),
+                              child: _buildStatCard(
+                                  icon: Icons.calendar_today, title: "Today's Check-ins", value: '$checkInsCount')),
                           const SizedBox(width: 16),
                           Flexible(
-                            child: _buildStatCard(
-                              icon: Icons.group,
-                              title: 'Currently In Gym',
-                              value: '$currentlyInGym',
-                            ),
-                          ),
+                              child: _buildStatCard(
+                                  icon: Icons.group, title: 'Currently In Gym', value: '$currentlyInGym')),
                         ],
                       ),
                       const SizedBox(height: 16),
                       Row(
                         children: [
                           Flexible(
-                            child: _buildStatCard(
-                              icon: Icons.access_time,
-                              title: 'Peak Hour',
-                              value: peakHour,
-                            ),
-                          ),
+                              child: _buildStatCard(
+                                  icon: Icons.access_time, title: 'Peak Hour', value: peakHour)),
                           const SizedBox(width: 16),
                           Flexible(
-                            child: _buildStatCard(
-                              icon: Icons.timer_outlined,
-                              title: 'Avg Duration',
-                              value: avgDuration,
-                            ),
-                          ),
+                              child: _buildStatCard(
+                                  icon: Icons.timer_outlined, title: 'Avg Duration', value: avgDuration)),
                         ],
                       ),
                     ],
@@ -183,17 +162,15 @@ class AttendancePage extends StatelessWidget {
               const SizedBox(height: 24),
               const Align(
                 alignment: Alignment.centerLeft,
-                child: Text("Today's Attendance", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                child: Text("Today's Attendance",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(height: 12),
 
               StreamBuilder<QuerySnapshot>(
                 stream: attendanceRef.orderBy('timestamp', descending: true).snapshots(),
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData) {
-                    return const CircularProgressIndicator();
-                  }
-
+                  if (!snapshot.hasData) return const CircularProgressIndicator();
                   final docs = snapshot.data!.docs;
 
                   return Column(
@@ -205,14 +182,15 @@ class AttendancePage extends StatelessWidget {
                         elevation: 2,
                         child: ListTile(
                           leading: const CircleAvatar(
-                            backgroundColor: Colors.black87,
-                            child: Icon(Icons.person, color: Colors.white),
-                          ),
+                              backgroundColor: Colors.black87,
+                              child: Icon(Icons.person, color: Colors.white)),
                           title: Text("${data['firstName']} ${data['lastName']}"),
                           subtitle: Text(
-                            'Check-in: ${_formatTo12Hour(data['timeIn'])} | Check-out: ${_formatTo12Hour(data['timeOut'])}',
+                            'Check-in: ${_formatTo12Hour(data['timeIn'])} | '
+                            'Check-out: ${_formatTo12Hour(data['timeOut'])}',
                           ),
-                          trailing: Text(DateFormat('MM/dd/yy').format((data['timestamp'] as Timestamp).toDate())),
+                          trailing: Text(DateFormat('MM/dd/yy')
+                              .format((data['timestamp'] as Timestamp).toDate())),
                         ),
                       );
                     }).toList(),
@@ -236,13 +214,22 @@ class AttendancePage extends StatelessWidget {
     }
   }
 
-  Widget _buildStatCard({
-    required IconData icon,
-    required String title,
-    required String value,
-  }) {
-    const textColor = Color(0xFF6D5F5F);
+  String _formatDuration(int totalMinutes) {
+    final hours = totalMinutes ~/ 60;
+    final minutes = totalMinutes % 60;
 
+    if (hours > 0 && minutes > 0) {
+      return '$hours hr${hours == 1 ? '' : 's'} $minutes min${minutes == 1 ? '' : 's'}';
+    } else if (hours > 0) {
+      return '$hours hr${hours == 1 ? '' : 's'}';
+    } else {
+      return '$minutes min${minutes == 1 ? '' : 's'}';
+    }
+  }
+
+  Widget _buildStatCard(
+      {required IconData icon, required String title, required String value}) {
+    const textColor = Color(0xFF6D5F5F);
     return Container(
       height: 90,
       padding: const EdgeInsets.all(12),
@@ -258,9 +245,19 @@ class AttendancePage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(title, style: const TextStyle(fontSize: 12, color: textColor)),
+                Text(title,
+                    style: const TextStyle(fontSize: 12, color: textColor),
+                    overflow: TextOverflow.ellipsis),
                 const SizedBox(height: 4),
-                Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textColor)),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(value,
+                      style: const TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: textColor)),
+                ),
               ],
             ),
           ),

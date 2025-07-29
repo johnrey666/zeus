@@ -24,7 +24,7 @@ class _MemberHomePageState extends State<MemberHomePage>
   OverlayEntry? _notifOverlay;
   final GlobalKey _notifKey = GlobalKey();
 
-  final List<String> _titles = ['Training', 'Reports', 'Scan QR'];
+  final List<String> _titles = ['Training', 'Reports', 'Scannner'];
   final List<Widget> _pages = const [
     TrainingPage(),
     ReportPage(),
