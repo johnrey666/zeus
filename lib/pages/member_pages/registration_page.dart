@@ -25,7 +25,26 @@ class _RegistrationPageState extends State<RegistrationPage> {
   final List<String> _plans = [
     '1 month - 650PHP',
     '1 m w/ treadmill - 1300PHP',
+    '1 month with trainer - 1650PHP',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserName();
+  }
+
+  Future<void> _loadUserName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final firstName = doc['firstName'] ?? '';
+      final lastName = doc['lastName'] ?? '';
+      setState(() {
+        _memberNameController.text = "$firstName $lastName";
+      });
+    }
+  }
 
   Future<void> _pickDate(BuildContext context) async {
     final picked = await showDatePicker(
@@ -33,11 +52,31 @@ class _RegistrationPageState extends State<RegistrationPage> {
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2100),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            dialogBackgroundColor: Colors.white,
+            colorScheme: const ColorScheme.light(
+              primary: Colors.blue, // Circle and active text color
+              onSurface: Colors.black, // Default text color
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: ButtonStyle(
+                foregroundColor: MaterialStateProperty.resolveWith<Color>((states) {
+                  if (states.contains(MaterialState.pressed)) return Colors.green;
+                  return Colors.green;
+                }),
+              ),
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
+
     if (picked != null) {
       setState(() {
-        _startDateController.text =
-            "${picked.year}-${picked.month}-${picked.day}";
+        _startDateController.text = "${picked.year}-${picked.month}-${picked.day}";
       });
     }
   }
@@ -58,13 +97,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
     final name = _memberNameController.text.trim();
     final date = _startDateController.text.trim();
 
-    if (name.isEmpty ||
-        date.isEmpty ||
-        _selectedPlan == null ||
-        _proofImage == null) {
+    if (name.isEmpty || date.isEmpty || _selectedPlan == null || _proofImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text("Please complete all fields and upload proof")),
+        const SnackBar(content: Text("Please complete all fields and upload proof")),
       );
       return;
     }
@@ -83,9 +118,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
       'timestamp': Timestamp.now(),
     };
 
-    await FirebaseFirestore.instance
-        .collection('registrations')
-        .add(registrationData);
+    await FirebaseFirestore.instance.collection('registrations').add(registrationData);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Registration submitted for approval.")),
@@ -96,111 +129,133 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: const Color(0xFFF6F7FA),
-      appBar: AppBar(
-        title: const Text('Membership Registration'),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 1,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+    return Theme(
+      data: Theme.of(context).copyWith(
+        textSelectionTheme: const TextSelectionThemeData(
+          cursorColor: Colors.blue,
         ),
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _sectionTitle("Member"),
-            _styledTextField(
-              controller: _memberNameController,
-              hint: "Enter Member Name",
-              icon: Icons.person,
-            ),
-            const SizedBox(height: 20),
-            _sectionTitle("Membership Plan"),
-            _styledDropdown<String>(
-              icon: Icons.credit_card,
-              value: _selectedPlan,
-              hint: "Select Plan",
-              items: _plans
-                  .map((plan) => DropdownMenuItem(
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF6F7FA),
+        appBar: AppBar(
+          title: const Text('Membership Registration'),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black,
+          elevation: 1,
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context),
+          ),
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sectionTitle("Member"),
+              _styledTextField(
+                controller: _memberNameController,
+                hint: "Enter Member Name",
+                icon: Icons.person,
+              ),
+              const SizedBox(height: 20),
+              _sectionTitle("Membership Plan"),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return ConstrainedBox(
+                    constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                    child: _styledDropdown<String>(
+                      icon: Icons.credit_card,
+                      value: _selectedPlan,
+                      hint: "Select Plan",
+                      items: _plans.map((plan) => DropdownMenuItem(
                         value: plan,
-                        child: Text(plan),
-                      ))
-                  .toList(),
-              onChanged: (value) => setState(() => _selectedPlan = value),
-            ),
-            const SizedBox(height: 20),
-            _sectionTitle("Start Date"),
-            TextField(
-              controller: _startDateController,
-              readOnly: true,
-              onTap: () => _pickDate(context),
-              decoration: _inputDecoration(Icons.calendar_today, "Select Date"),
-            ),
-            const SizedBox(height: 20),
-            _sectionTitle("Payment Method"),
-            Row(
-              children: [
-                Radio<String>(
-                  value: 'Gcash',
-                  groupValue: _selectedPayment,
-                  onChanged: (value) =>
-                      setState(() => _selectedPayment = value),
-                ),
-                const Icon(Icons.account_balance_wallet, color: Colors.blue),
-                const SizedBox(width: 8),
-                const Text("Gcash"),
-              ],
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              "* Send payment to 09853886411 and upload proof.",
-              style: TextStyle(fontSize: 12, color: Colors.grey),
-            ),
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: _pickProofImage,
-              icon: const Icon(Icons.upload_rounded),
-              label: const Text("Upload GCash Receipt"),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: Colors.black87,
-                elevation: 1,
-                padding:
-                    const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                        child: Text(plan, overflow: TextOverflow.ellipsis),
+                      )).toList(),
+                      onChanged: (value) => setState(() => _selectedPlan = value),
+                    ),
+                  );
+                },
               ),
-            ),
-            const SizedBox(height: 10),
-            if (_proofImage != null)
-              Center(
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Image.file(_proofImage!, height: 160),
-                ),
+              const SizedBox(height: 20),
+              _sectionTitle("Start Date"),
+              TextField(
+                controller: _startDateController,
+                readOnly: true,
+                onTap: () => _pickDate(context),
+                decoration: _inputDecoration(Icons.calendar_today, "Select Date"),
               ),
-            const SizedBox(height: 30),
-            Center(
-              child: ElevatedButton(
-                onPressed: _submitRegistration,
+              const SizedBox(height: 20),
+              _sectionTitle("Payment Method"),
+              Row(
+                children: [
+                  Radio<String>(
+                    value: 'Gcash',
+                    groupValue: _selectedPayment,
+                    activeColor: Colors.blue,
+                    onChanged: (value) => setState(() => _selectedPayment = value),
+                  ),
+                  const Icon(Icons.account_balance_wallet, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  const Text("Gcash"),
+                ],
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                "* Send payment to 09********** and upload proof.",
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _pickProofImage,
+                icon: const Icon(Icons.upload_rounded),
+                label: const Text("Upload GCash Receipt"),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.black87,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black87,
+                  elevation: 1,
+                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text("Register",
-                    style: TextStyle(color: Colors.white, fontSize: 16)),
               ),
-            ),
-          ],
+              const SizedBox(height: 10),
+              if (_proofImage != null)
+                Center(
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: Image.file(_proofImage!, height: 160),
+                  ),
+                ),
+              const SizedBox(height: 30),
+              Center(
+                child: Container(
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: ElevatedButton(
+                    onPressed: _submitRegistration,
+                    style: ElevatedButton.styleFrom(
+                      elevation: 0,
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: const Text("Register", style: TextStyle(fontSize: 16)),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -222,6 +277,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
       onChanged: onChanged,
       decoration: _inputDecoration(icon, ''),
       borderRadius: BorderRadius.circular(12),
+      isExpanded: true,
     );
   }
 
@@ -233,13 +289,17 @@ class _RegistrationPageState extends State<RegistrationPage> {
     return TextField(
       controller: controller,
       decoration: _inputDecoration(icon, hint),
+      cursorColor: Colors.blue,
     );
   }
 
   Widget _sectionTitle(String text) {
     return Text(text,
         style: const TextStyle(
-            fontWeight: FontWeight.w600, fontSize: 15, color: Colors.black87));
+          fontWeight: FontWeight.w600,
+          fontSize: 15,
+          color: Colors.black87,
+        ));
   }
 
   InputDecoration _inputDecoration(IconData? icon, String hint) {

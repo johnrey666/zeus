@@ -2,6 +2,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:zeus/pages/member_pages/member_home_page.dart';
 
@@ -15,10 +16,11 @@ class PlanningPage extends StatefulWidget {
 class _PlanningPageState extends State<PlanningPage> {
   int currentIndex = 0;
   final Map<String, dynamic> answers = {};
-  final TextEditingController heightController = TextEditingController();
-  final TextEditingController weightController = TextEditingController();
   bool _isTrainer = false;
   bool _isGenerating = false;
+
+  int selectedWeight = 70;
+  int selectedHeight = 170;
 
   final List<Map<String, dynamic>> questions = [
     {
@@ -44,11 +46,11 @@ class _PlanningPageState extends State<PlanningPage> {
     {
       'question': "Select your activity level",
       'options': [
-        "Sedentary (1-2 days/week)",
-        "Lightly Active (1-3 days/week)",
-        "Moderately Active (3-5 days/week)",
-        "Very Active (6-7 days/week)",
-        "Extra Active (2x training)"
+        "Sedentary(little or no exercise)1-2 days a week",
+        "Lightly active(light exercise/sports 1-3 days/week)",
+        "Moderately Active (moderate exercise/sports 3-5 days/week)",
+        "Very active (hard exercise/sports 6-7 days a week)",
+        "Extra active(very hard exercise/sports/physical job or 2x training)"
       ],
       'type': 'radio',
     },
@@ -62,6 +64,7 @@ class _PlanningPageState extends State<PlanningPage> {
   void initState() {
     super.initState();
     _checkUserType();
+    _loadExistingData();
   }
 
   Future<void> _checkUserType() async {
@@ -77,6 +80,24 @@ class _PlanningPageState extends State<PlanningPage> {
     });
   }
 
+  Future<void> _loadExistingData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final doc = await FirebaseFirestore.instance
+        .collection('workout_plans')
+        .doc(user.uid)
+        .get();
+
+    if (doc.exists) {
+      final data = doc.data()!;
+      setState(() {
+        selectedWeight = int.tryParse(data['Weight']?.toString() ?? '') ?? 70;
+        selectedHeight = int.tryParse(data['Height']?.toString() ?? '') ?? 170;
+      });
+    }
+  }
+
   void next() async {
     if (currentIndex < questions.length - 1) {
       setState(() => currentIndex++);
@@ -84,8 +105,8 @@ class _PlanningPageState extends State<PlanningPage> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
-      answers['Height'] = heightController.text.trim();
-      answers['Weight'] = weightController.text.trim();
+      answers['Weight'] = selectedWeight.toString();
+      answers['Height'] = selectedHeight.toString();
 
       setState(() => _isGenerating = true);
 
@@ -118,80 +139,188 @@ class _PlanningPageState extends State<PlanningPage> {
     final String? subtitle = questionData['subtitle'];
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Text(question,
-            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+        Center(
+          child: Text(
+            question,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          ),
+        ),
         if (subtitle != null)
           Padding(
             padding: const EdgeInsets.only(top: 6.0),
-            child: Text(subtitle,
-                style: const TextStyle(color: Colors.grey, fontSize: 14)),
+            child: Text(
+              subtitle,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.grey, fontSize: 14),
+            ),
+          ),
+        if (question == "What is your fitness goal?")
+          Padding(
+            padding: const EdgeInsets.only(top: 16.0),
+            child: Image.asset('assets/images/zeus.png', height: 190),
           ),
         const SizedBox(height: 20),
-        ...options.map((option) => Container(
+        ...options.map((option) {
+          final isSelected = answers[question] == option;
+
+          return GestureDetector(
+            onTap: () {
+              setState(() {
+                answers[question] = option;
+              });
+            },
+            child: Container(
+              width: double.infinity,
               margin: const EdgeInsets.symmetric(vertical: 6),
+              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
               decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
+                gradient: isSelected
+                    ? const LinearGradient(
+                        colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+                      )
+                    : const LinearGradient(
+                        colors: [Color(0xFFF7F8F8), Color(0xFFF7F8F8)],
+                      ),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isSelected ? Colors.transparent : Colors.grey.shade300,
+                ),
               ),
-              child: RadioListTile<String>(
-                title: Text(option.replaceAll('\n', '\n'),
-                    style: const TextStyle(fontSize: 16)),
-                value: option,
-                groupValue: answers[question],
-                onChanged: (value) {
-                  setState(() {
-                    answers[question] = value;
-                  });
-                },
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: option.split('\n').map((line) {
+                        final isMain = line == option.split('\n').first;
+                        return Text(
+                          line,
+                          style: TextStyle(
+                            fontSize: isMain ? 16 : 13,
+                            fontWeight: isMain
+                                ? FontWeight.bold
+                                : FontWeight.normal,
+                            color: isSelected ? Colors.white : Colors.black,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  if (isSelected)
+                    const Icon(Icons.check_circle,
+                        color: Colors.greenAccent, size: 24),
+                ],
               ),
-            ))
+            ),
+          );
+        }),
       ],
     );
   }
 
   Widget _buildHeightWeightForm() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text("Let us know you better",
-            style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: weightController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "Weight (kg)",
-                  border: OutlineInputBorder(),
-                ),
-              ),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Center(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: const [
+            Text(
+              "Let us know you better",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: heightController,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: "Height (cm)",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            )
+            SizedBox(height: 8),
+            Text(
+              "Let us know you better to help boast your workout results",
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 14, color: Colors.grey),
+            ),
           ],
-        )
-      ],
-    );
-  }
+        ),
+      ),
+      const SizedBox(height: 16),
+      Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text(
+                  "Weight (kg)",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 150,
+                  child: CupertinoPicker(
+                    scrollController: FixedExtentScrollController(
+                        initialItem: selectedWeight - 30),
+                    itemExtent: 40,
+                    onSelectedItemChanged: (value) {
+                      setState(() {
+                        selectedWeight = value + 30;
+                      });
+                    },
+                    children: List.generate(
+                      221,
+                      (index) => Center(
+                        child: Text("${index + 30}",
+                            style: const TextStyle(fontSize: 20)),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text(
+                  "Height (cm)",
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 150,
+                  child: CupertinoPicker(
+                    scrollController: FixedExtentScrollController(
+                        initialItem: selectedHeight - 100),
+                    itemExtent: 40,
+                    onSelectedItemChanged: (value) {
+                      setState(() {
+                        selectedHeight = value + 100;
+                      });
+                    },
+                    children: List.generate(
+                      201,
+                      (index) => Center(
+                        child: Text("${index + 100}",
+                            style: const TextStyle(fontSize: 20)),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    ],
+  );
+}
 
   @override
   Widget build(BuildContext context) {
     final currentQuestion = questions[currentIndex];
 
     return Scaffold(
+      backgroundColor: Colors.white,
       body: _isGenerating
           ? const _LoadingScreen()
           : _isTrainer
@@ -218,33 +347,47 @@ class _PlanningPageState extends State<PlanningPage> {
                       ),
                       const SizedBox(height: 20),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           if (currentIndex > 0)
                             ElevatedButton(
                               onPressed: back,
                               style: ElevatedButton.styleFrom(
                                 backgroundColor: Colors.grey[300],
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 32, vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
                               ),
                               child: const Text("Back",
                                   style: TextStyle(color: Colors.black)),
-                            )
-                          else
-                            const SizedBox(width: 80),
-                          ElevatedButton(
-                            onPressed: next,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.black,
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 12, horizontal: 24),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8)),
                             ),
-                            child: Text(
-                              currentIndex == questions.length - 1
-                                  ? "Get My Plan"
-                                  : "Next",
-                              style: const TextStyle(color: Colors.white),
+                          const SizedBox(width: 12),
+                          Container(
+                            decoration: BoxDecoration(
+                              gradient: const LinearGradient(
+                                colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+                              ),
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            child: ElevatedButton(
+                              onPressed: next,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                shadowColor: Colors.transparent,
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 32, vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(30),
+                                ),
+                              ),
+                              child: Text(
+                                currentIndex == questions.length - 1
+                                    ? "Get My Plan"
+                                    : "Continue",
+                                style: const TextStyle(color: Colors.white),
+                              ),
                             ),
                           ),
                         ],

@@ -24,7 +24,7 @@ class _MemberHomePageState extends State<MemberHomePage>
   OverlayEntry? _notifOverlay;
   final GlobalKey _notifKey = GlobalKey();
 
-  final List<String> _titles = ['Training', 'Reports', 'Scannner'];
+  final List<String> _titles = ['Training', 'Reports', 'Scanner'];
   final List<Widget> _pages = const [
     TrainingPage(),
     ReportPage(),
@@ -143,27 +143,40 @@ class _MemberHomePageState extends State<MemberHomePage>
     _animController.forward(from: 0);
 
     _notifOverlay = OverlayEntry(builder: (_) {
-      return Positioned(
-        top: offset.dy + size.height + 8,
-        right: 16,
-        child: Material(
-          color: Colors.transparent,
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: Container(
-                width: 300,
-                constraints: const BoxConstraints(maxHeight: 400),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [BoxShadow(color: Colors.black26, blurRadius: 8)],
+      return GestureDetector(
+        onTap: () {
+          _notifOverlay?.remove();
+          _notifOverlay = null;
+        },
+        behavior: HitTestBehavior.translucent,
+        child: Stack(
+          children: [
+            Positioned(
+              top: offset.dy + size.height + 8,
+              right: 16,
+              child: Material(
+                color: Colors.transparent,
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: SlideTransition(
+                    position: _slideAnimation,
+                    child: Container(
+                      width: 320,
+                      constraints: const BoxConstraints(maxHeight: 450),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(color: Colors.black26, blurRadius: 8)
+                        ],
+                      ),
+                      child: AnnouncementDropdown(userId: user?.uid ?? ""),
+                    ),
+                  ),
                 ),
-                child: AnnouncementDropdown(userId: user?.uid ?? ""),
               ),
             ),
-          ),
+          ],
         ),
       );
     });
@@ -223,8 +236,10 @@ class _MemberHomePageState extends State<MemberHomePage>
                               return const SizedBox();
                             }
                             final unread = snapshot.data!.docs.where((doc) {
-                              final data = doc.data() as Map<String, dynamic>;
-                              final readBy = List<String>.from(data['readBy'] ?? []);
+                              final data =
+                                  doc.data() as Map<String, dynamic>;
+                              final readBy = List<String>.from(
+                                  data['readBy'] ?? []);
                               return !readBy.contains(user!.uid);
                             }).length;
 
@@ -262,15 +277,6 @@ class _MemberHomePageState extends State<MemberHomePage>
                           child: ListTile(
                               leading: Icon(Icons.person),
                               title: Text('Profile')),
-                        ),
-                        PopupMenuItem(
-                          value: 'toggle_theme',
-                          child: ListTile(
-                              leading: Icon(_isDarkMode
-                                  ? Icons.light_mode
-                                  : Icons.dark_mode),
-                              title: Text(
-                                  _isDarkMode ? 'Light Mode' : 'Dark Mode')),
                         ),
                         const PopupMenuItem(
                           value: 'logout',
@@ -338,6 +344,61 @@ class AnnouncementDropdown extends StatelessWidget {
   final String userId;
   const AnnouncementDropdown({super.key, required this.userId});
 
+void _showNotificationModal(BuildContext context, String text, String timeStr) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    backgroundColor: Colors.transparent, // Needed to apply rounded corners with white bg
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+    ),
+    builder: (context) {
+      return Container(
+        decoration: const BoxDecoration(
+          color: Colors.white, // Set background color to white
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Wrap(
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.person, color: Colors.black),
+                SizedBox(width: 8),
+                Text(
+                  "Admin",
+                  style: TextStyle(fontWeight: FontWeight.w600, fontSize: 18),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              text,
+              style: const TextStyle(fontSize: 16),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              timeStr,
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 20),
+            Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  "Close",
+                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600),
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+}
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<QuerySnapshot>(
@@ -348,54 +409,140 @@ class AnnouncementDropdown extends StatelessWidget {
       builder: (context, snapshot) {
         if (!snapshot.hasData) {
           return const SizedBox(
-              height: 100, child: Center(child: CircularProgressIndicator()));
+            height: 100,
+            child: Center(child: CircularProgressIndicator()),
+          );
         }
 
         final docs = snapshot.data!.docs;
+        final newNotifs = docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final readBy = List<String>.from(data['readBy'] ?? []);
+          return !readBy.contains(userId);
+        }).toList();
 
-        if (docs.isEmpty) {
-          return const SizedBox(
-              height: 60, child: Center(child: Text("No Announcements")));
-        }
+        final oldNotifs = docs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final readBy = List<String>.from(data['readBy'] ?? []);
+          return readBy.contains(userId);
+        }).toList();
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: docs.map((doc) {
-            final data = doc.data() as Map<String, dynamic>;
-            final text = data['text'] ?? '';
-            final ts = data['timestamp'] as Timestamp?;
-            final timeStr = ts != null
-                ? DateFormat('MMM d, h:mm a').format(ts.toDate())
-                : '';
-            final readBy = List<String>.from(data['readBy'] ?? []);
-            final isNew = !readBy.contains(userId);
+        return SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'New Notifications',
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                ),
+              ),
 
-            return ListTile(
-              title: Text(text, style: GoogleFonts.poppins(fontSize: 14)),
-              subtitle: Text(timeStr,
-                  style: GoogleFonts.poppins(color: Colors.grey, fontSize: 12)),
-              trailing: isNew
-                  ? Container(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(12),
+              /// 🆕 Show this if no new notifications
+              if (newNotifs.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 8),
+                  child: Text(
+                    'No new notifications',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+
+              /// 📨 List of new (unread) notifications
+              ...newNotifs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                final text = data['text'] ?? '';
+                final ts = data['timestamp'] as Timestamp?;
+                final timeStr = ts != null
+                    ? DateFormat('MMM d, h:mm a').format(ts.toDate())
+                    : '';
+
+                return ListTile(
+                  title: Row(
+                    children: const [
+                      Icon(Icons.person, color: Colors.black),
+                      SizedBox(width: 8),
+                      Text("Admin",
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                  subtitle:
+                      Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  trailing: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Text(
+                      'New',
+                      style: TextStyle(color: Colors.white, fontSize: 12),
+                    ),
+                  ),
+                  onTap: () {
+                    FirebaseFirestore.instance
+                        .collection('announcements')
+                        .doc(doc.id)
+                        .update({
+                      'readBy': FieldValue.arrayUnion([userId])
+                    });
+                    _showNotificationModal(context, text, timeStr);
+                  },
+                );
+              }),
+
+              /// 📜 Previous (read) notifications
+              if (oldNotifs.isNotEmpty)
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Previous Notifications',
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
                       ),
-                      child: const Text('New',
-                          style: TextStyle(color: Colors.white, fontSize: 12)),
-                    )
-                  : null,
-              onTap: () {
-                FirebaseFirestore.instance
-                    .collection('announcements')
-                    .doc(doc.id)
-                    .update({
-                  'readBy': FieldValue.arrayUnion([userId])
-                });
-              },
-            );
-          }).toList(),
+                    ),
+                  ),
+                ),
+
+              ...oldNotifs.map((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                final text = data['text'] ?? '';
+                final ts = data['timestamp'] as Timestamp?;
+                final timeStr = ts != null
+                    ? DateFormat('MMM d, h:mm a').format(ts.toDate())
+                    : '';
+
+                return ListTile(
+                  title: Row(
+                    children: const [
+                      Icon(Icons.person, color: Colors.black),
+                      SizedBox(width: 8),
+                      Text("Admin",
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                    ],
+                  ),
+                  subtitle:
+                      Text(text, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  onTap: () {
+                    _showNotificationModal(context, text, timeStr);
+                  },
+                );
+              }),
+            ],
+          ),
         );
       },
     );

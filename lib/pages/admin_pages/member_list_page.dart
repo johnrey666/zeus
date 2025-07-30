@@ -113,7 +113,7 @@ class _MemberListPageState extends State<MemberListPage> {
   }
 
 void _showQrModal(String userId) async {
-  // Step 1: Load user document first
+  // Step 1: Load user document
   final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
   final userData = userDoc.data();
 
@@ -135,20 +135,42 @@ void _showQrModal(String userId) async {
     return;
   }
 
+  final firstName = userData['firstName'] ?? '';
+  final lastName = userData['lastName'] ?? '';
   final memberId = userData['memberId'];
 
-  // Step 2: Now show dialog after data is available
+  // Step 2: Show QR modal with name and ID
   showDialog(
     context: context,
     builder: (_) => AlertDialog(
       backgroundColor: Colors.white,
       title: const Text('QR Code', style: TextStyle(color: Colors.black)),
-      content: Center(
-        child: QrImageView(
-          data: memberId,
-          version: QrVersions.auto,
-          size: 200.0,
-        ),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            "$firstName $lastName",
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: Colors.black,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            memberId,
+            style: const TextStyle(
+              fontSize: 14,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 12),
+          QrImageView(
+            data: memberId,
+            version: QrVersions.auto,
+            size: 200.0,
+          ),
+        ],
       ),
       actions: [
         TextButton(
@@ -489,7 +511,7 @@ void _showQrModal(String userId) async {
                                           ),
                                           const SizedBox(width: 10),
                                           ElevatedButton.icon(
-                                            onPressed: () => _showQrModal(data['qrCode'] ?? ''),
+                                            onPressed: () => _showQrModal(userId),
                                             icon: const Icon(Icons.qr_code, color: Colors.black, size: 18),
                                             label: const Text("QR Code", style: TextStyle(color: Colors.black, fontSize: 13)),
                                             style: ElevatedButton.styleFrom(

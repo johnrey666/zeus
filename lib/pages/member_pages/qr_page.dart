@@ -56,9 +56,7 @@ class _QRPageState extends State<QRPage> {
     setState(() {
       attendanceStream = entriesRef
           .where('memberId', isEqualTo: memberId)
-          .orderBy('timestamp', descending: true)
-          .limit(1)
-          .snapshots();
+          .snapshots(); // No index needed
     });
   }
 
@@ -71,27 +69,51 @@ class _QRPageState extends State<QRPage> {
           : StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
               stream: attendanceStream,
               builder: (context, snapshot) {
-                String timeIn = '-';
-                String timeOut = '-';
-                String date = '-';
+                String timeIn = 'N/A';
+                String timeOut = 'N/A';
+                String date = DateFormat('MM/dd/yy').format(DateTime.now());
 
-                if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
-                  final doc = snapshot.data!.docs.first;
-                  final data = doc.data();
+                if (snapshot.hasError) {
+                  print("❌ Error fetching attendance: ${snapshot.error}");
+                  timeIn = timeOut = date = 'Error';
+                } else if (snapshot.connectionState ==
+                    ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                } else if (snapshot.hasData) {
+                  final List<QueryDocumentSnapshot<Map<String, dynamic>>> docs =
+                      snapshot.data!.docs.toList();
 
-                  // Debug log
-                  print("Fetched attendance data: $data");
+                  if (docs.isNotEmpty) {
+                    // ✅ Safely get the latest document without .reduce()
+                    QueryDocumentSnapshot<Map<String, dynamic>> latestDoc =
+                        docs[0];
 
-                  if (data.containsKey('timeIn')) {
-                    timeIn = _formatTo12Hour(data['timeIn']);
-                  }
-                  if (data.containsKey('timeOut')) {
-                    timeOut = _formatTo12Hour(data['timeOut']);
-                  }
-                  if (data.containsKey('timestamp') &&
-                      data['timestamp'] is Timestamp) {
-                    date = DateFormat('MM/dd/yy')
-                        .format((data['timestamp'] as Timestamp).toDate());
+                    for (final doc in docs) {
+                      final ts = doc.data()['timestamp'] as Timestamp?;
+                      final latestTs =
+                          latestDoc.data()['timestamp'] as Timestamp?;
+                      if (ts != null &&
+                          latestTs != null &&
+                          ts.compareTo(latestTs) > 0) {
+                        latestDoc = doc;
+                      }
+                    }
+
+                    final data = latestDoc.data();
+                    print("✅ Attendance data found: $data");
+
+                    if (data.containsKey('timeIn')) {
+                      timeIn = _formatTo12Hour(data['timeIn']);
+                    }
+                    if (data.containsKey('timeOut')) {
+                      timeOut = _formatTo12Hour(data['timeOut']);
+                    }
+                    if (data['timestamp'] is Timestamp) {
+                      date = DateFormat('MM/dd/yy')
+                          .format((data['timestamp'] as Timestamp).toDate());
+                    }
+                  } else {
+                    print("ℹ️ No attendance data found for today.");
                   }
                 }
 
@@ -109,8 +131,8 @@ class _QRPageState extends State<QRPage> {
                         ),
                         Text(
                           'ID: $memberId',
-                          style:
-                              const TextStyle(fontSize: 16, color: Colors.grey),
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.grey),
                         ),
                         const SizedBox(height: 40),
                         Center(
@@ -131,8 +153,7 @@ class _QRPageState extends State<QRPage> {
                         const SizedBox(height: 20),
                         const Text(
                           'Scan this code for attendance',
-                          style:
-                              TextStyle(fontSize: 16, color: Colors.black87),
+                          style: TextStyle(fontSize: 16, color: Colors.black87),
                         ),
                         const SizedBox(height: 30),
                         Row(
@@ -141,24 +162,24 @@ class _QRPageState extends State<QRPage> {
                             Column(
                               children: [
                                 const Text('Check In',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold)),
                                 Text(timeIn),
                               ],
                             ),
                             Column(
                               children: [
                                 const Text('Check Out',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold)),
                                 Text(timeOut),
                               ],
                             ),
                             Column(
                               children: [
                                 const Text('Date',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold)),
                                 Text(date),
                               ],
                             ),
@@ -175,7 +196,7 @@ class _QRPageState extends State<QRPage> {
   }
 
   String _formatTo12Hour(dynamic timeStr) {
-    if (timeStr == null || timeStr.toString().trim().isEmpty) return '-';
+    if (timeStr == null || timeStr.toString().trim().isEmpty) return 'N/A';
     try {
       DateTime parsed;
       if (timeStr.toString().length <= 5) {
@@ -185,7 +206,7 @@ class _QRPageState extends State<QRPage> {
       }
       return DateFormat("h:mm a").format(parsed);
     } catch (_) {
-      return '-';
+      return 'N/A';
     }
   }
 }

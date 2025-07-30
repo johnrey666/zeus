@@ -38,22 +38,41 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
   Future<void> _loadUserData() async {
     if (user == null) return;
 
-    final doc = await FirebaseFirestore.instance
+    final userDoc = await FirebaseFirestore.instance
         .collection('users')
         .doc(user!.uid)
         .get();
-    if (doc.exists) {
-      final data = doc.data()!;
+
+    final planDoc = await FirebaseFirestore.instance
+        .collection('workout_plans')
+        .doc(user!.uid)
+        .get();
+
+    if (userDoc.exists) {
+      final userData = userDoc.data()!;
       setState(() {
-        _firstNameController.text = data['firstName'] ?? '';
-        _lastNameController.text = data['lastName'] ?? '';
-        _phoneController.text = data['phone'] ?? '';
-        _ageController.text = data['age'] ?? '';
-        _selectedGender = data['gender'];
-        _heightController.text = data['height'] ?? '';
-        _weightController.text = data['weight'] ?? '';
-        if ((data['profileImagePath'] ?? '').isNotEmpty) {
-          _profileImage = File(data['profileImagePath']);
+        _firstNameController.text = userData['firstName'] ?? '';
+        _lastNameController.text = userData['lastName'] ?? '';
+        _phoneController.text = userData['phone'] ?? '';
+        _ageController.text = userData['age'] ?? '';
+        _selectedGender = userData['gender'];
+        if ((userData['profileImagePath'] ?? '').isNotEmpty) {
+          _profileImage = File(userData['profileImagePath']);
+        }
+
+        _heightController.text = userData['height'] ?? '';
+        _weightController.text = userData['weight'] ?? '';
+      });
+    }
+
+    if (planDoc.exists) {
+      final planData = planDoc.data()!;
+      setState(() {
+        if (planData.containsKey('Height')) {
+          _heightController.text = planData['Height'] ?? '';
+        }
+        if (planData.containsKey('Weight')) {
+          _weightController.text = planData['Weight'] ?? '';
         }
       });
     }
@@ -204,18 +223,22 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
             child: SizedBox(
               width: double.infinity,
               height: 50,
-              child: FilledButton(
-                style: FilledButton.styleFrom(
-                  backgroundColor: Colors.black87,
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14)),
+              child: InkWell(
+                onTap: _handleSubscription,
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text("Subscribe to Plan",
+                      style: GoogleFonts.poppins(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white)),
                 ),
-                onPressed: _handleSubscription,
-                child: Text("Subscribe to Plan",
-                    style: GoogleFonts.poppins(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white)),
               ),
             ),
           ),
@@ -228,6 +251,7 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
       IconData icon, String hint, TextEditingController controller) {
     return TextField(
       controller: controller,
+      cursorColor: Colors.blue, // 🔵 Blue cursor color
       style: GoogleFonts.poppins(),
       decoration: InputDecoration(
         prefixIcon: Icon(icon),
@@ -254,21 +278,21 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
   }
 
   Widget _buildGenderOption(String gender) {
-    return SizedBox(
-      height: 42,
-      child: ChoiceChip(
-        label: Text(gender, style: GoogleFonts.poppins()),
-        selected: _selectedGender == gender,
-        onSelected: (_) => setState(() => _selectedGender = gender),
-        selectedColor: Colors.blueAccent,
-        backgroundColor: Colors.grey[300],
-        labelStyle: TextStyle(
-          color: _selectedGender == gender ? Colors.white : Colors.black,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+  return SizedBox(
+    height: 42,
+    child: ChoiceChip(
+      label: Text(gender, style: GoogleFonts.poppins()),
+      selected: _selectedGender == gender,
+      onSelected: (_) => setState(() => _selectedGender = gender),
+      selectedColor: Colors.blueAccent,
+      backgroundColor: Colors.grey[300],
+      labelStyle: TextStyle(
+        color: _selectedGender == gender ? Colors.white : Colors.black,
       ),
-    );
-  }
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    ),
+  );
+}
 
   Widget _buildProfileImageBox() {
     return GestureDetector(
