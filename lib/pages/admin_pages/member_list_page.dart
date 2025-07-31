@@ -532,22 +532,29 @@ void _showQrModal(String userId) async {
                       ),
               ),
               if (_filteredMembers.length > _itemsPerPage)
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    TextButton(
-                      onPressed: _currentPage > 0 ? () => setState(() => _currentPage--) : null,
-                      child: const Text("Previous"),
-                    ),
-                    Text("Page ${_currentPage + 1} of ${(_filteredMembers.length / _itemsPerPage).ceil()}"),
-                    TextButton(
-                      onPressed: (_currentPage + 1) * _itemsPerPage < _filteredMembers.length
-                          ? () => setState(() => _currentPage++)
-                          : null,
-                      child: const Text("Next"),
-                    ),
-                  ],
-                ),
+  Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      TextButton(
+        onPressed: _currentPage > 0 ? () => setState(() => _currentPage--) : null,
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.blue,
+        ),
+        child: const Text("Previous"),
+      ),
+      Text("Page ${_currentPage + 1} of ${(_filteredMembers.length / _itemsPerPage).ceil()}"),
+      TextButton(
+        onPressed: (_currentPage + 1) * _itemsPerPage < _filteredMembers.length
+            ? () => setState(() => _currentPage++)
+            : null,
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.blue,
+        ),
+        child: const Text("Next"),
+      ),
+    ],
+  ),
+
             ],
           ),
         ),

@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:zeus/pages/member_pages/member_home_page.dart';
+import 'dart:math';
 
 class PlanningPage extends StatefulWidget {
   const PlanningPage({super.key});
@@ -108,7 +109,9 @@ class _PlanningPageState extends State<PlanningPage> {
       answers['Weight'] = selectedWeight.toString();
       answers['Height'] = selectedHeight.toString();
 
-      setState(() => _isGenerating = true);
+      setState(() {
+  _isGenerating = true;
+});
 
       await FirebaseFirestore.instance
           .collection('workout_plans')
@@ -322,7 +325,14 @@ class _PlanningPageState extends State<PlanningPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: _isGenerating
-          ? const _LoadingScreen()
+    ? _LoadingScreen(
+        goal: answers['What is your fitness goal?'],
+        fitnessLevel: answers['Select Your Fitness Level'],
+        activityLevel: answers['Select your activity level'],
+        height: selectedHeight,
+        weight: selectedWeight,
+      )
+
           : _isTrainer
               ? const Center(
                   child: Text("Trainers cannot create workout plans."))
@@ -400,31 +410,156 @@ class _PlanningPageState extends State<PlanningPage> {
 }
 
 class _LoadingScreen extends StatelessWidget {
-  const _LoadingScreen();
+  final String goal;
+  final String fitnessLevel;
+  final String activityLevel;
+  final int height;
+  final int weight;
+
+  const _LoadingScreen({
+    super.key,
+    required this.goal,
+    required this.fitnessLevel,
+    required this.activityLevel,
+    required this.height,
+    required this.weight,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
       color: Colors.white,
       width: double.infinity,
-      child: const Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            SizedBox(
-              width: 60,
-              height: 60,
-              child: CircularProgressIndicator(strokeWidth: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const SizedBox(height: 80),
+          const Text(
+            "GENERATING THE PLAN FOR YOU",
+            style: TextStyle(
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1.2,
+              color: Colors.black,
             ),
-            SizedBox(height: 24),
-            Text(
-              "Generating Your Plan...",
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            "Preparing your plan based on your goal...",
+            style: TextStyle(color: Colors.grey, fontSize: 14),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 90),
+
+          /// Custom Spinning Dot Loader
+          const SpinningFadeDots(),
+
+          const SizedBox(height: 90),
+
+          _DataRow(label: "Your fitness goal:", value: goal),
+          _DataRow(label: "Your fitness level:", value: fitnessLevel.split('\n').first),
+          _DataRow(label: "Your activity level:", value: activityLevel.split('(').first.trim()),
+          _DataRow(
+              label: "Analyze you:",
+              value: "${height ~/ 30}ft ${height % 30}in, ${weight.toStringAsFixed(1)}lbs"),
+          const SizedBox(height: 80),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _DataRow({
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.check_circle_rounded, color: Colors.blue, size: 16),
+          const SizedBox(width: 6),
+          Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(width: 4),
+          Text(value,
+              style: const TextStyle(fontSize: 12, color: Colors.blue, fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Spinning Circle Dot Loader (12 dots)
+class SpinningFadeDots extends StatefulWidget {
+  const SpinningFadeDots({super.key});
+
+  @override
+  State<SpinningFadeDots> createState() => _SpinningFadeDotsState();
+}
+
+class _SpinningFadeDotsState extends State<SpinningFadeDots> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller =
+        AnimationController(vsync: this, duration: const Duration(milliseconds: 1200))..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Widget _buildDot(int index) {
+    final double radius = 60;
+    final angle = (2 * pi * index) / 12;
+
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (_, __) {
+        final progress = (_controller.value * 12).floor() % 12;
+        final isActive = index == progress;
+
+        return Transform.translate(
+          offset: Offset(radius * cos(angle), radius * sin(angle)),
+          child: Opacity(
+            opacity: isActive ? 1.0 : 0.3,
+            child: Container(
+              width: 18,
+              height: 18,
+              decoration: const BoxDecoration(
+                color: Colors.blue,
+                shape: BoxShape.circle,
+              ),
             ),
-            SizedBox(height: 8),
-            Text("Analyzing your data and preferences...",
-                style: TextStyle(color: Colors.grey)),
-          ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 100,
+      height: 100,
+      child: Center(
+        child: Stack(
+          alignment: Alignment.center,
+          children: List.generate(12, _buildDot),
         ),
       ),
     );

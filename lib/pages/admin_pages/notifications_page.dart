@@ -129,7 +129,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         children: [
                           Row(
                             children: [
-                              const CircleAvatar(radius: 12, child: Icon(Icons.person, size: 14)),
+                              CircleAvatar(
+  radius: 12,
+  backgroundImage: AssetImage('assets/zeus_logo.png'),
+  backgroundColor: Colors.transparent,
+),
+
                               const SizedBox(width: 6),
                               Text(data['adminName'] ?? 'Admin', style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
                               const Spacer(),
@@ -139,13 +144,12 @@ class _NotificationsPageState extends State<NotificationsPage> {
                             ],
                           ),
                           const SizedBox(height: 12),
-                          Center(
-                            child: Text(
-                              data['text'] ?? '',
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.poppins(fontSize: 14),
-                            ),
-                          ),
+                          Text(
+  data['text'] ?? '',
+  textAlign: TextAlign.justify,
+  style: GoogleFonts.poppins(fontSize: 14),
+),
+
                         ],
                       ),
                     ),

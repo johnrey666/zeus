@@ -157,7 +157,7 @@ class PendingRegistrationsPage extends StatelessWidget {
                           await _acceptRequest(docId, data);
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blueGrey.shade700,
+                          backgroundColor: Color.fromARGB(255, 58, 136, 61),
                           foregroundColor: Colors.white,
                         ),
                         child: const Text("Accept"),
