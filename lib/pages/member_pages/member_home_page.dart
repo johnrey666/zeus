@@ -1,14 +1,14 @@
-// ... other imports
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'home_page.dart';
 import 'training_page.dart';
 import 'report_page.dart';
 import 'qr_page.dart';
 import 'manage_profile_page.dart';
-import 'member_notification_page.dart'; // ✅ Add this import
+import 'member_notification_page.dart';
 
 class MemberHomePage extends StatefulWidget {
   const MemberHomePage({super.key, required int initialTabIndex});
@@ -22,14 +22,17 @@ class _MemberHomePageState extends State<MemberHomePage>
   int _selectedIndex = 0;
   bool _isDarkMode = false;
 
-  final List<String> _titles = ['Training', 'Reports', 'Scanner'];
-  final List<Widget> _pages = const [
-    TrainingPage(),
-    ReportPage(),
-    QRPage(),
-  ];
-  late final PageController _pageController;
   final user = FirebaseAuth.instance.currentUser;
+
+  final List<String> _titles = ['Home', 'Training', 'Reports', 'Scanner'];
+  final List<Widget> _pages = const [
+    HomePage(),    // 🏠 New Home page
+    TrainingPage(), // 🏋️ Placeholder
+    ReportPage(),   // 📊 Reports
+    QRPage(),       // 📷 QR
+  ];
+
+  late final PageController _pageController;
 
   @override
   void initState() {
@@ -37,9 +40,9 @@ class _MemberHomePageState extends State<MemberHomePage>
     _pageController = PageController();
   }
 
-  void _onItemTapped(int i) {
-    setState(() => _selectedIndex = i);
-    _pageController.jumpToPage(i);
+  void _onItemTapped(int index) {
+    setState(() => _selectedIndex = index);
+    _pageController.jumpToPage(index);
   }
 
   void _handleMenu(String v) {
@@ -70,47 +73,42 @@ class _MemberHomePageState extends State<MemberHomePage>
           color: Colors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: Wrap(
-            children: [
-              const Center(
-                child: Icon(Icons.logout, size: 40, color: Colors.redAccent),
-              ),
-              const SizedBox(height: 16),
-              const Center(
-                child: Text(
-                  'Confirm Logout',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+        padding: const EdgeInsets.all(20),
+        child: Wrap(
+          children: [
+            const Center(
+              child: Icon(Icons.logout, size: 40, color: Colors.redAccent),
+            ),
+            const SizedBox(height: 16),
+            const Center(
+              child: Text('Confirm Logout',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+            ),
+            const SizedBox(height: 10),
+            const Center(child: Text("Are you sure you want to log out?")),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    child: const Text("Cancel",
+                        style: TextStyle(color: Colors.black)),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 10),
-              const Center(child: Text("Are you sure you want to log out?")),
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton(
-                      child: const Text("Cancel",
-                          style: TextStyle(color: Colors.black)),
-                      onPressed: () => Navigator.pop(context),
-                    ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent),
+                    child: const Text("Logout",
+                        style: TextStyle(color: Colors.white)),
+                    onPressed: _logout,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.redAccent,
-                      ),
-                      child: const Text("Logout",
-                          style: TextStyle(color: Colors.white)),
-                      onPressed: _logout,
-                    ),
-                  ),
-                ],
-              )
-            ],
-          ),
+                ),
+              ],
+            )
+          ],
         ),
       ),
     );
@@ -122,7 +120,8 @@ class _MemberHomePageState extends State<MemberHomePage>
 
     return Theme(
       data: themeData.copyWith(
-          textTheme: GoogleFonts.poppinsTextTheme(themeData.textTheme)),
+        textTheme: GoogleFonts.poppinsTextTheme(themeData.textTheme),
+      ),
       child: Scaffold(
         extendBody: true,
         resizeToAvoidBottomInset: false,
@@ -157,37 +156,40 @@ class _MemberHomePageState extends State<MemberHomePage>
                         },
                       ),
                       Positioned(
-  right: 8,
-  top: 8,
-  child: StreamBuilder<QuerySnapshot>(
-    stream: FirebaseFirestore.instance
-        .collection('announcements')
-        .snapshots(),
-    builder: (context, snapshot) {
-      if (!snapshot.hasData || user == null) {
-        return const SizedBox();
-      }
+                        right: 8,
+                        top: 8,
+                        child: StreamBuilder<QuerySnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('announcements')
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData || user == null) {
+                              return const SizedBox();
+                            }
 
-      final newNotifications = snapshot.data!.docs.where((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        final seenBy = Map<String, dynamic>.from(data['seenBy'] ?? {});
-        final seenCount = seenBy[user!.uid] ?? 0;
-        return seenCount < 2; // 👈 Seen 0 or 1 times = NEW
-      });
+                            final newNotifications =
+                                snapshot.data!.docs.where((doc) {
+                              final data =
+                                  doc.data() as Map<String, dynamic>;
+                              final seenBy =
+                                  Map<String, dynamic>.from(data['seenBy'] ?? {});
+                              final seenCount = seenBy[user!.uid] ?? 0;
+                              return seenCount < 2;
+                            });
 
-      return newNotifications.isNotEmpty
-          ? Container(
-              width: 10,
-              height: 10,
-              decoration: const BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-            )
-          : const SizedBox();
-    },
-  ),
-),
+                            return newNotifications.isNotEmpty
+                                ? Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  )
+                                : const SizedBox();
+                          },
+                        ),
+                      ),
                     ]),
                     const SizedBox(width: 12),
                     PopupMenuButton<String>(
@@ -229,9 +231,10 @@ class _MemberHomePageState extends State<MemberHomePage>
         body: Padding(
           padding: const EdgeInsets.only(bottom: 80),
           child: PageView(
-              controller: _pageController,
-              physics: const NeverScrollableScrollPhysics(),
-              children: _pages),
+            controller: _pageController,
+            physics: const NeverScrollableScrollPhysics(),
+            children: _pages,
+          ),
         ),
         bottomNavigationBar: Container(
           margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
@@ -247,25 +250,27 @@ class _MemberHomePageState extends State<MemberHomePage>
           child: ClipRRect(
             borderRadius: BorderRadius.circular(30),
             child: BottomNavigationBar(
-                currentIndex: _selectedIndex,
-                onTap: _onItemTapped,
-                type: BottomNavigationBarType.fixed,
-                backgroundColor: Colors.white,
-                selectedItemColor: Colors.black,
-                unselectedItemColor: Colors.grey,
-                showUnselectedLabels: false,
-                showSelectedLabels: true,
-                selectedLabelStyle: const TextStyle(fontSize: 10),
-                unselectedLabelStyle: const TextStyle(fontSize: 10),
-                items: const [
-                  BottomNavigationBarItem(
-                      icon: Icon(Icons.fitness_center_outlined),
-                      label: 'Train'),
-                  BottomNavigationBarItem(
-                      icon: Icon(Icons.bar_chart_outlined), label: 'Reports'),
-                  BottomNavigationBarItem(
-                      icon: Icon(Icons.qr_code_scanner), label: 'QR'),
-                ]),
+              currentIndex: _selectedIndex,
+              onTap: _onItemTapped,
+              type: BottomNavigationBarType.fixed,
+              backgroundColor: Colors.white,
+              selectedItemColor: Colors.black,
+              unselectedItemColor: Colors.grey,
+              showUnselectedLabels: false,
+              showSelectedLabels: true,
+              selectedLabelStyle: const TextStyle(fontSize: 10),
+              unselectedLabelStyle: const TextStyle(fontSize: 10),
+              items: const [
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.home_outlined), label: 'Home'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.fitness_center_outlined), label: 'Train'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.bar_chart_outlined), label: 'Reports'),
+                BottomNavigationBarItem(
+                    icon: Icon(Icons.qr_code_scanner), label: 'QR'),
+              ],
+            ),
           ),
         ),
       ),
