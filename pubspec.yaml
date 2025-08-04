@@ -28,6 +28,7 @@ dependencies:
   flutter_animate: ^4.5.0
   qr_flutter: ^4.0.0
   qr_code_scanner: ^1.0.1
+  video_player: ^2.8.1
 
 dev_dependencies:
   flutter_test:
@@ -40,3 +41,4 @@ flutter:
   assets:
     - assets/
     - assets/images/
+    - assets/videos/
