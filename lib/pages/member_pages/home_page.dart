@@ -67,157 +67,119 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showWorkoutDetails(String workoutName) {
-  final now = DateTime.now();
-  DateTime _selectedDate = now;
-  final TextEditingController _durationController = TextEditingController();
+    final now = DateTime.now();
+    DateTime _selectedDate = now;
+    final TextEditingController _durationController = TextEditingController();
 
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled: true,
-    showDragHandle: true,
-    backgroundColor: Colors.white,
-    shape: RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (context) => StatefulBuilder(
-      builder: (context, setModalState) => Padding(
-        padding: EdgeInsets.fromLTRB(24, 24, 24, 40),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.blue.shade100, width: 1.5),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  _getWorkoutImage(workoutName),
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Icon(
-                    IconlyLight.activity,
-                    size: 80,
-                    color: Colors.blue.shade300,
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.fromLTRB(24, 24, 24, 40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.blue.shade100, width: 1.5),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    _getWorkoutImage(workoutName),
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      IconlyLight.activity,
+                      size: 80,
+                      color: Colors.blue.shade300,
+                    ),
                   ),
                 ),
-              ),
-            ).animate().fadeIn(duration: 300.ms),
-            SizedBox(height: 12),
+              ).animate().fadeIn(duration: 300.ms),
+              SizedBox(height: 12),
 
-            // Show Demo button directly under the image
-            TextButton(
-              onPressed: () {
-                _showVideoModal(context, workoutName);
-              },
-              child: Text(
-                "Show Demo",
-                style: GoogleFonts.poppins(
-                  color: Colors.blue.shade300,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-            SizedBox(height: 8),
-
-            Text(
-              workoutName,
-              style: GoogleFonts.poppins(
-                fontSize: 24,
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
-              ),
-            ),
-            SizedBox(height: 12),
-            Divider(color: Colors.grey.shade200),
-            SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(IconlyLight.calendar,
-                    color: Colors.blue.shade300, size: 20),
-                SizedBox(width: 8),
-                Text(
-                  "Choose a date and time",
+              // Show Demo button directly under the image
+              TextButton(
+                onPressed: () {
+                  _showVideoModal(context, workoutName);
+                },
+                child: Text(
+                  "Show Demo",
                   style: GoogleFonts.poppins(
+                    color: Colors.blue.shade300,
                     fontSize: 16,
-                    color: Colors.black87,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ],
-            ),
-            SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  flex: 3,
-                  child: GestureDetector(
-                    onTap: () async {
-                      final pickedDate = await showDatePicker(
-                        context: context,
-                        initialDate: now,
-                        firstDate: DateTime(now.year - 1),
-                        lastDate: DateTime(now.year + 1),
-                        builder: (context, child) {
-                          return Theme(
-                            data: Theme.of(context).copyWith(
-                              dialogBackgroundColor: Colors.white,
-                              colorScheme: ColorScheme.light(
-                                primary: Colors.blue.shade100,
-                                onPrimary: Colors.white,
-                                onSurface: Colors.black,
-                              ),
-                              textButtonTheme: TextButtonThemeData(
-                                style: ButtonStyle(
-                                  foregroundColor:
-                                      MaterialStateProperty.all(Colors.green),
-                                  overlayColor: MaterialStateProperty.all(
-                                      Colors.green.withOpacity(0.1)),
-                                ),
-                              ),
-                              dialogTheme: DialogTheme(
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                            ),
-                            child: child!,
-                          );
-                        },
-                      );
+              ),
+              SizedBox(height: 8),
 
-                      if (pickedDate != null) {
-                        final pickedTime = await showTimePicker(
+              Text(
+                workoutName,
+                style: GoogleFonts.poppins(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+              SizedBox(height: 12),
+              Divider(color: Colors.grey.shade200),
+              SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(IconlyLight.calendar,
+                      color: Colors.blue.shade300, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    "Choose a date and time",
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: GestureDetector(
+                      onTap: () async {
+                        final pickedDate = await showDatePicker(
                           context: context,
-                          initialTime: TimeOfDay.now(),
+                          initialDate: now,
+                          firstDate: DateTime(now.year - 1),
+                          lastDate: DateTime(now.year + 1),
                           builder: (context, child) {
                             return Theme(
                               data: Theme.of(context).copyWith(
                                 dialogBackgroundColor: Colors.white,
                                 colorScheme: ColorScheme.light(
-                                  primary: Colors.blue.shade50,
-                                  onPrimary: Colors.black,
-                                  surface: Colors.white,
+                                  primary: Colors.blue.shade100,
+                                  onPrimary: Colors.white,
                                   onSurface: Colors.black,
-                                ),
-                                timePickerTheme: TimePickerThemeData(
-                                  backgroundColor: Colors.white,
-                                  hourMinuteTextColor: Colors.black,
-                                  dialHandColor: Colors.blue.shade300,
-                                  dialBackgroundColor: Colors.blue.shade50,
-                                  entryModeIconColor: Colors.blue,
                                 ),
                                 textButtonTheme: TextButtonThemeData(
                                   style: ButtonStyle(
                                     foregroundColor:
-                                        MaterialStateProperty.resolveWith(
-                                      (states) => states.contains(
-                                              MaterialState.pressed)
-                                          ? Colors.red
-                                          : Colors.green,
-                                    ),
+                                        MaterialStateProperty.all(Colors.green),
+                                    overlayColor: MaterialStateProperty.all(
+                                        Colors.green.withOpacity(0.1)),
+                                  ),
+                                ),
+                                dialogTheme: DialogTheme(
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                 ),
                               ),
@@ -226,114 +188,191 @@ class _HomePageState extends State<HomePage> {
                           },
                         );
 
-                        if (pickedTime != null) {
-                          final combined = DateTime(
-                            pickedDate.year,
-                            pickedDate.month,
-                            pickedDate.day,
-                            pickedTime.hour,
-                            pickedTime.minute,
+                        if (pickedDate != null) {
+                          final pickedTime = await showTimePicker(
+                            context: context,
+                            initialTime: TimeOfDay.now(),
+                            builder: (context, child) {
+                              return Theme(
+                                data: Theme.of(context).copyWith(
+                                  dialogBackgroundColor: Colors.white,
+                                  colorScheme: ColorScheme.light(
+                                    primary: Colors.blue.shade50,
+                                    onPrimary: Colors.black,
+                                    surface: Colors.white,
+                                    onSurface: Colors.black,
+                                  ),
+                                  timePickerTheme: TimePickerThemeData(
+                                    backgroundColor: Colors.white,
+                                    hourMinuteTextColor: Colors.black,
+                                    dialHandColor: Colors.blue.shade300,
+                                    dialBackgroundColor: Colors.blue.shade50,
+                                    entryModeIconColor: Colors.blue,
+                                  ),
+                                  textButtonTheme: TextButtonThemeData(
+                                    style: ButtonStyle(
+                                      foregroundColor:
+                                          MaterialStateProperty.resolveWith(
+                                        (states) => states
+                                                .contains(MaterialState.pressed)
+                                            ? Colors.red
+                                            : Colors.green,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                child: child!,
+                              );
+                            },
                           );
-                          setModalState(() => _selectedDate = combined);
+
+                          if (pickedTime != null) {
+                            final combined = DateTime(
+                              pickedDate.year,
+                              pickedDate.month,
+                              pickedDate.day,
+                              pickedTime.hour,
+                              pickedTime.minute,
+                            );
+                            setModalState(() => _selectedDate = combined);
+                          }
                         }
-                      }
-                    },
+                      },
+                      child: Container(
+                        height: 52,
+                        padding: EdgeInsets.symmetric(horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')} "
+                                "${TimeOfDay.fromDateTime(_selectedDate).format(context)}",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: Colors.black,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Icon(Icons.calendar_today_outlined,
+                                size: 18, color: Colors.blue.shade300),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
                     child: Container(
                       height: 52,
-                      padding: EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.grey.shade300),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(
-                            child: Text(
-                              "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')} "
-                              "${TimeOfDay.fromDateTime(_selectedDate).format(context)}",
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                color: Colors.black,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
+                      child: TextField(
+                        controller: _durationController,
+                        keyboardType: TextInputType.number,
+                        cursorColor: Colors.blue,
+                        decoration: InputDecoration(
+                          hintText: "Minutes",
+                          filled: true,
+                          fillColor: Colors.white,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
                           ),
-                          SizedBox(width: 8),
-                          Icon(Icons.calendar_today_outlined,
-                              size: 18, color: Colors.blue.shade300),
-                        ],
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                                color: Colors.blue.shade300, width: 2),
+                          ),
+                          contentPadding: EdgeInsets.symmetric(horizontal: 16),
+                        ),
+                        style: GoogleFonts.poppins(
+                            fontSize: 14, color: Colors.black),
                       ),
                     ),
                   ),
-                ),
-                SizedBox(width: 12),
-                Expanded(
-                  flex: 2,
-                  child: Container(
-                    height: 52,
-                    child: TextField(
-                      controller: _durationController,
-                      keyboardType: TextInputType.number,
-                      cursorColor: Colors.blue,
-                      decoration: InputDecoration(
-                        hintText: "Minutes",
-                        filled: true,
-                        fillColor: Colors.white,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide:
-                              BorderSide(color: Colors.blue.shade300, width: 2),
-                        ),
-                        contentPadding:
-                            EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                      style: GoogleFonts.poppins(
-                          fontSize: 14, color: Colors.black),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            SizedBox(height: 24),
-            Container(
-              width: double.infinity,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                gradient: LinearGradient(
-                  colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
-                ),
+                ],
               ),
-              child: ElevatedButton.icon(
-                icon: Icon(IconlyLight.plus, size: 20),
-                label: Text(
-                  "Add to Calendar",
-                  style: GoogleFonts.poppins(fontSize: 16),
-                ),
-                style: ElevatedButton.styleFrom(
-                  elevation: 0,
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  padding:
-                      EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              SizedBox(height: 24),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
                   ),
                 ),
-                onPressed: () async {
-                  final minutes = int.tryParse(_durationController.text);
-                  if (minutes == null || minutes <= 0) {
+                child: ElevatedButton.icon(
+                  icon: Icon(IconlyLight.plus, size: 20),
+                  label: Text(
+                    "Add to Calendar",
+                    style: GoogleFonts.poppins(fontSize: 16),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    elevation: 0,
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () async {
+                    final minutes = int.tryParse(_durationController.text);
+                    if (minutes == null || minutes <= 0) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("Please enter valid minutes.",
+                              style: GoogleFonts.poppins()),
+                          backgroundColor: Colors.redAccent,
+                          behavior: SnackBarBehavior.floating,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          margin: EdgeInsets.all(16),
+                        ),
+                      );
+                      return;
+                    }
+
+                    final image = _getWorkoutImage(workoutName);
+                    final data = {
+                      'workout': workoutName,
+                      'minutes': minutes,
+                      'timestamp': Timestamp.fromDate(_selectedDate),
+                      'image': image,
+                      'completed': false,
+                    };
+
+                    final uid = user!.uid;
+                    final calendarRef = FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(uid)
+                        .collection('calendar');
+                    final trainingRef = FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(uid)
+                        .collection('training');
+
+                    await calendarRef.add(data);
+                    await trainingRef.add(data);
+
+                    Navigator.pop(context);
+                    _initializeData();
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
-                        content: Text("Please enter valid minutes.",
-                            style: GoogleFonts.poppins()),
-                        backgroundColor: Colors.redAccent,
+                        content: Text(
+                          '$workoutName saved to calendar!',
+                          style: GoogleFonts.poppins(),
+                        ),
+                        backgroundColor: Colors.blue.shade300,
                         behavior: SnackBarBehavior.floating,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -341,118 +380,102 @@ class _HomePageState extends State<HomePage> {
                         margin: EdgeInsets.all(16),
                       ),
                     );
-                    return;
-                  }
-
-                  final image = _getWorkoutImage(workoutName);
-                  final data = {
-                    'workout': workoutName,
-                    'minutes': minutes,
-                    'timestamp': Timestamp.fromDate(_selectedDate),
-                    'image': image,
-                    'completed': false,
-                  };
-
-                  final uid = user!.uid;
-                  final calendarRef = FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(uid)
-                      .collection('calendar');
-                  final trainingRef = FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(uid)
-                      .collection('training');
-
-                  await calendarRef.add(data);
-                  await trainingRef.add(data);
-
-                  Navigator.pop(context);
-                  _initializeData();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        '$workoutName saved to calendar!',
-                        style: GoogleFonts.poppins(),
-                      ),
-                      backgroundColor: Colors.blue.shade300,
-                      behavior: SnackBarBehavior.floating,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      margin: EdgeInsets.all(16),
-                    ),
-                  );
-                },
-              ),
-            ).animate().slideY(begin: 0.2, end: 0, duration: 300.ms),
-            SizedBox(height: 16),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                "Cancel",
-                style: GoogleFonts.poppins(
-                  color: Colors.redAccent,
-                  fontSize: 16,
+                  },
+                ),
+              ).animate().slideY(begin: 0.2, end: 0, duration: 300.ms),
+              SizedBox(height: 16),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  "Cancel",
+                  style: GoogleFonts.poppins(
+                    color: Colors.redAccent,
+                    fontSize: 16,
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 
   void _showVideoModal(BuildContext context, String workoutName) {
-  final videoPath = _getWorkoutVideo(workoutName);
-  final controller = VideoPlayerController.asset(videoPath);
+    final videoPath = _getWorkoutVideo(workoutName);
+    print('Attempting to load video from: $videoPath');
+    final controller = VideoPlayerController.asset(videoPath);
 
-  showGeneralDialog(
-    context: context,
-    barrierDismissible: true,
-    barrierLabel: "VideoDemo",
-    barrierColor: Colors.black.withOpacity(0.4),
-    transitionDuration: Duration(milliseconds: 300),
-    pageBuilder: (context, anim1, anim2) {
-      return Center(
-        child: Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          backgroundColor: Colors.white,
-          child: FutureBuilder(
-            future: controller.initialize(),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.done) {
-                controller.play();
-                return Container(
-                  width: MediaQuery.of(context).size.width * 0.8,
-                  padding: EdgeInsets.all(20),
+    controller.initialize().then((_) {
+      // Initialize but do not play automatically
+    });
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: "VideoDemo",
+      barrierColor: Colors.black.withOpacity(0.6),
+      transitionDuration: Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Center(
+              child: AnimatedContainer(
+                duration: Duration(milliseconds: 300),
+                width: MediaQuery.of(context).size.width * 0.9,
+                height: (MediaQuery.of(context).size.width * 0.9) * (9 / 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black26,
+                      blurRadius: 10,
+                      offset: Offset(0, 5),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
                   child: Stack(
+                    fit: StackFit.expand,
                     children: [
-                      Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          AspectRatio(
-                            aspectRatio: controller.value.aspectRatio,
-                            child: VideoPlayer(controller),
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            workoutName,
-                            style: GoogleFonts.poppins(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.black,
+                      ValueListenableBuilder(
+                        valueListenable: controller,
+                        builder: (context, value, child) {
+                          return VideoPlayer(controller);
+                        },
+                      ),
+                      Positioned.fill(
+                        child: Container(
+                          color: Colors.black.withOpacity(0),
+                          child: Center(
+                            child: IconButton(
+                              icon: Icon(
+                                controller.value.isPlaying
+                                    ? Icons.pause
+                                    : Icons.play_arrow,
+                                color: Colors.black,
+                                size: 50,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  if (controller.value.isPlaying) {
+                                    controller.pause();
+                                  } else {
+                                    controller.play();
+                                  }
+                                });
+                              },
                             ),
                           ),
-                        ],
+                        ),
                       ),
                       Positioned(
-                        top: 0,
-                        right: 0,
+                        top: 10,
+                        right: 10,
                         child: IconButton(
-                          icon: Icon(Icons.close, color: Colors.grey[700]),
+                          icon: Icon(Icons.close, color: Colors.black),
                           onPressed: () {
                             controller.pause();
                             controller.dispose();
@@ -460,34 +483,29 @@ class _HomePageState extends State<HomePage> {
                           },
                         ),
                       ),
+                      Positioned(
+                        bottom: 10,
+                        left: 10,
+                        child: Text(
+                          workoutName,
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color:
+                                Colors.blue, // Changed to blue for visibility
+                            decoration: TextDecoration.none, // Remove underline
+                          ),
+                        ),
+                      ),
                     ],
                   ),
-                );
-              } else {
-                return Container(
-                  padding: EdgeInsets.all(40),
-                  child: Center(
-                    child: CircularProgressIndicator(color: Colors.blue.shade300),
-                  ),
-                );
-              }
-            },
-          ),
-        ),
-      );
-    },
-  ).then((_) => controller.dispose());
-}
-
-  void _initializeVideoPlayer(String workoutName) {
-    final videoPath = _getWorkoutVideo(workoutName);
-    _videoController = VideoPlayerController.asset(videoPath)
-      ..initialize().then((_) {
-        setState(() {});
-        _videoController!.play();
-      }).catchError((error) {
-        print('Error initializing video: $error');
-      });
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 
   String _getWorkoutVideo(String title) {
@@ -514,7 +532,7 @@ class _HomePageState extends State<HomePage> {
       return 'assets/videos/warm_up.mp4';
     if (lower.contains('fullbody')) return 'assets/videos/fullbody.mp4';
     if (lower.contains('lowerbody')) return 'assets/videos/lowerbody.mp4';
-    if (lower.contains('ab workout')) return 'assets/videos/crunches.mp4';
+    if (lower.contains('ab workout')) return 'assets/videos/abworkout.mp4';
     return 'assets/videos/workout.mp4'; // Default video
   }
 

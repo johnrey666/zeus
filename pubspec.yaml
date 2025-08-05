@@ -29,6 +29,7 @@ dependencies:
   qr_flutter: ^4.0.0
   qr_code_scanner: ^1.0.1
   video_player: ^2.8.1
+  flutter_launcher_icons: ^0.13.1
 
 dev_dependencies:
   flutter_test:
@@ -42,3 +43,8 @@ flutter:
     - assets/
     - assets/images/
     - assets/videos/
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/app_icon.png"
