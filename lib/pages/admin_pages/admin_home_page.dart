@@ -27,7 +27,7 @@ class _AdminHomePageState extends State<AdminHomePage>
     'Attendance',
   ];
 
-  late List<Widget> _pages; // Moved from top-level to initState
+  late List<Widget> _pages;
 
   late final PageController _pageController;
 
@@ -39,7 +39,7 @@ class _AdminHomePageState extends State<AdminHomePage>
     _pages = [
       DashboardPage(
         onNavigateToAttendance: () {
-          _onItemTapped(4); // Attendance tab index
+          _onItemTapped(4);
         },
       ),
       const MemberListPage(),
@@ -64,8 +64,8 @@ class _AdminHomePageState extends State<AdminHomePage>
 
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
-    if (mounted) Navigator.pop(context); // close modal
-    if (mounted) Navigator.pop(context); // go back to login
+    if (mounted) Navigator.pop(context);
+    if (mounted) Navigator.pop(context);
   }
 
   void _showLogoutDialog() {

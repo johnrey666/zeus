@@ -407,7 +407,6 @@ class _HomePageState extends State<HomePage> {
     final controller = VideoPlayerController.asset(videoPath);
 
     controller.initialize().then((_) {
-      // Initialize but do not play automatically
     });
 
     showGeneralDialog(
@@ -492,8 +491,8 @@ class _HomePageState extends State<HomePage> {
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                             color:
-                                Colors.blue, // Changed to blue for visibility
-                            decoration: TextDecoration.none, // Remove underline
+                                Colors.blue, 
+                            decoration: TextDecoration.none, 
                           ),
                         ),
                       ),
@@ -533,7 +532,7 @@ class _HomePageState extends State<HomePage> {
     if (lower.contains('fullbody')) return 'assets/videos/fullbody.mp4';
     if (lower.contains('lowerbody')) return 'assets/videos/lowerbody.mp4';
     if (lower.contains('ab workout')) return 'assets/videos/abworkout.mp4';
-    return 'assets/videos/workout.mp4'; // Default video
+    return 'assets/videos/workout.mp4'; 
   }
 
   Map<String, dynamic> _generateWorkoutSchedule(String workout) {

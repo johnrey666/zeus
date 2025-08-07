@@ -20,7 +20,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
     await FirebaseFirestore.instance.collection('announcements').add({
       'text': text,
       'timestamp': FieldValue.serverTimestamp(),
-      'adminName': 'Admin', // You may dynamically get from logged-in admin
+      'adminName': 'Admin', 
       'readBy': [],
     });
 

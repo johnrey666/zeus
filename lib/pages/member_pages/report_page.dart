@@ -355,7 +355,7 @@ Widget _buildBMIIndicator() => _sectionCard(
                 showDialog(
   context: context,
   builder: (ctx) => AlertDialog(
-    backgroundColor: Colors.white, // 🟢 White background
+    backgroundColor: Colors.white,
     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     title: Text("BMI Category",
         style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
@@ -368,7 +368,7 @@ Widget _buildBMIIndicator() => _sectionCard(
         onPressed: () => Navigator.pop(ctx),
         style: TextButton.styleFrom(
           foregroundColor: Colors.white,
-          backgroundColor: Colors.green, // ✅ Green button
+          backgroundColor: Colors.green,
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         ),

@@ -139,7 +139,6 @@ void _showQrModal(String userId) async {
   final lastName = userData['lastName'] ?? '';
   final memberId = userData['memberId'];
 
-  // Step 2: Show QR modal with name and ID
   showDialog(
     context: context,
     builder: (_) => AlertDialog(

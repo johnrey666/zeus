@@ -88,26 +88,45 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
   }
 
   Future<void> _saveProfile() async {
-    if (user == null) return;
+  if (user == null) return;
 
-    final userData = {
-      'firstName': _firstNameController.text.trim(),
-      'lastName': _lastNameController.text.trim(),
-      'phone': _phoneController.text.trim(),
-      'age': _ageController.text.trim(),
-      'gender': _selectedGender,
-      'height': _heightController.text.trim(),
-      'weight': _weightController.text.trim(),
-      'profileImagePath': _profileImage?.path ?? '',
-    };
+  final userData = {
+    'firstName': _firstNameController.text.trim(),
+    'lastName': _lastNameController.text.trim(),
+    'phone': _phoneController.text.trim(),
+    'age': _ageController.text.trim(),
+    'gender': _selectedGender,
+    'height': _heightController.text.trim(),
+    'weight': _weightController.text.trim(),
+    'profileImagePath': _profileImage?.path ?? '',
+  };
 
+  final planData = {
+    'Height': _heightController.text.trim(),
+    'Weight': _weightController.text.trim(),
+  };
+
+  final userId = user!.uid;
+
+  try {
+    // 🔹 Update users collection
     await FirebaseFirestore.instance
         .collection('users')
-        .doc(user!.uid)
+        .doc(userId)
         .set(userData, SetOptions(merge: true));
 
+    // 🔹 Update workout_plans collection
+    await FirebaseFirestore.instance
+        .collection('workout_plans')
+        .doc(userId)
+        .set(planData, SetOptions(merge: true));
+
     _showModernSnackBar("✅ Profile updated successfully");
+  } catch (e) {
+    _showModernSnackBar("❌ Failed to update profile. Try again.");
+    debugPrint("Error saving profile: $e");
   }
+}
 
   Future<void> _handleSubscription() async {
     if (user == null) return;

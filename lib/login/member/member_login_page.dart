@@ -205,8 +205,6 @@ class _MemberLoginPageState extends State<MemberLoginPage> {
   ),
 ),
               const SizedBox(height: 20),
-
-              // Custom styled sign up prompt
               Center(
                 child: Wrap(
                   children: [

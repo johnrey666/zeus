@@ -57,8 +57,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
           data: Theme.of(context).copyWith(
             dialogBackgroundColor: Colors.white,
             colorScheme: const ColorScheme.light(
-              primary: Colors.blue, // Circle and active text color
-              onSurface: Colors.black, // Default text color
+              primary: Colors.blue, 
+              onSurface: Colors.black, 
             ),
             textButtonTheme: TextButtonThemeData(
               style: ButtonStyle(

@@ -499,7 +499,6 @@ class _DataRow extends StatelessWidget {
   }
 }
 
-/// Spinning Circle Dot Loader (12 dots)
 class SpinningFadeDots extends StatefulWidget {
   const SpinningFadeDots({super.key});
 

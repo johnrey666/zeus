@@ -167,7 +167,7 @@ void initState() {
                     : ElevatedButton(
                         onPressed: () async {
   await _markAsDone(workout['id']);
-  Navigator.of(context).pop(true); // Notify caller
+  Navigator.of(context).pop(true); 
 },
 
                         style: ElevatedButton.styleFrom(

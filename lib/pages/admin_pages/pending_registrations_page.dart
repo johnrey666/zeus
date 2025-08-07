@@ -153,7 +153,7 @@ class PendingRegistrationsPage extends StatelessWidget {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () async {
-                          Navigator.pop(context); // Close the modal first
+                          Navigator.pop(context); 
                           await _acceptRequest(docId, data);
                         },
                         style: ElevatedButton.styleFrom(

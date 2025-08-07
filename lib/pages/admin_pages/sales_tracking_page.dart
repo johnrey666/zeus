@@ -81,7 +81,7 @@ class _SalesTrackingPageState extends State<SalesTrackingPage> {
       totalSales = total;
       memberSales = members;
       avgSalesValue = total > 0 ? totalAmount / total : 0;
-      recentSales = recent.reversed.toList(); // newest first
+      recentSales = recent.reversed.toList(); 
     });
   }
 
