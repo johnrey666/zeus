@@ -24,6 +24,8 @@ class _HomePageState extends State<HomePage> {
   DateTime? _selectedDay;
   String _selectedBodyPart = 'Abs';
   VideoPlayerController? _videoController;
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
 
   @override
   void initState() {
@@ -659,7 +661,10 @@ class _HomePageState extends State<HomePage> {
           }).toList(),
         ),
         SizedBox(height: 16),
-        ...workoutsByBody[_selectedBodyPart]!.map(buildWorkoutChip).toList(),
+        ...workoutsByBody[_selectedBodyPart]!
+    .where((w) => w.toLowerCase().contains(_searchQuery))
+    .map(buildWorkoutChip)
+    .toList(),
       ],
     );
   }
@@ -678,7 +683,10 @@ class _HomePageState extends State<HomePage> {
           ),
         ),
         SizedBox(height: 16),
-        ...stretches.map(buildWorkoutChip).toList(),
+        ...stretches
+    .where((s) => s.toLowerCase().contains(_searchQuery))
+    .map(buildWorkoutChip)
+    .toList(),
       ],
     );
   }
@@ -715,6 +723,7 @@ class _HomePageState extends State<HomePage> {
         ),
         SizedBox(height: 16),
         ...programs.map((program) {
+           if (!program['title']!.toLowerCase().contains(_searchQuery)) return SizedBox();
           return GestureDetector(
             onTap: () => _showWorkoutDetails(program['title']!),
             child: Container(
@@ -805,31 +814,35 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextField(
-                    cursorColor: Colors.blue,
-                    decoration: InputDecoration(
-                      prefixIcon: Icon(IconlyLight.search, color: Colors.black),
-                      hintText: 'Search workouts...',
-                      hintStyle: GoogleFonts.poppins(
-                        color: Colors.grey.shade600,
-                        fontSize: 16,
-                      ),
-                      filled: true,
-                      fillColor: Colors.white,
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        borderSide:
-                            BorderSide(color: Colors.blue.shade300, width: 2),
-                      ),
-                      contentPadding:
-                          EdgeInsets.symmetric(vertical: 18, horizontal: 24),
-                    ),
-                    style:
-                        GoogleFonts.poppins(fontSize: 16, color: Colors.black),
-                  ).animate().fadeIn(duration: 300.ms),
+  controller: _searchController,
+  onChanged: (value) {
+    setState(() {
+      _searchQuery = value.toLowerCase();
+    });
+  },
+  cursorColor: Colors.blue,
+  decoration: InputDecoration(
+    prefixIcon: Icon(IconlyLight.search, color: Colors.black),
+    hintText: 'Search workouts...',
+    hintStyle: GoogleFonts.poppins(
+      color: Colors.grey.shade600,
+      fontSize: 16,
+    ),
+    filled: true,
+    fillColor: Colors.white,
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: Colors.grey.shade300),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(16),
+      borderSide: BorderSide(color: Colors.blue.shade300, width: 2),
+    ),
+    contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 24),
+  ),
+  style: GoogleFonts.poppins(fontSize: 16, color: Colors.black),
+).animate().fadeIn(duration: 300.ms),
+
                   SizedBox(height: 24),
                   Text(
                     "Workout Schedule",
@@ -892,8 +905,9 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   SizedBox(height: 16),
-                  ...['Arm Raises', 'Incline Push-Ups', 'Cable Flyes', 'Plank']
-                      .map(buildWorkoutChip),
+...['Arm Raises', 'Incline Push-Ups', 'Cable Flyes', 'Plank']
+    .where((w) => w.toLowerCase().contains(_searchQuery))
+    .map(buildWorkoutChip),
                   SizedBox(height: 24),
                   buildBodyFocusSection(),
                   SizedBox(height: 24),
