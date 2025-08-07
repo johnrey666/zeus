@@ -1,5 +1,4 @@
-// ignore_for_file: use_build_context_synchronously, prefer_const_constructors, curly_braces_in_flow_control_structures
-//aaa
+// ignore_for_file: use_build_context_synchronously, prefer_const_constructors, curly_braces_in_flow_control_structures, invalid_return_type_for_catch_error
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -36,6 +35,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _videoController?.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -108,8 +108,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ).animate().fadeIn(duration: 300.ms),
               SizedBox(height: 12),
-
-              // Show Demo button directly under the image
               TextButton(
                 onPressed: () {
                   _showVideoModal(context, workoutName);
@@ -124,7 +122,6 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               SizedBox(height: 8),
-
               Text(
                 workoutName,
                 style: GoogleFonts.poppins(
@@ -408,9 +405,6 @@ class _HomePageState extends State<HomePage> {
     print('Attempting to load video from: $videoPath');
     final controller = VideoPlayerController.asset(videoPath);
 
-    controller.initialize().then((_) {
-    });
-
     showGeneralDialog(
       context: context,
       barrierDismissible: true,
@@ -418,15 +412,47 @@ class _HomePageState extends State<HomePage> {
       barrierColor: Colors.black.withOpacity(0.6),
       transitionDuration: Duration(milliseconds: 300),
       pageBuilder: (context, anim1, anim2) {
-        return StatefulBuilder(
-          builder: (context, setState) {
+        return FutureBuilder(
+          future: controller.initialize().then((_) {
+            controller.setVolume(0.0); // Mute the video
+            controller.setLooping(true); // Optional: loop the video
+            return controller;
+          }).catchError((error) {
+            print('Video initialization error: $error');
+            return null;
+          }),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(
+                child: CircularProgressIndicator(color: Colors.blue.shade300),
+              );
+            }
+            if (snapshot.hasError || snapshot.data == null) {
+              return Center(
+                child: Container(
+                  padding: EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'Failed to load video',
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      color: Colors.redAccent,
+                    ),
+                  ),
+                ),
+              );
+            }
+
             return Center(
               child: AnimatedContainer(
                 duration: Duration(milliseconds: 300),
                 width: MediaQuery.of(context).size.width * 0.9,
                 height: (MediaQuery.of(context).size.width * 0.9) * (9 / 16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Colors.black,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
@@ -441,34 +467,24 @@ class _HomePageState extends State<HomePage> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      ValueListenableBuilder(
-                        valueListenable: controller,
-                        builder: (context, value, child) {
-                          return VideoPlayer(controller);
-                        },
-                      ),
+                      VideoPlayer(controller),
                       Positioned.fill(
-                        child: Container(
-                          color: Colors.black.withOpacity(0),
-                          child: Center(
-                            child: IconButton(
-                              icon: Icon(
-                                controller.value.isPlaying
-                                    ? Icons.pause
-                                    : Icons.play_arrow,
-                                color: Colors.black,
-                                size: 50,
-                              ),
-                              onPressed: () {
-                                setState(() {
-                                  if (controller.value.isPlaying) {
-                                    controller.pause();
-                                  } else {
-                                    controller.play();
-                                  }
-                                });
-                              },
+                        child: Center(
+                          child: IconButton(
+                            icon: Icon(
+                              controller.value.isPlaying
+                                  ? Icons.pause
+                                  : Icons.play_arrow,
+                              color: Colors.white,
+                              size: 50,
                             ),
+                            onPressed: () {
+                              if (controller.value.isPlaying) {
+                                controller.pause();
+                              } else {
+                                controller.play();
+                              }
+                            },
                           ),
                         ),
                       ),
@@ -476,7 +492,7 @@ class _HomePageState extends State<HomePage> {
                         top: 10,
                         right: 10,
                         child: IconButton(
-                          icon: Icon(Icons.close, color: Colors.black),
+                          icon: Icon(Icons.close, color: Colors.white),
                           onPressed: () {
                             controller.pause();
                             controller.dispose();
@@ -492,9 +508,8 @@ class _HomePageState extends State<HomePage> {
                           style: GoogleFonts.poppins(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
-                            color:
-                                Colors.blue, 
-                            decoration: TextDecoration.none, 
+                            color: Colors.white,
+                            decoration: TextDecoration.none,
                           ),
                         ),
                       ),
@@ -504,6 +519,12 @@ class _HomePageState extends State<HomePage> {
               ),
             );
           },
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return FadeTransition(
+          opacity: anim1,
+          child: child,
         );
       },
     );
@@ -534,7 +555,7 @@ class _HomePageState extends State<HomePage> {
     if (lower.contains('fullbody')) return 'assets/videos/fullbody.mp4';
     if (lower.contains('lowerbody')) return 'assets/videos/lowerbody.mp4';
     if (lower.contains('ab workout')) return 'assets/videos/abworkout.mp4';
-    return 'assets/videos/workout.mp4'; 
+    return 'assets/videos/workout.mp4';
   }
 
   Map<String, dynamic> _generateWorkoutSchedule(String workout) {
@@ -662,9 +683,9 @@ class _HomePageState extends State<HomePage> {
         ),
         SizedBox(height: 16),
         ...workoutsByBody[_selectedBodyPart]!
-    .where((w) => w.toLowerCase().contains(_searchQuery))
-    .map(buildWorkoutChip)
-    .toList(),
+            .where((w) => w.toLowerCase().contains(_searchQuery))
+            .map(buildWorkoutChip)
+            .toList(),
       ],
     );
   }
@@ -684,9 +705,9 @@ class _HomePageState extends State<HomePage> {
         ),
         SizedBox(height: 16),
         ...stretches
-    .where((s) => s.toLowerCase().contains(_searchQuery))
-    .map(buildWorkoutChip)
-    .toList(),
+            .where((s) => s.toLowerCase().contains(_searchQuery))
+            .map(buildWorkoutChip)
+            .toList(),
       ],
     );
   }
@@ -723,7 +744,8 @@ class _HomePageState extends State<HomePage> {
         ),
         SizedBox(height: 16),
         ...programs.map((program) {
-           if (!program['title']!.toLowerCase().contains(_searchQuery)) return SizedBox();
+          if (!program['title']!.toLowerCase().contains(_searchQuery))
+            return SizedBox();
           return GestureDetector(
             onTap: () => _showWorkoutDetails(program['title']!),
             child: Container(
@@ -814,35 +836,37 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   TextField(
-  controller: _searchController,
-  onChanged: (value) {
-    setState(() {
-      _searchQuery = value.toLowerCase();
-    });
-  },
-  cursorColor: Colors.blue,
-  decoration: InputDecoration(
-    prefixIcon: Icon(IconlyLight.search, color: Colors.black),
-    hintText: 'Search workouts...',
-    hintStyle: GoogleFonts.poppins(
-      color: Colors.grey.shade600,
-      fontSize: 16,
-    ),
-    filled: true,
-    fillColor: Colors.white,
-    enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(color: Colors.grey.shade300),
-    ),
-    focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
-      borderSide: BorderSide(color: Colors.blue.shade300, width: 2),
-    ),
-    contentPadding: EdgeInsets.symmetric(vertical: 18, horizontal: 24),
-  ),
-  style: GoogleFonts.poppins(fontSize: 16, color: Colors.black),
-).animate().fadeIn(duration: 300.ms),
-
+                    controller: _searchController,
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value.toLowerCase();
+                      });
+                    },
+                    cursorColor: Colors.blue,
+                    decoration: InputDecoration(
+                      prefixIcon: Icon(IconlyLight.search, color: Colors.black),
+                      hintText: 'Search workouts...',
+                      hintStyle: GoogleFonts.poppins(
+                        color: Colors.grey.shade600,
+                        fontSize: 16,
+                      ),
+                      filled: true,
+                      fillColor: Colors.white,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(16),
+                        borderSide:
+                            BorderSide(color: Colors.blue.shade300, width: 2),
+                      ),
+                      contentPadding:
+                          EdgeInsets.symmetric(vertical: 18, horizontal: 24),
+                    ),
+                    style:
+                        GoogleFonts.poppins(fontSize: 16, color: Colors.black),
+                  ).animate().fadeIn(duration: 300.ms),
                   SizedBox(height: 24),
                   Text(
                     "Workout Schedule",
@@ -905,9 +929,9 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   SizedBox(height: 16),
-...['Arm Raises', 'Incline Push-Ups', 'Cable Flyes', 'Plank']
-    .where((w) => w.toLowerCase().contains(_searchQuery))
-    .map(buildWorkoutChip),
+                  ...['Arm Raises', 'Incline Push-Ups', 'Cable Flyes', 'Plank']
+                      .where((w) => w.toLowerCase().contains(_searchQuery))
+                      .map(buildWorkoutChip),
                   SizedBox(height: 24),
                   buildBodyFocusSection(),
                   SizedBox(height: 24),

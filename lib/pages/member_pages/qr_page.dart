@@ -131,8 +131,8 @@ class _QRPageState extends State<QRPage> {
                         ),
                         Text(
                           'ID: $memberId',
-                          style: const TextStyle(
-                              fontSize: 16, color: Colors.grey),
+                          style:
+                              const TextStyle(fontSize: 16, color: Colors.grey),
                         ),
                         const SizedBox(height: 40),
                         Center(
@@ -162,24 +162,24 @@ class _QRPageState extends State<QRPage> {
                             Column(
                               children: [
                                 const Text('Check In',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold)),
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
                                 Text(timeIn),
                               ],
                             ),
                             Column(
                               children: [
                                 const Text('Check Out',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold)),
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
                                 Text(timeOut),
                               ],
                             ),
                             Column(
                               children: [
                                 const Text('Date',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold)),
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
                                 Text(date),
                               ],
                             ),

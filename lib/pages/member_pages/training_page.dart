@@ -7,7 +7,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
 class TrainingPage extends StatefulWidget {
-   final DateTime? initialDate;
+  final DateTime? initialDate;
   const TrainingPage({super.key, this.initialDate});
 
   @override
@@ -21,14 +21,14 @@ class _TrainingPageState extends State<TrainingPage> {
   Map<DateTime, List<Map<String, dynamic>>> _workoutEvents = {};
 
   @override
-void initState() {
-  super.initState();
-  if (widget.initialDate != null) {
-    _selectedDay = widget.initialDate!;
-    _focusedDay = widget.initialDate!;
+  void initState() {
+    super.initState();
+    if (widget.initialDate != null) {
+      _selectedDay = widget.initialDate!;
+      _focusedDay = widget.initialDate!;
+    }
+    _fetchAllWorkouts();
   }
-  _fetchAllWorkouts();
-}
 
   Future<void> _fetchAllWorkouts() async {
     final uid = user!.uid;
@@ -166,10 +166,9 @@ void initState() {
                       )
                     : ElevatedButton(
                         onPressed: () async {
-  await _markAsDone(workout['id']);
-  Navigator.of(context).pop(true); 
-},
-
+                          await _markAsDone(workout['id']);
+                          Navigator.of(context).pop(true);
+                        },
                         style: ElevatedButton.styleFrom(
                           elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 0),
@@ -285,8 +284,8 @@ void initState() {
               ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0),
               const SizedBox(height: 24),
               Text(
-                _selectedDay.isBefore(DateTime(
-                        DateTime.now().year, DateTime.now().month, DateTime.now().day))
+                _selectedDay.isBefore(DateTime(DateTime.now().year,
+                        DateTime.now().month, DateTime.now().day))
                     ? "Past Workout"
                     : DateUtils.isSameDay(_selectedDay, DateTime.now())
                         ? "Today's Workout"
