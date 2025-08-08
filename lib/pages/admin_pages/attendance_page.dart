@@ -17,6 +17,8 @@ class AttendancePage extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
+        top: true,
+        bottom: false,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(

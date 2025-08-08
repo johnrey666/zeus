@@ -212,6 +212,8 @@ class PendingRegistrationsPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
+        top: true,
+        bottom: false,
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: SingleChildScrollView(

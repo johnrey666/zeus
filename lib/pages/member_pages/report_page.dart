@@ -97,6 +97,8 @@ class _ReportPageState extends State<ReportPage> {
     return Scaffold(
       backgroundColor: Color(0xFFF8F9FB),
       body: SafeArea(
+        top: true,
+        bottom: false,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(16),
           child: Column(

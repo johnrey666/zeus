@@ -359,6 +359,8 @@ void _showQrModal(String userId) async {
     return Scaffold(
       backgroundColor: const Color(0xFFF7F8FA),
       body: SafeArea(
+        top: true,
+        bottom: false,
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
