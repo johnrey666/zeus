@@ -42,7 +42,7 @@ flutter:
   assets:
     - assets/
     - assets/images/
-    - assets/videos/
+    - assets/videos/videos/
 
 flutter_launcher_icons:
   android: true

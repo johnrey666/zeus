@@ -532,30 +532,30 @@ class _HomePageState extends State<HomePage> {
 
   String _getWorkoutVideo(String title) {
     final lower = title.toLowerCase();
-    if (lower.contains('plank')) return 'assets/videos/plank.mp4';
-    if (lower.contains('crunch')) return 'assets/videos/crunches.mp4';
+    if (lower.contains('plank')) return 'assets/videos/videos/plank.mp4';
+    if (lower.contains('crunch')) return 'assets/videos/videos/crunches.mp4';
     if (lower.contains('push-up') ||
         lower.contains('push up') ||
-        lower.contains('incline push-ups')) return 'assets/videos/push_up.mp4';
-    if (lower.contains('bench')) return 'assets/videos/bench_press.mp4';
-    if (lower.contains('yoga')) return 'assets/videos/yoga.mp4';
+        lower.contains('incline push-ups')) return 'assets/videos/videos/push_up.mp4';
+    if (lower.contains('bench')) return 'assets/videos/videos/bench_press.mp4';
+    if (lower.contains('yoga')) return 'assets/videos/videos/yoga.mp4';
     if (lower.contains('cardio') ||
         lower.contains('jump') ||
         lower.contains('jumping') ||
         lower.contains('jumping jack'))
-      return 'assets/videos/jumping_jacks.mp4';
-    if (lower.contains('squat')) return 'assets/videos/squat.mp4';
-    if (lower.contains('lunge')) return 'assets/videos/lunge.mp4';
+      return 'assets/videos/videos/jumping_jacks.mp4';
+    if (lower.contains('squat')) return 'assets/videos/videos/squat.mp4';
+    if (lower.contains('lunge')) return 'assets/videos/videos/lunge.mp4';
     if (lower.contains('bicep') ||
         lower.contains('arm raise') ||
-        lower.contains('arm raises')) return 'assets/videos/bicep_curl.mp4';
-    if (lower.contains('cable')) return 'assets/videos/cable_flyes.mp4';
+        lower.contains('arm raises')) return 'assets/videos/videos/bicep_curl.mp4';
+    if (lower.contains('cable')) return 'assets/videos/videos/cable_flyes.mp4';
     if (lower.contains('warm-up') || lower.contains('skipping'))
-      return 'assets/videos/warm_up.mp4';
-    if (lower.contains('fullbody')) return 'assets/videos/fullbody.mp4';
-    if (lower.contains('lowerbody')) return 'assets/videos/lowerbody.mp4';
-    if (lower.contains('ab workout')) return 'assets/videos/abworkout.mp4';
-    return 'assets/videos/workout.mp4';
+      return 'assets/videos/videos/warm_up.mp4';
+    if (lower.contains('fullbody')) return 'assets/videos/videos/fullbody.mp4';
+    if (lower.contains('lowerbody')) return 'assets/videos/videos/lowerbody.mp4';
+    if (lower.contains('ab workout')) return 'assets/videos/videos/abworkout.mp4';
+    return 'assets/videos/videos/workout.mp4';
   }
 
   Map<String, dynamic> _generateWorkoutSchedule(String workout) {
