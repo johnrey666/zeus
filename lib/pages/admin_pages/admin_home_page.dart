@@ -19,6 +19,8 @@ class _AdminHomePageState extends State<AdminHomePage>
     with TickerProviderStateMixin {
   int _selectedIndex = 0;
 
+  final user = FirebaseAuth.instance.currentUser;
+
   final List<String> _titles = [
     'Admin Dashboard',
     'Members Update',
@@ -100,7 +102,8 @@ class _AdminHomePageState extends State<AdminHomePage>
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      child: const Text("Cancel", style: TextStyle(color: Colors.black)),
+                      child: const Text("Cancel",
+                          style: TextStyle(color: Colors.black)),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
@@ -110,7 +113,8 @@ class _AdminHomePageState extends State<AdminHomePage>
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.redAccent,
                       ),
-                      child: const Text("Logout", style: TextStyle(color: Colors.white)),
+                      child: const Text("Logout",
+                          style: TextStyle(color: Colors.white)),
                       onPressed: _logout,
                     ),
                   ),
@@ -123,6 +127,12 @@ class _AdminHomePageState extends State<AdminHomePage>
     );
   }
 
+  // Handle back button press
+  Future<bool> _onWillPop() async {
+    // Prevent back navigation if user is logged in
+    return user != null ? false : true;
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeData = ThemeData.light();
@@ -131,124 +141,129 @@ class _AdminHomePageState extends State<AdminHomePage>
       data: themeData.copyWith(
         textTheme: GoogleFonts.poppinsTextTheme(themeData.textTheme),
       ),
-      child: Scaffold(
-        extendBody: true,
-        resizeToAvoidBottomInset: false,
-        backgroundColor: Colors.white,
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(80),
-          child: SafeArea(
-            child: Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    _titles[_selectedIndex],
-                    style: GoogleFonts.poppins(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black87,
+      child: WillPopScope(
+        onWillPop: _onWillPop,
+        child: Scaffold(
+          extendBody: true,
+          resizeToAvoidBottomInset: false,
+          backgroundColor: Colors.white,
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(80),
+            child: SafeArea(
+              child: Container(
+                color: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      _titles[_selectedIndex],
+                      style: GoogleFonts.poppins(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
                     ),
-                  ),
-                  PopupMenuButton<String>(
-                    onSelected: _handleMenuSelection,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    color: Colors.white,
-                    icon: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
+                    PopupMenuButton<String>(
+                      onSelected: _handleMenuSelection,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      color: Colors.white,
+                      icon: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: Colors.black,
+                            width: 1.5,
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.person,
                           color: Colors.black,
-                          width: 1.5,
+                          size: 20,
                         ),
                       ),
-                      child: const Icon(
-                        Icons.person,
-                        color: Colors.black,
-                        size: 20,
-                      ),
+                      itemBuilder: (context) => const [
+                        PopupMenuItem(
+                          value: 'logout',
+                          child: ListTile(
+                            leading:
+                                Icon(Icons.logout, color: Colors.redAccent),
+                            title: Text('Logout'),
+                          ),
+                        ),
+                      ],
                     ),
-                    itemBuilder: (context) => const [
-                      PopupMenuItem(
-                        value: 'logout',
-                        child: ListTile(
-                          leading: Icon(Icons.logout, color: Colors.redAccent),
-                          title: Text('Logout'),
-                        ),
-                      ),
-                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+          body: Padding(
+            padding: const EdgeInsets.only(bottom: 80),
+            child: PageView.builder(
+              controller: _pageController,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _pages.length,
+              itemBuilder: (_, index) => AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: _pages[index],
+              ),
+            ),
+          ),
+          bottomNavigationBar: Container(
+            margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(30),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(30),
+              child: BottomNavigationBar(
+                currentIndex: _selectedIndex,
+                onTap: _onItemTapped,
+                backgroundColor: Colors.white,
+                selectedItemColor: Colors.black,
+                unselectedItemColor: Colors.grey,
+                type: BottomNavigationBarType.fixed,
+                showSelectedLabels: true,
+                showUnselectedLabels: false,
+                elevation: 0,
+                selectedLabelStyle: const TextStyle(fontSize: 10),
+                unselectedLabelStyle: const TextStyle(fontSize: 10),
+                items: const [
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.dashboard_customize_outlined),
+                    label: 'Dashboard',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.group_outlined),
+                    label: 'Members',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.pending_actions_outlined),
+                    label: 'Pending',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.notifications_outlined),
+                    label: 'Notify',
+                  ),
+                  BottomNavigationBarItem(
+                    icon: Icon(Icons.qr_code_scanner),
+                    label: 'Attendance',
                   ),
                 ],
               ),
-            ),
-          ),
-        ),
-        body: Padding(
-          padding: const EdgeInsets.only(bottom: 80),
-          child: PageView.builder(
-            controller: _pageController,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _pages.length,
-            itemBuilder: (_, index) => AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              child: _pages[index],
-            ),
-          ),
-        ),
-        bottomNavigationBar: Container(
-          margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.05),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(30),
-            child: BottomNavigationBar(
-              currentIndex: _selectedIndex,
-              onTap: _onItemTapped,
-              backgroundColor: Colors.white,
-              selectedItemColor: Colors.black,
-              unselectedItemColor: Colors.grey,
-              type: BottomNavigationBarType.fixed,
-              showSelectedLabels: true,
-              showUnselectedLabels: false,
-              elevation: 0,
-              selectedLabelStyle: const TextStyle(fontSize: 10),
-              unselectedLabelStyle: const TextStyle(fontSize: 10),
-              items: const [
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.dashboard_customize_outlined),
-                  label: 'Dashboard',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.group_outlined),
-                  label: 'Members',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.pending_actions_outlined),
-                  label: 'Pending',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.notifications_outlined),
-                  label: 'Notify',
-                ),
-                BottomNavigationBarItem(
-                  icon: Icon(Icons.qr_code_scanner),
-                  label: 'Attendance',
-                ),
-              ],
             ),
           ),
         ),

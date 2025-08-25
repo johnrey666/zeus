@@ -25,10 +25,13 @@ class _HomePageState extends State<HomePage> {
   VideoPlayerController? _videoController;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  Map<String, dynamic> _userPlan = {};
+  List<String> _suggestedWorkouts = [];
 
   @override
   void initState() {
     super.initState();
+    _selectedDay = _focusedDay;
     _initializeData();
   }
 
@@ -58,10 +61,160 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
+    // Fetch user plan from workout_plans collection
+    final planSnapshot = await FirebaseFirestore.instance
+        .collection('workout_plans')
+        .doc(uid)
+        .get();
+
     setState(() {
       _events = tempEvents;
+      _userPlan = planSnapshot.exists ? planSnapshot.data()! : {};
+      _suggestedWorkouts = _generateSuggestedWorkouts();
       _isLoading = false;
     });
+  }
+
+  List<String> _generateSuggestedWorkouts() {
+    // Use only existing workouts with confirmed images and videos
+    final availableWorkouts = [
+      'Plank',
+      'Crunches',
+      'Push-Ups',
+      'Incline Push-Ups',
+      'Bench Press',
+      'Yoga',
+      'Jumping Jacks',
+      'Squats',
+      'Lunges',
+      'Bicep Curls',
+      'Arm Raises',
+      'Cable Flyes',
+      'Warm-up',
+      'Skipping',
+      'Fullbody Workout',
+      'Lowerbody Workout',
+      'AB Workout',
+    ];
+
+    // Default workouts if no user plan exists
+    if (_userPlan.isEmpty) {
+      return ['Arm Raises', 'Incline Push-Ups', 'Cable Flyes', 'Plank'];
+    }
+
+    final goal = _userPlan['What is your fitness goal?']?.toString() ?? '';
+    final fitnessLevel =
+        _userPlan['Select Your Fitness Level']?.toString() ?? '';
+    final activityLevel =
+        _userPlan['Select your activity level']?.toString() ?? '';
+    final weight = int.tryParse(_userPlan['Weight']?.toString() ?? '70') ?? 70;
+    final height =
+        int.tryParse(_userPlan['Height']?.toString() ?? '170') ?? 170;
+
+    // Calculate BMI
+    final heightInMeters = height / 100;
+    final bmi = weight / (heightInMeters * heightInMeters);
+    String bmiCategory;
+    if (bmi < 18.5) {
+      bmiCategory = 'Underweight';
+    } else if (bmi < 25) {
+      bmiCategory = 'Normal';
+    } else if (bmi < 30) {
+      bmiCategory = 'Overweight';
+    } else {
+      bmiCategory = 'Obese';
+    }
+
+    // Initialize workout scores
+    final workoutScores = {for (var w in availableWorkouts) w: 0.0};
+
+    // Adjust scores based on fitness goal
+    if (goal == 'Build Muscle') {
+      workoutScores['Push-Ups'] = workoutScores['Push-Ups']! + 2.0;
+      workoutScores['Incline Push-Ups'] =
+          workoutScores['Incline Push-Ups']! + 1.5;
+      workoutScores['Squats'] = workoutScores['Squats']! + 2.0;
+      workoutScores['Bench Press'] = workoutScores['Bench Press']! + 2.0;
+      workoutScores['Bicep Curls'] = workoutScores['Bicep Curls']! + 1.5;
+      workoutScores['Cable Flyes'] = workoutScores['Cable Flyes']! + 1.5;
+      workoutScores['Fullbody Workout'] =
+          workoutScores['Fullbody Workout']! + 2.0;
+    } else if (goal == 'Lose Weight') {
+      workoutScores['Jumping Jacks'] = workoutScores['Jumping Jacks']! + 2.0;
+      workoutScores['Skipping'] = workoutScores['Skipping']! + 1.5;
+      workoutScores['AB Workout'] = workoutScores['AB Workout']! + 1.5;
+      workoutScores['Fullbody Workout'] =
+          workoutScores['Fullbody Workout']! + 1.5;
+    } else if (goal == 'Improve Endurance') {
+      workoutScores['Yoga'] = workoutScores['Yoga']! + 2.0;
+      workoutScores['Plank'] = workoutScores['Plank']! + 2.0;
+      workoutScores['Jumping Jacks'] = workoutScores['Jumping Jacks']! + 1.5;
+      workoutScores['Skipping'] = workoutScores['Skipping']! + 1.5;
+      workoutScores['AB Workout'] = workoutScores['AB Workout']! + 1.5;
+    } else if (goal == 'Increase Strength') {
+      workoutScores['Bench Press'] = workoutScores['Bench Press']! + 2.0;
+      workoutScores['Squats'] = workoutScores['Squats']! + 2.0;
+      workoutScores['Bicep Curls'] = workoutScores['Bicep Curls']! + 1.5;
+      workoutScores['Push-Ups'] = workoutScores['Push-Ups']! + 1.5;
+      workoutScores['Fullbody Workout'] =
+          workoutScores['Fullbody Workout']! + 2.0;
+    }
+
+    // Adjust scores based on BMI
+    if (bmiCategory == 'Underweight') {
+      workoutScores['Yoga'] = workoutScores['Yoga']! + 1.0;
+      workoutScores['Warm-up'] = workoutScores['Warm-up']! + 1.0;
+      workoutScores['Arm Raises'] = workoutScores['Arm Raises']! + 1.0;
+      workoutScores['Incline Push-Ups'] =
+          workoutScores['Incline Push-Ups']! + 1.0;
+    } else if (bmiCategory == 'Overweight' || bmiCategory == 'Obese') {
+      workoutScores['Jumping Jacks'] = workoutScores['Jumping Jacks']! + 1.5;
+      workoutScores['Skipping'] = workoutScores['Skipping']! + 1.5;
+      workoutScores['Plank'] = workoutScores['Plank']! + 1.0;
+      workoutScores['AB Workout'] = workoutScores['AB Workout']! + 1.0;
+    }
+
+    // Adjust scores based on fitness level
+    if (fitnessLevel.contains('Beginner')) {
+      workoutScores['Warm-up'] = workoutScores['Warm-up']! + 1.0;
+      workoutScores['Plank'] = workoutScores['Plank']! + 1.0;
+      workoutScores['Arm Raises'] = workoutScores['Arm Raises']! + 1.0;
+      workoutScores['Incline Push-Ups'] =
+          workoutScores['Incline Push-Ups']! + 1.0;
+      workoutScores['Yoga'] = workoutScores['Yoga']! + 1.0;
+    } else if (fitnessLevel.contains('Intermediate')) {
+      workoutScores['Push-Ups'] = workoutScores['Push-Ups']! + 1.0;
+      workoutScores['Squats'] = workoutScores['Squats']! + 1.0;
+      workoutScores['Lunges'] = workoutScores['Lunges']! + 1.0;
+      workoutScores['Crunches'] = workoutScores['Crunches']! + 1.0;
+    } else if (fitnessLevel.contains('Expert')) {
+      workoutScores['Bench Press'] = workoutScores['Bench Press']! + 1.0;
+      workoutScores['Cable Flyes'] = workoutScores['Cable Flyes']! + 1.0;
+      workoutScores['Fullbody Workout'] =
+          workoutScores['Fullbody Workout']! + 1.0;
+      workoutScores['Lowerbody Workout'] =
+          workoutScores['Lowerbody Workout']! + 1.0;
+    }
+
+    // Adjust scores based on activity level
+    if (activityLevel.contains('Sedentary') ||
+        activityLevel.contains('Lightly active')) {
+      workoutScores['Warm-up'] = workoutScores['Warm-up']! + 1.0;
+      workoutScores['Yoga'] = workoutScores['Yoga']! + 1.0;
+      workoutScores['Plank'] = workoutScores['Plank']! + 1.0;
+    } else if (activityLevel.contains('Very active') ||
+        activityLevel.contains('Extra active')) {
+      workoutScores['Fullbody Workout'] =
+          workoutScores['Fullbody Workout']! + 1.0;
+      workoutScores['Lowerbody Workout'] =
+          workoutScores['Lowerbody Workout']! + 1.0;
+      workoutScores['Bench Press'] = workoutScores['Bench Press']! + 1.0;
+    }
+
+    // Select top 4 workouts with highest scores
+    final sortedWorkouts = workoutScores.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return sortedWorkouts.take(4).map((e) => e.key).toList();
   }
 
   List<Map<String, dynamic>> _getEventsForDay(DateTime day) {
@@ -532,39 +685,38 @@ class _HomePageState extends State<HomePage> {
 
   String _getWorkoutVideo(String title) {
     final lower = title.toLowerCase();
-    if (lower.contains('plank')) return 'assets/videos/videos/plank.mp4';
-    if (lower.contains('crunch')) return 'assets/videos/videos/crunches.mp4';
+    if (lower.contains('plank')) return 'assets/videos/plank.mp4';
+    if (lower.contains('crunch')) return 'assets/videos/crunches.mp4';
     if (lower.contains('push-up') ||
         lower.contains('push up') ||
-        lower.contains('incline push-ups')) return 'assets/videos/videos/push_up.mp4';
-    if (lower.contains('bench')) return 'assets/videos/videos/bench_press.mp4';
-    if (lower.contains('yoga')) return 'assets/videos/videos/yoga.mp4';
+        lower.contains('incline push-ups')) return 'assets/videos/push_up.mp4';
+    if (lower.contains('bench')) return 'assets/videos/bench_press.mp4';
+    if (lower.contains('yoga')) return 'assets/videos/yoga.mp4';
     if (lower.contains('cardio') ||
         lower.contains('jump') ||
         lower.contains('jumping') ||
         lower.contains('jumping jack'))
-      return 'assets/videos/videos/jumping_jacks.mp4';
-    if (lower.contains('squat')) return 'assets/videos/videos/squat.mp4';
-    if (lower.contains('lunge')) return 'assets/videos/videos/lunge.mp4';
+      return 'assets/videos/jumping_jacks.mp4';
+    if (lower.contains('squat')) return 'assets/videos/squat.mp4';
+    if (lower.contains('lunge')) return 'assets/videos/lunge.mp4';
     if (lower.contains('bicep') ||
         lower.contains('arm raise') ||
-        lower.contains('arm raises')) return 'assets/videos/videos/bicep_curl.mp4';
-    if (lower.contains('cable')) return 'assets/videos/videos/cable_flyes.mp4';
+        lower.contains('arm raises')) return 'assets/videos/bicep_curl.mp4';
+    if (lower.contains('cable')) return 'assets/videos/cable_flyes.mp4';
     if (lower.contains('warm-up') || lower.contains('skipping'))
-      return 'assets/videos/videos/warm_up.mp4';
-    if (lower.contains('fullbody')) return 'assets/videos/videos/fullbody.mp4';
-    if (lower.contains('lowerbody')) return 'assets/videos/videos/lowerbody.mp4';
-    if (lower.contains('ab workout')) return 'assets/videos/videos/abworkout.mp4';
-    return 'assets/videos/videos/workout.mp4';
+      return 'assets/videos/warm_up.mp4';
+    if (lower.contains('fullbody')) return 'assets/videos/fullbody.mp4';
+    if (lower.contains('lowerbody')) return 'assets/videos/lowerbody.mp4';
+    if (lower.contains('ab workout')) return 'assets/videos/abworkout.mp4';
+    return 'assets/videos/workout.mp4';
   }
 
   Map<String, dynamic> _generateWorkoutSchedule(String workout) {
     final lower = workout.toLowerCase();
-    if (lower.contains('deadlift')) return {'days': 2, 'minutes': 45};
     if (lower.contains('yoga')) return {'days': 3, 'minutes': 30};
-    if (lower.contains('hiit')) return {'days': 4, 'minutes': 20};
     if (lower.contains('bench')) return {'days': 2, 'minutes': 40};
-    if (lower.contains('cardio')) return {'days': 5, 'minutes': 25};
+    if (lower.contains('cardio') || lower.contains('jumping jack'))
+      return {'days': 5, 'minutes': 25};
     return {'days': 3, 'minutes': 30};
   }
 
@@ -588,7 +740,7 @@ class _HomePageState extends State<HomePage> {
       return 'assets/images/warm_up.jpg';
     if (lower.contains('fullbody')) return 'assets/images/fullbody.jpg';
     if (lower.contains('lowerbody')) return 'assets/images/lowerbody.jpg';
-    if (lower.contains('ab workout')) return 'assets/images/crunches.jpg';
+    if (lower.contains('ab workout')) return 'assets/images/abworkout.jpg';
     return 'assets/images/workout.jpg';
   }
 
@@ -636,12 +788,11 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-//stash
   Widget buildBodyFocusSection() {
     final workoutsByBody = {
-      'Abs': ['Incline Push-Ups', 'Plank', 'Crunches'],
+      'Abs': ['Plank', 'Crunches'],
       'Arms': ['Arm Raises', 'Bicep Curls'],
-      'Chest': ['Push-Ups', 'Bench Press'],
+      'Chest': ['Push-Ups', 'Bench Press', 'Incline Push-Ups', 'Cable Flyes'],
       'Legs': ['Squats', 'Lunges'],
     };
 
@@ -692,7 +843,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget buildStretchSection() {
-    final stretches = ['Warm-up', 'Jumping Jack', 'Skipping', 'Arm Raises'];
+    final stretches = ['Warm-up', 'Jumping Jacks', 'Skipping', 'Arm Raises'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -718,17 +869,17 @@ class _HomePageState extends State<HomePage> {
       {
         'title': 'Fullbody Workout',
         'desc': '11 Exercises | 32 mins',
-        'image': 'assets/images/1full_body_workout.png'
+        'image': 'assets/images/fullbody.jpg'
       },
       {
         'title': 'Lowerbody Workout',
         'desc': '12 Exercises | 40 mins',
-        'image': 'assets/images/2_lower_body_workout.png'
+        'image': 'assets/images/lowerbody.jpg'
       },
       {
         'title': 'AB Workout',
         'desc': '14 Exercises | 20 mins',
-        'image': 'assets/images/3_ad_workout.png'
+        'image': 'assets/images/abworkout.jpg'
       },
     ];
 
@@ -930,7 +1081,7 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   SizedBox(height: 16),
-                  ...['Arm Raises', 'Incline Push-Ups', 'Cable Flyes', 'Plank']
+                  ..._suggestedWorkouts
                       .where((w) => w.toLowerCase().contains(_searchQuery))
                       .map(buildWorkoutChip),
                   SizedBox(height: 24),
