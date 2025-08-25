@@ -1,5 +1,4 @@
-// ignore_for_file: use_build_context_synchronously
-
+import 'dart:async';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -17,6 +16,11 @@ class MemberSignUpPage extends StatefulWidget {
 class _MemberSignUpPageState extends State<MemberSignUpPage> {
   bool _isPasswordHidden = true;
   bool _isConfirmPasswordHidden = true;
+  bool _isLoading = false;
+  bool _isVerificationEmailSent = false;
+  bool _isEmailVerified = false;
+  User? _tempUser;
+  Timer? _verificationCheckTimer;
 
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
@@ -26,12 +30,74 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       TextEditingController();
 
   final Color primaryColor = const Color(0xFF4A90E2);
-  bool _isLoading = false;
 
   String _generateRandomMemberId() {
     final rand = Random.secure();
     final number = rand.nextInt(90000000) + 10000000;
     return 'MBR$number';
+  }
+
+  void _sendVerificationEmail() async {
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    if (email.isEmpty ||
+        !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      _showMessage("Please enter a valid email.");
+      return;
+    }
+
+    if (password.isEmpty) {
+      _showMessage("Please enter a password before verifying email.");
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Create a temporary user to send verification email
+      UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password);
+      _tempUser = userCredential.user;
+
+      if (_tempUser != null) {
+        await _tempUser!.sendEmailVerification();
+        setState(() {
+          _isVerificationEmailSent = true;
+        });
+        _showMessage(
+            "Verification email sent to $email. Please check your inbox or spam folder.");
+
+        // Start periodic check for email verification status
+        _startVerificationCheck();
+      }
+    } on FirebaseAuthException catch (e) {
+      _showMessage(e.message ?? "Failed to send verification email.");
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _startVerificationCheck() {
+    _verificationCheckTimer?.cancel(); // Cancel any existing timer
+    _verificationCheckTimer =
+        Timer.periodic(const Duration(seconds: 5), (timer) async {
+      if (_tempUser != null) {
+        await _tempUser!.reload();
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null && user.emailVerified) {
+          setState(() {
+            _isEmailVerified = true;
+          });
+          timer.cancel();
+          _showMessage("Email verified successfully!");
+        }
+      }
+    });
   }
 
   void _showMessage(String message) {
@@ -102,6 +168,11 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
+    if (!_isEmailVerified) {
+      _showMessage("Please verify your email first.");
+      return;
+    }
+
     if (firstName.isEmpty ||
         lastName.isEmpty ||
         email.isEmpty ||
@@ -119,26 +190,19 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     setState(() => _isLoading = true);
 
     try {
-      UserCredential userCredential = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(email: email, password: password);
-
       final generatedMemberId = _generateRandomMemberId();
-final uid = userCredential.user!.uid;
-final qrCodeValue = 'member:$uid:$generatedMemberId';
+      final uid = _tempUser!.uid;
+      final qrCodeValue = 'member:$uid:$generatedMemberId';
 
-await FirebaseFirestore.instance
-    .collection('users')
-    .doc(uid)
-    .set({
-  'firstName': firstName,
-  'lastName': lastName,
-  'email': email,
-  'userType': 'Member',
-  'memberId': generatedMemberId,
-  'createdAt': FieldValue.serverTimestamp(),
-  'qrCode': qrCodeValue, // Save QR code string
-});
-
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'firstName': firstName,
+        'lastName': lastName,
+        'email': email,
+        'userType': 'Member',
+        'memberId': generatedMemberId,
+        'createdAt': FieldValue.serverTimestamp(),
+        'qrCode': qrCodeValue,
+      });
 
       _showWelcomeBanner();
       await Future.delayed(const Duration(milliseconds: 1000));
@@ -151,7 +215,28 @@ await FirebaseFirestore.instance
       _showMessage(e.message ?? "An error occurred.");
     } finally {
       setState(() => _isLoading = false);
+      _verificationCheckTimer?.cancel();
     }
+  }
+
+  bool _isSignUpButtonEnabled() {
+    return _firstNameController.text.trim().isNotEmpty &&
+        _lastNameController.text.trim().isNotEmpty &&
+        _emailController.text.trim().isNotEmpty &&
+        _passwordController.text.isNotEmpty &&
+        _confirmPasswordController.text.isNotEmpty &&
+        _isEmailVerified;
+  }
+
+  @override
+  void dispose() {
+    _verificationCheckTimer?.cancel();
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
   }
 
   @override
@@ -209,6 +294,7 @@ await FirebaseFirestore.instance
                       controller: _firstNameController,
                       cursorColor: Colors.blue,
                       decoration: _inputDecoration(Icons.person, "First Name"),
+                      onChanged: (_) => setState(() {}),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -217,17 +303,70 @@ await FirebaseFirestore.instance
                       controller: _lastNameController,
                       cursorColor: Colors.blue,
                       decoration: _inputDecoration(Icons.person, "Last Name"),
+                      onChanged: (_) => setState(() {}),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 20),
-              TextField(
-                controller: _emailController,
-                keyboardType: TextInputType.emailAddress,
-                cursorColor: Colors.blue,
-                decoration: _inputDecoration(Icons.email_outlined, "Email"),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      cursorColor: Colors.blue,
+                      decoration:
+                          _inputDecoration(Icons.email_outlined, "Email"),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  SizedBox(
+                    width: 100,
+                    child: ElevatedButton(
+                      onPressed: _isLoading ? null : _sendVerificationEmail,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              "Send Code",
+                              style:
+                                  TextStyle(color: Colors.white, fontSize: 12),
+                            ),
+                    ),
+                  ),
+                ],
               ),
+              if (_isVerificationEmailSent) ...[
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    _isEmailVerified
+                        ? "Email verified successfully!"
+                        : "Please check your email and click the verification link.",
+                    style: TextStyle(
+                      color: _isEmailVerified
+                          ? Colors.green
+                          : Colors.grey.shade600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               TextField(
                 controller: _passwordController,
@@ -243,6 +382,7 @@ await FirebaseFirestore.instance
                     });
                   },
                 ),
+                onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 20),
               TextField(
@@ -259,53 +399,60 @@ await FirebaseFirestore.instance
                     });
                   },
                 ),
+                onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 40),
               Center(
-  child: SizedBox(
-    width: double.infinity,
-    child: GestureDetector(
-      onTap: _isLoading ? null : _signUp,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 6,
-              offset: const Offset(2, 3),
-            ),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: _isLoading
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              )
-            : const Text(
-                "Sign Up",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: GestureDetector(
+                    onTap: _isLoading || !_isSignUpButtonEnabled()
+                        ? null
+                        : _signUp,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: _isSignUpButtonEnabled()
+                              ? [
+                                  const Color(0xFF9DCEFF),
+                                  const Color(0xFF92A3FD)
+                                ]
+                              : [Colors.grey.shade400, Colors.grey.shade400],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 6,
+                            offset: const Offset(2, 3),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              "Sign Up",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 16,
+                              ),
+                            ),
+                    ),
+                  ),
                 ),
               ),
-      ),
-    ),
-  ),
-),
-
               const SizedBox(height: 20),
               Center(
                 child: Wrap(

@@ -55,17 +55,20 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   Future<void> _loadUserBodyInfo() async {
-  final uid = FirebaseAuth.instance.currentUser!.uid;
-  final doc = await FirebaseFirestore.instance.collection('workout_plans').doc(uid).get();
+    final uid = FirebaseAuth.instance.currentUser!.uid;
+    final doc = await FirebaseFirestore.instance
+        .collection('workout_plans')
+        .doc(uid)
+        .get();
 
-  if (doc.exists) {
-    final data = doc.data()!;
-    setState(() {
-      _height = double.tryParse(data['Height'] ?? '0') ?? 0;
-      _weight = double.tryParse(data['Weight'] ?? '0') ?? 0;
-    });
+    if (doc.exists) {
+      final data = doc.data()!;
+      setState(() {
+        _height = double.tryParse(data['Height'] ?? '0') ?? 0;
+        _weight = double.tryParse(data['Weight'] ?? '0') ?? 0;
+      });
+    }
   }
-}
 
   double get _bmi => (_weight > 0 && _height > 0)
       ? _weight / ((_height / 100) * (_height / 100))
@@ -87,9 +90,8 @@ class _ReportPageState extends State<ReportPage> {
 
     for (int i = 0; i < sorted.length; i++) {
       final day = sorted[i];
-      final completedWorkouts = _allWorkouts[day]!
-          .where((w) => w['completed'] == true)
-          .toList();
+      final completedWorkouts =
+          _allWorkouts[day]!.where((w) => w['completed'] == true).toList();
       final count = completedWorkouts.length;
       spots.add(FlSpot(i.toDouble(), count.toDouble()));
     }
@@ -154,7 +156,8 @@ class _ReportPageState extends State<ReportPage> {
                       Text('${value.toInt()}', style: TextStyle(fontSize: 10)),
                 ),
               ),
-              rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+              rightTitles:
+                  AxisTitles(sideTitles: SideTitles(showTitles: false)),
               topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
             ),
             borderData: FlBorderData(show: false),
@@ -335,8 +338,8 @@ class _ReportPageState extends State<ReportPage> {
                     isSel ? Colors.blue.shade50 : Colors.grey.shade200,
                 child: Text(
                   ['M', 'T', 'W', 'T', 'F', 'S', 'S'][i],
-                  style: TextStyle(
-                      color: isSel ? Colors.black : Colors.black54),
+                  style:
+                      TextStyle(color: isSel ? Colors.black : Colors.black54),
                 ),
               ),
             );
@@ -344,113 +347,115 @@ class _ReportPageState extends State<ReportPage> {
         ),
       );
 
-Widget _buildBMIIndicator() => _sectionCard(
-      title: "BMI",
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          GestureDetector(
-            onTap: () {
-              if (_bmi > 0) {
-                final category = _getBMICategory(_bmi);
-                final message = _getBMIDescription(_bmi);
-                showDialog(
-  context: context,
-  builder: (ctx) => AlertDialog(
-    backgroundColor: Colors.white,
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    title: Text("BMI Category",
-        style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-    content: Text(
-      "$category: $message",
-      style: TextStyle(color: Colors.black87),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(ctx),
-        style: TextButton.styleFrom(
-          foregroundColor: Colors.white,
-          backgroundColor: Colors.green,
-          shape:
-              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        ),
-        child: Text("OK"),
-      ),
-    ],
-  ),
-);
-
-              }
-            },
-            child: Row(
-              children: [
-                Text(
-                  _bmi > 0
-                      ? "${_bmi.toStringAsFixed(1)} - ${_getBMICategory(_bmi)}"
-                      : '—',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                if (_bmi > 0) ...[
-                  SizedBox(width: 8),
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: _getBMICategoryColor(_bmi),
+  Widget _buildBMIIndicator() => _sectionCard(
+        title: "BMI",
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: () {
+                if (_bmi > 0) {
+                  final category = _getBMICategory(_bmi);
+                  final message = _getBMIDescription(_bmi);
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => AlertDialog(
+                      backgroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      title: Text("BMI Category",
+                          style: TextStyle(
+                              color: Colors.black,
+                              fontWeight: FontWeight.bold)),
+                      content: Text(
+                        "$category: $message",
+                        style: TextStyle(color: Colors.black87),
+                      ),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: Colors.green,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20)),
+                          ),
+                          child: Text("OK"),
+                        ),
+                      ],
                     ),
+                  );
+                }
+              },
+              child: Row(
+                children: [
+                  Text(
+                    _bmi > 0
+                        ? "${_bmi.toStringAsFixed(1)} - ${_getBMICategory(_bmi)}"
+                        : '—',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                   ),
-                ]
+                  if (_bmi > 0) ...[
+                    SizedBox(width: 8),
+                    Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: _getBMICategoryColor(_bmi),
+                      ),
+                    ),
+                  ]
+                ],
+              ),
+            ),
+            SizedBox(height: 8),
+            Row(
+              children: [
+                _bmiBarSegment(15, Colors.indigo),
+                _bmiBarSegment(16, Colors.blue),
+                _bmiBarSegment(18.5, Colors.green),
+                _bmiBarSegment(25, Colors.orange),
+                _bmiBarSegment(30, Colors.red),
               ],
             ),
-          ),
-          SizedBox(height: 8),
-          Row(
-            children: [
-              _bmiBarSegment(15, Colors.indigo),
-              _bmiBarSegment(16, Colors.blue),
-              _bmiBarSegment(18.5, Colors.green),
-              _bmiBarSegment(25, Colors.orange),
-              _bmiBarSegment(30, Colors.red),
-            ],
-          ),
-          SizedBox(height: 4),
-          Text(
-            "Height: ${_height.toStringAsFixed(1)} cm, Weight: ${_weight.toStringAsFixed(1)} kg",
-            style: TextStyle(color: Colors.grey),
-          ),
-          SizedBox(height: 8),
-        ],
-      ),
-    );
+            SizedBox(height: 4),
+            Text(
+              "Height: ${_height.toStringAsFixed(1)} cm, Weight: ${_weight.toStringAsFixed(1)} kg",
+              style: TextStyle(color: Colors.grey),
+            ),
+            SizedBox(height: 8),
+          ],
+        ),
+      );
 
   String _getBMICategory(double bmi) {
-  if (bmi < 16) return "Severely Underweight";
-  if (bmi < 18.5) return "Underweight";
-  if (bmi < 25) return "Normal Weight";
-  if (bmi < 30) return "Overweight";
-  return "Obesity";
-}
+    if (bmi < 16) return "Severely Underweight";
+    if (bmi < 18.5) return "Underweight";
+    if (bmi < 25) return "Normal Weight";
+    if (bmi < 30) return "Overweight";
+    return "Obesity";
+  }
 
-Color _getBMICategoryColor(double bmi) {
-  if (bmi < 16) return Colors.indigo;
-  if (bmi < 18.5) return Colors.blue;
-  if (bmi < 25) return Colors.green;
-  if (bmi < 30) return Colors.orange;
-  return Colors.red;
-}
+  Color _getBMICategoryColor(double bmi) {
+    if (bmi < 16) return Colors.indigo;
+    if (bmi < 18.5) return Colors.blue;
+    if (bmi < 25) return Colors.green;
+    if (bmi < 30) return Colors.orange;
+    return Colors.red;
+  }
 
-String _getBMIDescription(double bmi) {
-  if (bmi < 16) return "BMI less than 16 is considered severely underweight.";
-  if (bmi < 18.5) return "BMI between 16 and 18.5 is considered underweight.";
-  if (bmi < 25) return "BMI between 18.5 and 24.9 is considered normal.";
-  if (bmi < 30) return "BMI between 25 and 29.9 is considered overweight.";
-  return "BMI of 30 or more is considered obese.";
-}
+  String _getBMIDescription(double bmi) {
+    if (bmi < 16) return "BMI less than 16 is considered severely underweight.";
+    if (bmi < 18.5) return "BMI between 16 and 18.5 is considered underweight.";
+    if (bmi < 25) return "BMI between 18.5 and 24.9 is considered normal.";
+    if (bmi < 30) return "BMI between 25 and 29.9 is considered overweight.";
+    return "BMI of 30 or more is considered obese.";
+  }
 
   Widget _buildExercises() {
-    final workouts = _allWorkouts[DateTime(
-            _selectedWeekday.year, _selectedWeekday.month, _selectedWeekday.day)] ??
+    final workouts = _allWorkouts[DateTime(_selectedWeekday.year,
+            _selectedWeekday.month, _selectedWeekday.day)] ??
         [];
     if (workouts.isEmpty) {
       return Center(

@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -205,14 +206,34 @@ class _MemberHomePageState extends State<MemberHomePage>
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(15)),
                         color: Colors.white,
-                        icon: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.black, width: 1.5),
-                          ),
-                          child: const Icon(Icons.person,
-                              color: Colors.black, size: 20),
+                        icon: StreamBuilder<DocumentSnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(user?.uid)
+                              .snapshots(),
+                          builder: (context, snapshot) {
+                            if (!snapshot.hasData ||
+                                snapshot.hasError ||
+                                user == null) {
+                              return const Icon(Icons.person,
+                                  color: Colors.black, size: 24);
+                            }
+
+                            final userData =
+                                snapshot.data!.data() as Map<String, dynamic>?;
+                            final profileImagePath =
+                                userData?['profileImagePath'] as String?;
+
+                            return profileImagePath != null &&
+                                    profileImagePath.isNotEmpty
+                                ? CircleAvatar(
+                                    radius: 14,
+                                    backgroundImage:
+                                        FileImage(File(profileImagePath)),
+                                  )
+                                : const Icon(Icons.person,
+                                    color: Colors.black, size: 24);
+                          },
                         ),
                         itemBuilder: (_) => [
                           const PopupMenuItem(
