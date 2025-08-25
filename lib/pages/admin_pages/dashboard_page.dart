@@ -102,6 +102,8 @@ class _DashboardPageState extends State<DashboardPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF9F9F9),
       body: SafeArea(
+        top: true,
+        bottom: false,
         child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(20, 20, 20, 60),
           child: Column(

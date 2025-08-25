@@ -211,6 +211,8 @@ class _TrainingPageState extends State<TrainingPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
+        top: true,
+        bottom: false,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Column(
