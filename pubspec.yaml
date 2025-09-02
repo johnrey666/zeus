@@ -9,10 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
   cupertino_icons: ^1.0.6
-
-  # ✅ Firebase core and auth (latest stable compatible versions)
   firebase_core: ^2.27.0
   firebase_auth: ^4.17.3
   cloud_firestore: ^4.17.5
@@ -28,8 +25,9 @@ dependencies:
   flutter_animate: ^4.5.0
   qr_flutter: ^4.0.0
   qr_code_scanner: ^1.0.1
-  video_player: ^2.8.1
+  video_player: ^2.8.0
   flutter_launcher_icons: ^0.13.1
+  chewie: 1.7.1
 
 dev_dependencies:
   flutter_test:
@@ -38,11 +36,24 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
-
   assets:
     - assets/
     - assets/images/
-    - assets/videos/videos/
+    - assets/videos/plank.mp4
+    - assets/videos/crunches.mp4
+    - assets/videos/push_up.mp4
+    - assets/videos/bench_press.mp4
+    - assets/videos/yoga.mp4
+    - assets/videos/jumping_jacks.mp4
+    - assets/videos/squat.mp4
+    - assets/videos/lunge.mp4
+    - assets/videos/bicep_curl.mp4
+    - assets/videos/cable_flyes.mp4
+    - assets/videos/warm_up.mp4
+    - assets/videos/fullbody.mp4
+    - assets/videos/lowerbody.mp4
+    - assets/videos/abworkout.mp4
+    - assets/videos/workout.mp4
 
 flutter_launcher_icons:
   android: true

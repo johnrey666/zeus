@@ -7,6 +7,7 @@ import 'package:iconly/iconly.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -23,6 +24,7 @@ class _HomePageState extends State<HomePage> {
   DateTime? _selectedDay;
   String _selectedBodyPart = 'Abs';
   VideoPlayerController? _videoController;
+  ChewieController? _chewieController;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   Map<String, dynamic> _userPlan = {};
@@ -38,6 +40,7 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _videoController?.dispose();
+    _chewieController?.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -554,9 +557,71 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _showVideoModal(BuildContext context, String workoutName) {
-    final videoPath = _getWorkoutVideo(workoutName);
+    String videoPath = _getWorkoutVideo(workoutName);
     print('Attempting to load video from: $videoPath');
-    final controller = VideoPlayerController.asset(videoPath);
+
+    Future<ChewieController?> _initializeVideo(String path) async {
+      try {
+        final videoController = VideoPlayerController.asset(path);
+        await videoController.initialize();
+        final chewieController = ChewieController(
+          videoPlayerController: videoController,
+          autoPlay: false,
+          looping: true,
+          allowFullScreen: true,
+          errorBuilder: (context, errorMessage) {
+            return Center(
+              child: Container(
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Video Error',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      errorMessage,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.black,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+        return chewieController;
+      } catch (e) {
+        print('Failed to initialize video at $path: $e');
+        return null;
+      }
+    }
+
+    Future<ChewieController?> _loadVideo() async {
+      var chewieController = await _initializeVideo(videoPath);
+      if (chewieController != null) return chewieController;
+
+      final fallbackVideoPath = 'assets/videos/workout.mp4';
+      if (videoPath != fallbackVideoPath) {
+        print('Falling back to default video: $fallbackVideoPath');
+        chewieController = await _initializeVideo(fallbackVideoPath);
+        if (chewieController != null) return chewieController;
+      }
+
+      return null;
+    }
 
     showGeneralDialog(
       context: context,
@@ -565,15 +630,8 @@ class _HomePageState extends State<HomePage> {
       barrierColor: Colors.black.withOpacity(0.6),
       transitionDuration: Duration(milliseconds: 300),
       pageBuilder: (context, anim1, anim2) {
-        return FutureBuilder(
-          future: controller.initialize().then((_) {
-            controller.setVolume(0.0); // Mute the video
-            controller.setLooping(true); // Optional: loop the video
-            return controller;
-          }).catchError((error) {
-            print('Video initialization error: $error');
-            return null;
-          }),
+        return FutureBuilder<ChewieController?>(
+          future: _loadVideo(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return Center(
@@ -588,17 +646,32 @@ class _HomePageState extends State<HomePage> {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  child: Text(
-                    'Failed to load video',
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      color: Colors.redAccent,
-                    ),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Failed to Load Video',
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      Text(
+                        'Please check if the video file is correctly included in assets.',
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.black,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
                   ),
                 ),
               );
             }
 
+            _chewieController = snapshot.data!;
             return Center(
               child: AnimatedContainer(
                 duration: Duration(milliseconds: 300),
@@ -620,35 +693,16 @@ class _HomePageState extends State<HomePage> {
                   child: Stack(
                     fit: StackFit.expand,
                     children: [
-                      VideoPlayer(controller),
-                      Positioned.fill(
-                        child: Center(
-                          child: IconButton(
-                            icon: Icon(
-                              controller.value.isPlaying
-                                  ? Icons.pause
-                                  : Icons.play_arrow,
-                              color: Colors.white,
-                              size: 50,
-                            ),
-                            onPressed: () {
-                              if (controller.value.isPlaying) {
-                                controller.pause();
-                              } else {
-                                controller.play();
-                              }
-                            },
-                          ),
-                        ),
-                      ),
+                      Chewie(controller: _chewieController!),
                       Positioned(
                         top: 10,
                         right: 10,
                         child: IconButton(
                           icon: Icon(Icons.close, color: Colors.white),
                           onPressed: () {
-                            controller.pause();
-                            controller.dispose();
+                            _chewieController?.pause();
+                            _chewieController?.dispose();
+                            _chewieController = null;
                             Navigator.of(context).pop();
                           },
                         ),
