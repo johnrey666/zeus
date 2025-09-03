@@ -1,8 +1,9 @@
-import 'dart:async';
 import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:mailer/mailer.dart';
+import 'package:mailer/smtp_server.dart';
 import 'member_login_page.dart';
 import 'package:zeus/pages/member_pages/planning_page.dart';
 
@@ -17,10 +18,9 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
   bool _isPasswordHidden = true;
   bool _isConfirmPasswordHidden = true;
   bool _isLoading = false;
-  bool _isVerificationEmailSent = false;
-  bool _isEmailVerified = false;
-  User? _tempUser;
-  Timer? _verificationCheckTimer;
+  bool _isVerificationCodeSent = false;
+  String? _generatedCode;
+  bool _isCodeVerified = false;
 
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
@@ -28,8 +28,14 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController =
       TextEditingController();
+  final TextEditingController _codeController = TextEditingController();
 
   final Color primaryColor = const Color(0xFF4A90E2);
+
+  // Replace with your Gmail credentials
+  final String gmailUsername = 'ayaeubion@gmail.com'; // Your Gmail address
+  final String gmailAppPassword =
+      'nesq ezsj dqmn sunf'; // Your 16-character App Password
 
   String _generateRandomMemberId() {
     final rand = Random.secure();
@@ -37,18 +43,17 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     return 'MBR$number';
   }
 
-  void _sendVerificationEmail() async {
+  String _generateVerificationCode() {
+    final rand = Random();
+    return (100000 + rand.nextInt(900000)).toString(); // 6-digit code
+  }
+
+  Future<void> _sendVerificationCode() async {
     final email = _emailController.text.trim();
-    final password = _passwordController.text;
 
     if (email.isEmpty ||
         !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
       _showMessage("Please enter a valid email.");
-      return;
-    }
-
-    if (password.isEmpty) {
-      _showMessage("Please enter a password before verifying email.");
       return;
     }
 
@@ -57,24 +62,32 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     });
 
     try {
-      // Create a temporary user to send verification email
-      UserCredential userCredential = await FirebaseAuth.instance
-          .createUserWithEmailAndPassword(email: email, password: password);
-      _tempUser = userCredential.user;
+      // Generate verification code
+      _generatedCode = _generateVerificationCode();
 
-      if (_tempUser != null) {
-        await _tempUser!.sendEmailVerification();
-        setState(() {
-          _isVerificationEmailSent = true;
-        });
-        _showMessage(
-            "Verification email sent to $email. Please check your inbox or spam folder.");
+      // Set up Gmail SMTP server
+      final smtpServer = gmail(gmailUsername, gmailAppPassword);
 
-        // Start periodic check for email verification status
-        _startVerificationCheck();
-      }
-    } on FirebaseAuthException catch (e) {
-      _showMessage(e.message ?? "Failed to send verification email.");
+      // Create the email message
+      final message = Message()
+        ..from = Address(gmailUsername, 'Zeus Fitness App')
+        ..recipients.add(email)
+        ..subject = 'Your Verification Code'
+        ..text = 'Your verification code is: $_generatedCode';
+
+      // Send the email
+      final sendReport = await send(message, smtpServer);
+      print('Message sent: $sendReport');
+
+      setState(() {
+        _isVerificationCodeSent = true;
+      });
+      _showMessage(
+          "Verification code sent to $email. Please check your inbox or spam folder.");
+    } on MailerException catch (e) {
+      _showMessage("Failed to send verification code: ${e.message}");
+    } catch (e) {
+      _showMessage("Error sending verification code: $e");
     } finally {
       setState(() {
         _isLoading = false;
@@ -82,22 +95,21 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     }
   }
 
-  void _startVerificationCheck() {
-    _verificationCheckTimer?.cancel(); // Cancel any existing timer
-    _verificationCheckTimer =
-        Timer.periodic(const Duration(seconds: 5), (timer) async {
-      if (_tempUser != null) {
-        await _tempUser!.reload();
-        final user = FirebaseAuth.instance.currentUser;
-        if (user != null && user.emailVerified) {
-          setState(() {
-            _isEmailVerified = true;
-          });
-          timer.cancel();
-          _showMessage("Email verified successfully!");
-        }
-      }
-    });
+  void _verifyCode() {
+    final enteredCode = _codeController.text.trim();
+    if (enteredCode.isEmpty) {
+      _showMessage("Please enter the verification code.");
+      return;
+    }
+
+    if (enteredCode == _generatedCode) {
+      setState(() {
+        _isCodeVerified = true;
+      });
+      _showMessage("Code verified successfully!");
+    } else {
+      _showMessage("Invalid verification code.");
+    }
   }
 
   void _showMessage(String message) {
@@ -168,8 +180,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     final password = _passwordController.text;
     final confirmPassword = _confirmPasswordController.text;
 
-    if (!_isEmailVerified) {
-      _showMessage("Please verify your email first.");
+    if (!_isCodeVerified) {
+      _showMessage("Please verify the code first.");
       return;
     }
 
@@ -190,32 +202,37 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     setState(() => _isLoading = true);
 
     try {
-      final generatedMemberId = _generateRandomMemberId();
-      final uid = _tempUser!.uid;
-      final qrCodeValue = 'member:$uid:$generatedMemberId';
+      // Create user in Firebase Auth
+      UserCredential userCredential = await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: email, password: password);
+      final user = userCredential.user;
 
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'firstName': firstName,
-        'lastName': lastName,
-        'email': email,
-        'userType': 'Member',
-        'memberId': generatedMemberId,
-        'createdAt': FieldValue.serverTimestamp(),
-        'qrCode': qrCodeValue,
-      });
+      if (user != null) {
+        final generatedMemberId = _generateRandomMemberId();
+        final qrCodeValue = 'member:${user.uid}:$generatedMemberId';
 
-      _showWelcomeBanner();
-      await Future.delayed(const Duration(milliseconds: 1000));
+        await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+          'firstName': firstName,
+          'lastName': lastName,
+          'email': email,
+          'userType': 'Member',
+          'memberId': generatedMemberId,
+          'createdAt': FieldValue.serverTimestamp(),
+          'qrCode': qrCodeValue,
+        });
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (_) => const PlanningPage()),
-      );
+        _showWelcomeBanner();
+        await Future.delayed(const Duration(milliseconds: 1000));
+
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (_) => const PlanningPage()),
+        );
+      }
     } on FirebaseAuthException catch (e) {
       _showMessage(e.message ?? "An error occurred.");
     } finally {
       setState(() => _isLoading = false);
-      _verificationCheckTimer?.cancel();
     }
   }
 
@@ -225,17 +242,17 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
         _emailController.text.trim().isNotEmpty &&
         _passwordController.text.isNotEmpty &&
         _confirmPasswordController.text.isNotEmpty &&
-        _isEmailVerified;
+        _isCodeVerified;
   }
 
   @override
   void dispose() {
-    _verificationCheckTimer?.cancel();
     _firstNameController.dispose();
     _lastNameController.dispose();
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _codeController.dispose();
     super.dispose();
   }
 
@@ -303,7 +320,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       controller: _lastNameController,
                       cursorColor: Colors.blue,
                       decoration: _inputDecoration(Icons.person, "Last Name"),
-                      onChanged: (_) => setState(() {}),
+                      onChanged: (_) => setState({} as VoidCallback),
                     ),
                   ),
                 ],
@@ -325,7 +342,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                   SizedBox(
                     width: 100,
                     child: ElevatedButton(
-                      onPressed: _isLoading ? null : _sendVerificationEmail,
+                      onPressed: _isLoading ? null : _sendVerificationCode,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryColor,
                         shape: RoundedRectangleBorder(
@@ -350,18 +367,49 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                   ),
                 ],
               ),
-              if (_isVerificationEmailSent) ...[
+              if (_isVerificationCodeSent) ...[
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _codeController,
+                        keyboardType: TextInputType.number,
+                        cursorColor: Colors.blue,
+                        decoration: _inputDecoration(
+                            Icons.vpn_key, "Enter Verification Code"),
+                        onChanged: (_) => setState(() {}),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      width: 100,
+                      child: ElevatedButton(
+                        onPressed: _isLoading ? null : _verifyCode,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: primaryColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text(
+                          "Verify",
+                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 10),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
-                    _isEmailVerified
-                        ? "Email verified successfully!"
-                        : "Please check your email and click the verification link.",
+                    _isCodeVerified
+                        ? "Code verified successfully!"
+                        : "Please enter the 6-digit code sent to your email.",
                     style: TextStyle(
-                      color: _isEmailVerified
-                          ? Colors.green
-                          : Colors.grey.shade600,
+                      color:
+                          _isCodeVerified ? Colors.green : Colors.grey.shade600,
                       fontSize: 12,
                     ),
                   ),
