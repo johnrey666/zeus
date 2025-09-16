@@ -227,7 +227,6 @@ class _HomePageState extends State<HomePage> {
   void _showWorkoutDetails(String workoutName) {
     final now = DateTime.now();
     DateTime _selectedDate = now;
-    final TextEditingController _durationController = TextEditingController();
 
     showModalBottomSheet(
       context: context,
@@ -295,7 +294,7 @@ class _HomePageState extends State<HomePage> {
                       color: Colors.blue.shade300, size: 20),
                   SizedBox(width: 8),
                   Text(
-                    "Choose a date and time",
+                    "Choose a date",
                     style: GoogleFonts.poppins(
                       fontSize: 16,
                       color: Colors.black87,
@@ -304,155 +303,72 @@ class _HomePageState extends State<HomePage> {
                 ],
               ),
               SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: GestureDetector(
-                      onTap: () async {
-                        final pickedDate = await showDatePicker(
-                          context: context,
-                          initialDate: now,
-                          firstDate: DateTime(now.year - 1),
-                          lastDate: DateTime(now.year + 1),
-                          builder: (context, child) {
-                            return Theme(
-                              data: Theme.of(context).copyWith(
-                                dialogBackgroundColor: Colors.white,
-                                colorScheme: ColorScheme.light(
-                                  primary: Colors.blue.shade100,
-                                  onPrimary: Colors.white,
-                                  onSurface: Colors.black,
-                                ),
-                                textButtonTheme: TextButtonThemeData(
-                                  style: ButtonStyle(
-                                    foregroundColor:
-                                        MaterialStateProperty.all(Colors.green),
-                                    overlayColor: MaterialStateProperty.all(
-                                        Colors.green.withOpacity(0.1)),
-                                  ),
-                                ),
-                                dialogTheme: DialogTheme(
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                ),
-                              ),
-                              child: child!,
-                            );
-                          },
-                        );
-
-                        if (pickedDate != null) {
-                          final pickedTime = await showTimePicker(
-                            context: context,
-                            initialTime: TimeOfDay.now(),
-                            builder: (context, child) {
-                              return Theme(
-                                data: Theme.of(context).copyWith(
-                                  dialogBackgroundColor: Colors.white,
-                                  colorScheme: ColorScheme.light(
-                                    primary: Colors.blue.shade50,
-                                    onPrimary: Colors.black,
-                                    surface: Colors.white,
-                                    onSurface: Colors.black,
-                                  ),
-                                  timePickerTheme: TimePickerThemeData(
-                                    backgroundColor: Colors.white,
-                                    hourMinuteTextColor: Colors.black,
-                                    dialHandColor: Colors.blue.shade300,
-                                    dialBackgroundColor: Colors.blue.shade50,
-                                    entryModeIconColor: Colors.blue,
-                                  ),
-                                  textButtonTheme: TextButtonThemeData(
-                                    style: ButtonStyle(
-                                      foregroundColor:
-                                          MaterialStateProperty.resolveWith(
-                                        (states) => states
-                                                .contains(MaterialState.pressed)
-                                            ? Colors.red
-                                            : Colors.green,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                child: child!,
-                              );
-                            },
-                          );
-
-                          if (pickedTime != null) {
-                            final combined = DateTime(
-                              pickedDate.year,
-                              pickedDate.month,
-                              pickedDate.day,
-                              pickedTime.hour,
-                              pickedTime.minute,
-                            );
-                            setModalState(() => _selectedDate = combined);
-                          }
-                        }
-                      },
-                      child: Container(
-                        height: 52,
-                        padding: EdgeInsets.symmetric(horizontal: 16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade300),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Flexible(
-                              child: Text(
-                                "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')} "
-                                "${TimeOfDay.fromDateTime(_selectedDate).format(context)}",
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  color: Colors.black,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+              GestureDetector(
+                onTap: () async {
+                  final pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: now,
+                    firstDate: now, // Restrict to today and future dates
+                    lastDate: DateTime(now.year + 1),
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          dialogBackgroundColor: Colors.white,
+                          colorScheme: ColorScheme.light(
+                            primary: Colors.blue.shade100,
+                            onPrimary: Colors.white,
+                            onSurface: Colors.black,
+                          ),
+                          textButtonTheme: TextButtonThemeData(
+                            style: ButtonStyle(
+                              foregroundColor:
+                                  MaterialStateProperty.all(Colors.green),
+                              overlayColor: MaterialStateProperty.all(
+                                  Colors.green.withOpacity(0.1)),
                             ),
-                            SizedBox(width: 8),
-                            Icon(Icons.calendar_today_outlined,
-                                size: 18, color: Colors.blue.shade300),
-                          ],
+                          ),
+                          dialogTheme: DialogTheme(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+
+                  if (pickedDate != null) {
+                    setModalState(() => _selectedDate = pickedDate);
+                  }
+                },
+                child: Container(
+                  height: 52,
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}",
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.black,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                    ),
+                      SizedBox(width: 8),
+                      Icon(Icons.calendar_today_outlined,
+                          size: 18, color: Colors.blue.shade300),
+                    ],
                   ),
-                  SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: Container(
-                      height: 52,
-                      child: TextField(
-                        controller: _durationController,
-                        keyboardType: TextInputType.number,
-                        cursorColor: Colors.blue,
-                        decoration: InputDecoration(
-                          hintText: "Minutes",
-                          filled: true,
-                          fillColor: Colors.white,
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            borderSide: BorderSide(
-                                color: Colors.blue.shade300, width: 2),
-                          ),
-                          contentPadding: EdgeInsets.symmetric(horizontal: 16),
-                        ),
-                        style: GoogleFonts.poppins(
-                            fontSize: 14, color: Colors.black),
-                      ),
-                    ),
-                  ),
-                ],
+                ),
               ),
               SizedBox(height: 24),
               Container(
@@ -480,27 +396,9 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   onPressed: () async {
-                    final minutes = int.tryParse(_durationController.text);
-                    if (minutes == null || minutes <= 0) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text("Please enter valid minutes.",
-                              style: GoogleFonts.poppins()),
-                          backgroundColor: Colors.redAccent,
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          margin: EdgeInsets.all(16),
-                        ),
-                      );
-                      return;
-                    }
-
                     final image = _getWorkoutImage(workoutName);
                     final data = {
                       'workout': workoutName,
-                      'minutes': minutes,
                       'timestamp': Timestamp.fromDate(_selectedDate),
                       'image': image,
                       'completed': false,
@@ -708,16 +606,30 @@ class _HomePageState extends State<HomePage> {
                         ),
                       ),
                       Positioned(
-                        bottom: 10,
+                        top: 10,
                         left: 10,
-                        child: Text(
-                          workoutName,
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.white,
-                            decoration: TextDecoration.none,
-                          ),
+                        child: Row(
+                          children: [
+                            Text(
+                              workoutName,
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Text(
+                              "15 mins per session",
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w400,
+                                color: Colors.white70,
+                                decoration: TextDecoration.none,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -1083,43 +995,181 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   SizedBox(height: 16),
-                  TableCalendar(
-                    focusedDay: _focusedDay,
-                    firstDay: DateTime.utc(2020, 1, 1),
-                    lastDay: DateTime.utc(2030, 12, 31),
-                    calendarFormat: CalendarFormat.week,
-                    startingDayOfWeek: StartingDayOfWeek.monday,
-                    selectedDayPredicate: (day) => isSameDay(_selectedDay, day),
-                    onDaySelected: (selected, focused) {
-                      setState(() {
-                        _selectedDay = selected;
-                        _focusedDay = focused;
-                      });
-                    },
-                    eventLoader: _getEventsForDay,
-                    calendarStyle: CalendarStyle(
-                      todayDecoration: BoxDecoration(
-                        color: Colors.blue.shade200,
-                        shape: BoxShape.circle,
-                      ),
-                      selectedDecoration: BoxDecoration(
-                        color: Colors.blue.shade100,
-                        shape: BoxShape.circle,
-                      ),
-                      weekendTextStyle:
-                          GoogleFonts.poppins(color: Colors.black),
-                      defaultTextStyle:
-                          GoogleFonts.poppins(color: Colors.black),
-                      outsideTextStyle:
-                          GoogleFonts.poppins(color: Colors.grey.shade400),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.2),
+                          blurRadius: 8,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    headerStyle: HeaderStyle(
-                      titleTextStyle: GoogleFonts.poppins(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.black,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxHeight: MediaQuery.of(context).size.height * 0.5,
                       ),
-                      formatButtonVisible: false,
+                      child: TableCalendar(
+                        focusedDay: _focusedDay,
+                        firstDay: DateTime.utc(2020, 1, 1),
+                        lastDay: DateTime.utc(2030, 12, 31),
+                        calendarFormat: CalendarFormat.month,
+                        availableCalendarFormats: const {
+                          CalendarFormat.month: 'Month',
+                          CalendarFormat.week: 'Week',
+                        },
+                        startingDayOfWeek: StartingDayOfWeek.monday,
+                        selectedDayPredicate: (day) =>
+                            isSameDay(_selectedDay, day),
+                        onDaySelected: (selected, focused) {
+                          setState(() {
+                            _selectedDay = selected;
+                            _focusedDay = focused;
+                          });
+                        },
+                        onFormatChanged: (format) {
+                          setState(() {
+                            // No state variable needed as TableCalendar manages format
+                          });
+                        },
+                        eventLoader: _getEventsForDay,
+                        calendarStyle: CalendarStyle(
+                          todayDecoration: BoxDecoration(
+                            color: Colors.blue.shade200,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          selectedDecoration: BoxDecoration(
+                            color: Colors.blue.shade300,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          defaultDecoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
+                          weekendDecoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
+                          outsideDecoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
+                          markerDecoration: BoxDecoration(
+                            color: Colors.amber.shade600,
+                            shape: BoxShape.circle,
+                          ),
+                          markersMaxCount: 3,
+                          cellMargin: EdgeInsets.all(6),
+                          defaultTextStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87,
+                          ),
+                          weekendTextStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87,
+                          ),
+                          outsideTextStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade400,
+                          ),
+                          todayTextStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                          selectedTextStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        headerStyle: HeaderStyle(
+                          titleTextStyle: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                          formatButtonVisible: true,
+                          formatButtonDecoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          formatButtonTextStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                          leftChevronIcon: Icon(
+                            Icons.chevron_left,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          rightChevronIcon: Icon(
+                            Icons.chevron_right,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+                            ),
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(16),
+                            ),
+                          ),
+                        ),
+                        calendarBuilders: CalendarBuilders(
+                          dowBuilder: (context, day) {
+                            final text = [
+                              'Mon',
+                              'Tue',
+                              'Wed',
+                              'Thu',
+                              'Fri',
+                              'Sat',
+                              'Sun'
+                            ][day.weekday - 1];
+                            return Center(
+                              child: Text(
+                                text,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ),
                   )
                       .animate()

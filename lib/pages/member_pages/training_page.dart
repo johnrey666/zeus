@@ -1,3 +1,4 @@
+// ignore_for_file: use_build_context_synchronously
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -76,9 +77,7 @@ class _TrainingPageState extends State<TrainingPage> {
               return {
                 'id': doc.id,
                 'title': data['workout'],
-                'time': TimeOfDay.fromDateTime(ts).format(context),
                 'image': data['image'] ?? 'assets/images/workout.jpg',
-                'minutes': data['minutes'] ?? 0,
                 'timestamp': ts,
                 'completed': data['completed'] ?? false,
               };
@@ -138,8 +137,11 @@ class _TrainingPageState extends State<TrainingPage> {
                   const Icon(Icons.access_time, color: Colors.grey),
                   const SizedBox(width: 8),
                   Text(
-                    "${DateFormat('jm').format(workout['timestamp'])} | ${workout['minutes']} minutes",
-                    style: GoogleFonts.poppins(color: Colors.grey.shade600),
+                    "15 mins per session",
+                    style: GoogleFonts.poppins(
+                      color: Colors.grey.shade600,
+                      fontSize: 14,
+                    ),
                   ),
                 ],
               ),
@@ -227,61 +229,200 @@ class _TrainingPageState extends State<TrainingPage> {
                 ),
               ),
               const SizedBox(height: 16),
-              TableCalendar(
-                firstDay: DateTime.utc(2020, 1, 1),
-                lastDay: DateTime.utc(2030, 12, 31),
-                focusedDay: _focusedDay,
-                selectedDayPredicate: (day) => isSameDay(day, _selectedDay),
-                onDaySelected: (selectedDay, focusedDay) {
-                  setState(() {
-                    _selectedDay = selectedDay;
-                    _focusedDay = focusedDay;
-                  });
-                },
-                calendarFormat: CalendarFormat.week,
-                startingDayOfWeek: StartingDayOfWeek.monday,
-                calendarStyle: CalendarStyle(
-                  todayDecoration: BoxDecoration(
-                    color: Colors.blue.shade200,
-                    shape: BoxShape.circle,
-                  ),
-                  selectedDecoration: BoxDecoration(
-                    color: Colors.blue.shade100,
-                    shape: BoxShape.circle,
-                  ),
-                  weekendTextStyle: GoogleFonts.poppins(color: Colors.black),
-                  defaultTextStyle: GoogleFonts.poppins(color: Colors.black),
-                  outsideTextStyle:
-                      GoogleFonts.poppins(color: Colors.grey.shade400),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.grey.withOpacity(0.2),
+                      blurRadius: 8,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
                 ),
-                headerStyle: HeaderStyle(
-                  titleTextStyle: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black,
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.of(context).size.height * 0.5,
                   ),
-                  formatButtonVisible: false,
-                ),
-                calendarBuilders: CalendarBuilders(
-                  markerBuilder: (context, date, events) {
-                    final hasWorkout = _workoutEvents.keys.any(
-                      (d) => DateUtils.isSameDay(d, date),
-                    );
-                    if (hasWorkout) {
-                      return Positioned(
-                        bottom: 1,
-                        child: Container(
-                          width: 6,
-                          height: 6,
-                          decoration: const BoxDecoration(
-                            color: Colors.blueAccent,
-                            shape: BoxShape.circle,
+                  child: TableCalendar(
+                    firstDay: DateTime.utc(2020, 1, 1),
+                    lastDay: DateTime.utc(2030, 12, 31),
+                    focusedDay: _focusedDay,
+                    selectedDayPredicate: (day) => isSameDay(day, _selectedDay),
+                    onDaySelected: (selectedDay, focusedDay) {
+                      setState(() {
+                        _selectedDay = selectedDay;
+                        _focusedDay = focusedDay;
+                      });
+                    },
+                    calendarFormat: CalendarFormat.month,
+                    availableCalendarFormats: const {
+                      CalendarFormat.month: 'Month',
+                      CalendarFormat.week: 'Week',
+                    },
+                    startingDayOfWeek: StartingDayOfWeek.monday,
+                    eventLoader: (day) =>
+                        _workoutEvents[
+                            DateTime(day.year, day.month, day.day)] ??
+                        [],
+                    calendarStyle: CalendarStyle(
+                      todayDecoration: BoxDecoration(
+                        color: Colors.blue.shade200,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
                           ),
+                        ],
+                      ),
+                      selectedDecoration: BoxDecoration(
+                        color: Colors.blue.shade300,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      defaultDecoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                      ),
+                      weekendDecoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                      ),
+                      outsideDecoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: Colors.white,
+                      ),
+                      markerDecoration: BoxDecoration(
+                        color: Colors.amber.shade600,
+                        shape: BoxShape.circle,
+                      ),
+                      markersMaxCount: 3,
+                      cellMargin: EdgeInsets.all(6),
+                      defaultTextStyle: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                      ),
+                      weekendTextStyle: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.black87,
+                      ),
+                      outsideTextStyle: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey.shade400,
+                      ),
+                      todayTextStyle: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                      selectedTextStyle: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    headerStyle: HeaderStyle(
+                      titleTextStyle: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                      formatButtonVisible: true,
+                      formatButtonDecoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
                         ),
-                      );
-                    }
-                    return const SizedBox();
-                  },
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 4,
+                            offset: Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      formatButtonTextStyle: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                      leftChevronIcon: Icon(
+                        Icons.chevron_left,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                      rightChevronIcon: Icon(
+                        Icons.chevron_right,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+                        ),
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(16),
+                        ),
+                      ),
+                    ),
+                    calendarBuilders: CalendarBuilders(
+                      dowBuilder: (context, day) {
+                        final text = [
+                          'Mon',
+                          'Tue',
+                          'Wed',
+                          'Thu',
+                          'Fri',
+                          'Sat',
+                          'Sun'
+                        ][day.weekday - 1];
+                        return Center(
+                          child: Text(
+                            text,
+                            style: GoogleFonts.poppins(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black54,
+                            ),
+                          ),
+                        );
+                      },
+                      markerBuilder: (context, date, events) {
+                        if (events.isNotEmpty) {
+                          return Positioned(
+                            bottom: 1,
+                            child: Row(
+                              children: List.generate(
+                                events.length > 3 ? 3 : events.length,
+                                (index) => Container(
+                                  margin: EdgeInsets.symmetric(horizontal: 1),
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber.shade600,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          );
+                        }
+                        return const SizedBox();
+                      },
+                    ),
+                  ),
                 ),
               ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0),
               const SizedBox(height: 24),
@@ -320,7 +461,10 @@ class _TrainingPageState extends State<TrainingPage> {
                       padding: const EdgeInsets.all(20),
                       child: Text(
                         "No workouts scheduled for this day.",
-                        style: TextStyle(color: Colors.grey[700]),
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.grey.shade700,
+                        ),
                       ),
                     );
                   }
@@ -355,15 +499,20 @@ class _TrainingPageState extends State<TrainingPage> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(workout['title'],
-                                        style: GoogleFonts.poppins(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16)),
+                                    Text(
+                                      workout['title'],
+                                      style: GoogleFonts.poppins(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      "${workout['time']} | ${workout['minutes']} minutes",
+                                      "15 mins per session",
                                       style: GoogleFonts.poppins(
-                                          color: Colors.grey, fontSize: 14),
+                                        color: Colors.grey,
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ],
                                 ),
