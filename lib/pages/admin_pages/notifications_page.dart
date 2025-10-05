@@ -20,8 +20,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
     await FirebaseFirestore.instance.collection('announcements').add({
       'text': text,
       'timestamp': FieldValue.serverTimestamp(),
-      'adminName': 'Admin', 
+      'adminName': 'Admin',
       'readBy': [],
+      'userId': 'all', // <-- This makes it visible to all members!
     });
 
     _controller.clear();
@@ -38,19 +39,27 @@ class _NotificationsPageState extends State<NotificationsPage> {
           const Icon(Icons.campaign, size: 50),
           const SizedBox(height: 10),
           Text('Create new announcement',
-              style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w500)),
+              style: GoogleFonts.poppins(
+                  fontSize: 16, fontWeight: FontWeight.w500)),
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))],
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.grey.withOpacity(0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 4))
+              ],
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Announcement text', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.w500)),
+                Text('Announcement text',
+                    style: GoogleFonts.poppins(
+                        fontSize: 14, fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
                 Container(
                   height: 120,
@@ -83,7 +92,10 @@ class _NotificationsPageState extends State<NotificationsPage> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: const Center(
-                        child: Text('POST', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                        child: Text('POST',
+                            style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold)),
                       ),
                     ),
                   ),
@@ -92,7 +104,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
             ),
           ),
           const SizedBox(height: 30),
-          Text('Past Announcements', style: GoogleFonts.poppins(fontSize: 16, fontWeight: FontWeight.w500)),
+          Text('Past Announcements',
+              style: GoogleFonts.poppins(
+                  fontSize: 16, fontWeight: FontWeight.w500)),
           const SizedBox(height: 10),
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
@@ -130,26 +144,29 @@ class _NotificationsPageState extends State<NotificationsPage> {
                           Row(
                             children: [
                               CircleAvatar(
-  radius: 12,
-  backgroundImage: AssetImage('assets/zeus_logo.png'),
-  backgroundColor: Colors.transparent,
-),
-
+                                radius: 12,
+                                backgroundImage:
+                                    AssetImage('assets/zeus_logo.png'),
+                                backgroundColor: Colors.transparent,
+                              ),
                               const SizedBox(width: 6),
-                              Text(data['adminName'] ?? 'Admin', style: GoogleFonts.poppins(fontWeight: FontWeight.w500)),
+                              Text(data['adminName'] ?? 'Admin',
+                                  style: GoogleFonts.poppins(
+                                      fontWeight: FontWeight.w500)),
                               const Spacer(),
-                              Text(date, style: GoogleFonts.poppins(fontSize: 12)),
+                              Text(date,
+                                  style: GoogleFonts.poppins(fontSize: 12)),
                               const SizedBox(width: 6),
-                              Text(time, style: GoogleFonts.poppins(fontSize: 12)),
+                              Text(time,
+                                  style: GoogleFonts.poppins(fontSize: 12)),
                             ],
                           ),
                           const SizedBox(height: 12),
                           Text(
-  data['text'] ?? '',
-  textAlign: TextAlign.justify,
-  style: GoogleFonts.poppins(fontSize: 14),
-),
-
+                            data['text'] ?? '',
+                            textAlign: TextAlign.justify,
+                            style: GoogleFonts.poppins(fontSize: 14),
+                          ),
                         ],
                       ),
                     ),

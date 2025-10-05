@@ -47,12 +47,15 @@ class _QRScannerPageState extends State<QRScannerPage> {
 
       final now = DateTime.now();
       final today = DateFormat('yyyy-MM-dd').format(now);
-      final entriesRef = FirebaseFirestore.instance
-          .collection('attendance')
-          .doc(today)
-          .collection('entries');
+      final attendanceDocRef =
+          FirebaseFirestore.instance.collection('attendance').doc(today);
+      final entriesRef = attendanceDocRef.collection('entries');
 
-      final entryQuery = await entriesRef.where('memberId', isEqualTo: memberId).get();
+      // Ensure the parent attendance doc exists with a dummy field
+      await attendanceDocRef.set({'exists': true}, SetOptions(merge: true));
+
+      final entryQuery =
+          await entriesRef.where('memberId', isEqualTo: memberId).get();
 
       if (entryQuery.docs.isEmpty) {
         // First scan = TIME IN
@@ -93,7 +96,7 @@ class _QRScannerPageState extends State<QRScannerPage> {
           TextButton(
             onPressed: () {
               Navigator.of(context).pop();
-              Navigator.of(context).pop(); 
+              Navigator.of(context).pop();
             },
             child: const Text("OK", style: TextStyle(color: Colors.green)),
           ),

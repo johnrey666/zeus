@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'qr_scanner_page.dart';
+import 'past_attendance_page.dart'; // Make sure this import exists
 
 class AttendancePage extends StatelessWidget {
   const AttendancePage({super.key});
@@ -13,6 +14,8 @@ class AttendancePage extends StatelessWidget {
         .collection('attendance')
         .doc(todayDocId)
         .collection('entries');
+
+    final todayWordFormat = DateFormat('MMM d yyyy').format(DateTime.now());
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -47,21 +50,25 @@ class AttendancePage extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: const [BoxShadow(blurRadius: 4, color: Colors.black12)],
+                  boxShadow: const [
+                    BoxShadow(blurRadius: 4, color: Colors.black12)
+                  ],
                 ),
-                child: const Icon(Icons.qr_code_scanner, size: 120, color: Colors.black87),
+                child: const Icon(Icons.qr_code_scanner,
+                    size: 120, color: Colors.black87),
               ),
               const SizedBox(height: 16),
-
               GestureDetector(
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const QRScannerPage()),
+                    MaterialPageRoute(
+                        builder: (context) => const QRScannerPage()),
                   );
                 },
                 child: Container(
-                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
                   decoration: BoxDecoration(
                     gradient: const LinearGradient(
                       colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
@@ -87,9 +94,7 @@ class AttendancePage extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(height: 24),
-
               StreamBuilder<QuerySnapshot>(
                 stream: attendanceRef.snapshots(),
                 builder: (context, snapshot) {
@@ -110,10 +115,13 @@ class AttendancePage extends StatelessWidget {
                     final hour = DateFormat.H().format(timestamp);
                     hourlyCount[hour] = (hourlyCount[hour] ?? 0) + 1;
 
-                    if (data.containsKey('timeIn') && data.containsKey('timeOut')) {
+                    if (data.containsKey('timeIn') &&
+                        data.containsKey('timeOut')) {
                       try {
-                        final timeIn = DateFormat('HH:mm').parse(data['timeIn']);
-                        final timeOut = DateFormat('HH:mm').parse(data['timeOut']);
+                        final timeIn =
+                            DateFormat('HH:mm').parse(data['timeIn']);
+                        final timeOut =
+                            DateFormat('HH:mm').parse(data['timeOut']);
                         final duration = timeOut.difference(timeIn).inMinutes;
                         if (duration > 0) durationsInMinutes.add(duration);
                       } catch (_) {}
@@ -122,14 +130,19 @@ class AttendancePage extends StatelessWidget {
 
                   final peakHour = hourlyCount.entries.isEmpty
                       ? '-'
-                      : DateFormat('h:00 a').format(
-                          DateTime(0, 1, 1,
-                              int.parse(hourlyCount.entries.reduce((a, b) => a.value > b.value ? a : b).key)));
+                      : DateFormat('h:00 a').format(DateTime(
+                          0,
+                          1,
+                          1,
+                          int.parse(hourlyCount.entries
+                              .reduce((a, b) => a.value > b.value ? a : b)
+                              .key)));
 
                   final avgDuration = durationsInMinutes.isEmpty
                       ? '-'
                       : _formatDuration(
-                          durationsInMinutes.reduce((a, b) => a + b) ~/ durationsInMinutes.length);
+                          durationsInMinutes.reduce((a, b) => a + b) ~/
+                              durationsInMinutes.length);
 
                   return Column(
                     children: [
@@ -137,11 +150,15 @@ class AttendancePage extends StatelessWidget {
                         children: [
                           Flexible(
                               child: _buildStatCard(
-                                  icon: Icons.calendar_today, title: "Today's Check-ins", value: '$checkInsCount')),
+                                  icon: Icons.calendar_today,
+                                  title: "Today's Check-ins",
+                                  value: '$checkInsCount')),
                           const SizedBox(width: 16),
                           Flexible(
                               child: _buildStatCard(
-                                  icon: Icons.group, title: 'Currently In Gym', value: '$currentlyInGym')),
+                                  icon: Icons.group,
+                                  title: 'Currently In Gym',
+                                  value: '$currentlyInGym')),
                         ],
                       ),
                       const SizedBox(height: 16),
@@ -149,30 +166,51 @@ class AttendancePage extends StatelessWidget {
                         children: [
                           Flexible(
                               child: _buildStatCard(
-                                  icon: Icons.access_time, title: 'Peak Hour', value: peakHour)),
+                                  icon: Icons.access_time,
+                                  title: 'Peak Hour',
+                                  value: peakHour)),
                           const SizedBox(width: 16),
                           Flexible(
                               child: _buildStatCard(
-                                  icon: Icons.timer_outlined, title: 'Avg Duration', value: avgDuration)),
+                                  icon: Icons.timer_outlined,
+                                  title: 'Avg Duration',
+                                  value: avgDuration)),
                         ],
                       ),
                     ],
                   );
                 },
               ),
-
               const SizedBox(height: 24),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text("Today's Attendance",
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    "Attendance $todayWordFormat",
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.archive),
+                    tooltip: "Past Attendance",
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (_) => const PastAttendancePage()),
+                      );
+                    },
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
-
               StreamBuilder<QuerySnapshot>(
-                stream: attendanceRef.orderBy('timestamp', descending: true).snapshots(),
+                stream: attendanceRef
+                    .orderBy('timestamp', descending: true)
+                    .snapshots(),
                 builder: (context, snapshot) {
-                  if (!snapshot.hasData) return const CircularProgressIndicator();
+                  if (!snapshot.hasData)
+                    return const CircularProgressIndicator();
                   final docs = snapshot.data!.docs;
 
                   return Column(
@@ -186,13 +224,17 @@ class AttendancePage extends StatelessWidget {
                           leading: const CircleAvatar(
                               backgroundColor: Colors.black87,
                               child: Icon(Icons.person, color: Colors.white)),
-                          title: Text("${data['firstName']} ${data['lastName']}"),
+                          title:
+                              Text("${data['firstName']} ${data['lastName']}"),
                           subtitle: Text(
                             'Check-in: ${_formatTo12Hour(data['timeIn'])} | '
                             'Check-out: ${_formatTo12Hour(data['timeOut'])}',
                           ),
-                          trailing: Text(DateFormat('MM/dd/yy')
-                              .format((data['timestamp'] as Timestamp).toDate())),
+                          trailing: Text(
+                            todayWordFormat,
+                            style: const TextStyle(
+                                fontSize: 13, color: Colors.grey),
+                          ),
                         ),
                       );
                     }).toList(),

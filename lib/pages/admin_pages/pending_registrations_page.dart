@@ -5,8 +5,26 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
-class PendingRegistrationsPage extends StatelessWidget {
+class PendingRegistrationsPage extends StatefulWidget {
   const PendingRegistrationsPage({super.key});
+
+  @override
+  State<PendingRegistrationsPage> createState() =>
+      _PendingRegistrationsPageState();
+}
+
+class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
+  int _pendingPage = 0;
+  int _acceptedPage = 0;
+  final int _pageSize = 4;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
 
   Future<void> _acceptRequest(String docId, Map<String, dynamic> data) async {
     await FirebaseFirestore.instance
@@ -48,7 +66,8 @@ class PendingRegistrationsPage extends StatelessWidget {
 
       await FirebaseFirestore.instance.collection('notifications').add({
         'toUserId': userId,
-        'text': '🎉 You have successfully registered! You can now communicate with your Trainer.',
+        'text':
+            '🎉 You have successfully registered! You can now communicate with your Trainer.',
         'timestamp': FieldValue.serverTimestamp(),
       });
     }
@@ -144,7 +163,10 @@ class PendingRegistrationsPage extends StatelessWidget {
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => _deleteRequest(docId),
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          await _deleteRequest(docId);
+                        },
                         child: const Text("Delete",
                             style: TextStyle(color: Colors.redAccent)),
                       ),
@@ -153,7 +175,7 @@ class PendingRegistrationsPage extends StatelessWidget {
                     Expanded(
                       child: ElevatedButton(
                         onPressed: () async {
-                          Navigator.pop(context); 
+                          Navigator.pop(context);
                           await _acceptRequest(docId, data);
                         },
                         style: ElevatedButton.styleFrom(
@@ -192,143 +214,173 @@ class PendingRegistrationsPage extends StatelessWidget {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildCard(QueryDocumentSnapshot doc, bool showButtons) {
+    final data = doc.data() as Map<String, dynamic>;
+    final name = data['name'] ?? 'No Name';
+    final plan = data['plan'] ?? '-';
     final headerStyle = GoogleFonts.poppins(
       fontSize: 22,
       fontWeight: FontWeight.w600,
       color: Colors.blueGrey.shade900,
     );
-
     final subStyle = GoogleFonts.poppins(
       fontSize: 14,
       color: Colors.blueGrey.shade600,
     );
+    return Card(
+      color: Colors.white,
+      margin: const EdgeInsets.only(bottom: 12),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        title: Text(name, style: headerStyle.copyWith(fontSize: 16)),
+        subtitle: Text("Plan: $plan", style: subStyle),
+        trailing: const Icon(Icons.chevron_right_rounded),
+        onTap: () => _showDetailsModal(context, data, showButtons, doc.id),
+      ),
+    );
+  }
 
+  Widget _buildTabContent(String title, Stream<QuerySnapshot> stream, int page,
+      Function(int) setPage, bool showButtons) {
+    final headerStyle = GoogleFonts.poppins(
+      fontSize: 22,
+      fontWeight: FontWeight.w600,
+      color: Colors.blueGrey.shade900,
+    );
+    final subStyle = GoogleFonts.poppins(
+      fontSize: 14,
+      color: Colors.blueGrey.shade600,
+    );
+    return StreamBuilder<QuerySnapshot>(
+      stream: stream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(32),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final docs = snapshot.data?.docs ?? [];
+        final total = docs.length;
+        final startIndex = page * _pageSize;
+        final endIndex = (startIndex + _pageSize).clamp(0, total);
+        final paginatedDocs = docs.skip(startIndex).take(_pageSize).toList();
+
+        if (total == 0) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            child: Text('No ${title.toLowerCase()} registrations.',
+                style: subStyle),
+          );
+        }
+
+        final displayStart = startIndex + 1;
+        final displayEnd = startIndex + paginatedDocs.length;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: headerStyle),
+            const SizedBox(height: 12),
+            ...paginatedDocs.map((doc) => _buildCard(doc, showButtons)),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextButton(
+                  onPressed: page > 0 ? () => setPage(page - 1) : null,
+                  child: const Text('Previous'),
+                ),
+                Text('$displayStart - $displayEnd of $total'),
+                TextButton(
+                  onPressed:
+                      paginatedDocs.length == _pageSize && endIndex < total
+                          ? () => setPage(page + 1)
+                          : null,
+                  child: const Text('Next'),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final thirtyDaysAgo = Timestamp.fromDate(
       DateTime.now().subtract(const Duration(days: 30)),
     );
+
+    final pendingStream = FirebaseFirestore.instance
+        .collection('registrations')
+        .where('status', isEqualTo: 'pending')
+        .orderBy('timestamp', descending: true)
+        .snapshots();
+
+    final acceptedStream = FirebaseFirestore.instance
+        .collection('registrations')
+        .where('status', isEqualTo: 'accepted')
+        .where('timestamp', isGreaterThan: thirtyDaysAgo)
+        .orderBy('timestamp', descending: true)
+        .snapshots();
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         top: true,
         bottom: false,
-        child: Padding(
-          padding: const EdgeInsets.all(20),
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text("Pending Registrations", style: headerStyle),
-                const SizedBox(height: 12),
-                StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('registrations')
-                      .where('status', isEqualTo: 'pending')
-                      .orderBy('timestamp', descending: true)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Padding(
-                        padding: EdgeInsets.all(32),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-
-                    final docs = snapshot.data?.docs ?? [];
-                    if (docs.isEmpty) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        child: Text('No pending registration requests.',
-                            style: subStyle),
-                      );
-                    }
-
-                    return Column(
-                      children: docs.map((doc) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        final name = data['name'] ?? 'No Name';
-                        final plan = data['plan'] ?? '-';
-                        return Card(
-                          color: Colors.white,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
-                            title: Text(name,
-                                style: headerStyle.copyWith(fontSize: 16)),
-                            subtitle: Text("Plan: $plan", style: subStyle),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: () =>
-                                _showDetailsModal(context, data, true, doc.id),
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
-                const SizedBox(height: 32),
-                Text("Accepted (last 30 days)", style: headerStyle),
-                const SizedBox(height: 12),
-                StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('registrations')
-                      .where('status', isEqualTo: 'accepted')
-                      .where('timestamp', isGreaterThan: thirtyDaysAgo)
-                      .orderBy('timestamp', descending: true)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Padding(
-                        padding: EdgeInsets.all(32),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-
-                    final docs = snapshot.data?.docs ?? [];
-                    if (docs.isEmpty) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 20),
-                        child: Text('No accepted registrations.',
-                            style: subStyle),
-                      );
-                    }
-
-                    return Column(
-                      children: docs.map((doc) {
-                        final data = doc.data() as Map<String, dynamic>;
-                        final name = data['name'] ?? 'No Name';
-                        final plan = data['plan'] ?? '-';
-                        return Card(
-                          color: Colors.white,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 16, vertical: 10),
-                            title: Text(name,
-                                style: headerStyle.copyWith(fontSize: 16)),
-                            subtitle: Text("Plan: $plan", style: subStyle),
-                            trailing: const Icon(Icons.chevron_right_rounded),
-                            onTap: () =>
-                                _showDetailsModal(context, data, false, doc.id),
-                          ),
-                        );
-                      }).toList(),
-                    );
-                  },
-                ),
+        child: Column(
+          children: [
+            TabBar(
+              controller: _tabController,
+              tabs: const [
+                Tab(text: 'Pending'),
+                Tab(text: 'Active'),
               ],
             ),
-          ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: _buildTabContent(
+                      "Pending Registrations",
+                      pendingStream,
+                      _pendingPage,
+                      (int newPage) => setState(() => _pendingPage = newPage),
+                      true,
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(20),
+                    child: _buildTabContent(
+                      "Active Membership",
+                      acceptedStream,
+                      _acceptedPage,
+                      (int newPage) => setState(() => _acceptedPage = newPage),
+                      false,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 }

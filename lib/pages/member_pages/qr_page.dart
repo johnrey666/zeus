@@ -71,7 +71,7 @@ class _QRPageState extends State<QRPage> {
               builder: (context, snapshot) {
                 String timeIn = 'N/A';
                 String timeOut = 'N/A';
-                String date = DateFormat('MM/dd/yy').format(DateTime.now());
+                String date = DateFormat('MMM dd, yyyy').format(DateTime.now());
 
                 if (snapshot.hasError) {
                   print("❌ Error fetching attendance: ${snapshot.error}");
@@ -109,7 +109,7 @@ class _QRPageState extends State<QRPage> {
                       timeOut = _formatTo12Hour(data['timeOut']);
                     }
                     if (data['timestamp'] is Timestamp) {
-                      date = DateFormat('MM/dd/yy')
+                      date = DateFormat('MMM dd, yyyy')
                           .format((data['timestamp'] as Timestamp).toDate());
                     }
                   } else {

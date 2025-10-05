@@ -28,6 +28,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
     '1 month with trainer - 1650PHP',
   ];
 
+  DateTime? _pickedStartDate;
+
   @override
   void initState() {
     super.initState();
@@ -37,7 +39,10 @@ class _RegistrationPageState extends State<RegistrationPage> {
   Future<void> _loadUserName() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
-      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
       final firstName = doc['firstName'] ?? '';
       final lastName = doc['lastName'] ?? '';
       setState(() {
@@ -57,13 +62,15 @@ class _RegistrationPageState extends State<RegistrationPage> {
           data: Theme.of(context).copyWith(
             dialogBackgroundColor: Colors.white,
             colorScheme: const ColorScheme.light(
-              primary: Colors.blue, 
-              onSurface: Colors.black, 
+              primary: Colors.blue,
+              onSurface: Colors.black,
             ),
             textButtonTheme: TextButtonThemeData(
               style: ButtonStyle(
-                foregroundColor: MaterialStateProperty.resolveWith<Color>((states) {
-                  if (states.contains(MaterialState.pressed)) return Colors.green;
+                foregroundColor:
+                    MaterialStateProperty.resolveWith<Color>((states) {
+                  if (states.contains(MaterialState.pressed))
+                    return Colors.green;
                   return Colors.green;
                 }),
               ),
@@ -76,7 +83,9 @@ class _RegistrationPageState extends State<RegistrationPage> {
 
     if (picked != null) {
       setState(() {
-        _startDateController.text = "${picked.year}-${picked.month}-${picked.day}";
+        _pickedStartDate = picked;
+        _startDateController.text =
+            "${picked.year}-${picked.month}-${picked.day}";
       });
     }
   }
@@ -97,9 +106,13 @@ class _RegistrationPageState extends State<RegistrationPage> {
     final name = _memberNameController.text.trim();
     final date = _startDateController.text.trim();
 
-    if (name.isEmpty || date.isEmpty || _selectedPlan == null || _proofImage == null) {
+    if (name.isEmpty ||
+        date.isEmpty ||
+        _selectedPlan == null ||
+        _proofImage == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please complete all fields and upload proof")),
+        const SnackBar(
+            content: Text("Please complete all fields and upload proof")),
       );
       return;
     }
@@ -107,18 +120,26 @@ class _RegistrationPageState extends State<RegistrationPage> {
     final bytes = await _proofImage!.readAsBytes();
     final base64Image = base64Encode(bytes);
 
+    // Calculate end date (1 month after start)
+    final startDate = _pickedStartDate ?? DateTime.now();
+    final endDate =
+        DateTime(startDate.year, startDate.month + 1, startDate.day);
+
     final registrationData = {
       'userId': user.uid,
       'name': name,
       'plan': _selectedPlan,
       'startDate': date,
+      'endDate': "${endDate.year}-${endDate.month}-${endDate.day}",
       'paymentMethod': _selectedPayment,
       'proofImageBase64': base64Image,
       'status': 'pending',
       'timestamp': Timestamp.now(),
     };
 
-    await FirebaseFirestore.instance.collection('registrations').add(registrationData);
+    await FirebaseFirestore.instance
+        .collection('registrations')
+        .add(registrationData);
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Registration submitted for approval.")),
@@ -168,11 +189,15 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       icon: Icons.credit_card,
                       value: _selectedPlan,
                       hint: "Select Plan",
-                      items: _plans.map((plan) => DropdownMenuItem(
-                        value: plan,
-                        child: Text(plan, overflow: TextOverflow.ellipsis),
-                      )).toList(),
-                      onChanged: (value) => setState(() => _selectedPlan = value),
+                      items: _plans
+                          .map((plan) => DropdownMenuItem(
+                                value: plan,
+                                child:
+                                    Text(plan, overflow: TextOverflow.ellipsis),
+                              ))
+                          .toList(),
+                      onChanged: (value) =>
+                          setState(() => _selectedPlan = value),
                     ),
                   );
                 },
@@ -183,7 +208,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                 controller: _startDateController,
                 readOnly: true,
                 onTap: () => _pickDate(context),
-                decoration: _inputDecoration(Icons.calendar_today, "Select Date"),
+                decoration:
+                    _inputDecoration(Icons.calendar_today, "Select Date"),
               ),
               const SizedBox(height: 20),
               _sectionTitle("Payment Method"),
@@ -193,7 +219,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                     value: 'Gcash',
                     groupValue: _selectedPayment,
                     activeColor: Colors.blue,
-                    onChanged: (value) => setState(() => _selectedPayment = value),
+                    onChanged: (value) =>
+                        setState(() => _selectedPayment = value),
                   ),
                   const Icon(Icons.account_balance_wallet, color: Colors.blue),
                   const SizedBox(width: 8),
@@ -214,7 +241,8 @@ class _RegistrationPageState extends State<RegistrationPage> {
                   backgroundColor: Colors.white,
                   foregroundColor: Colors.black87,
                   elevation: 1,
-                  padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -245,12 +273,14 @@ class _RegistrationPageState extends State<RegistrationPage> {
                       backgroundColor: Colors.transparent,
                       foregroundColor: Colors.white,
                       shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 40, vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: const Text("Register", style: TextStyle(fontSize: 16)),
+                    child:
+                        const Text("Register", style: TextStyle(fontSize: 16)),
                   ),
                 ),
               ),

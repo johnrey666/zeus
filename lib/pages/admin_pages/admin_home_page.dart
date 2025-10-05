@@ -40,9 +40,9 @@ class _AdminHomePageState extends State<AdminHomePage>
 
     _pages = [
       DashboardPage(
-        onNavigateToAttendance: () {
-          _onItemTapped(4);
-        },
+        onNavigateToAttendance: () => _onItemTapped(4),
+        onNavigateToMembers: () => _onItemTapped(1),
+        onNavigateToPending: () => _onItemTapped(2),
       ),
       const MemberListPage(),
       const PendingRegistrationsPage(),
@@ -127,9 +127,7 @@ class _AdminHomePageState extends State<AdminHomePage>
     );
   }
 
-  // Handle back button press
   Future<bool> _onWillPop() async {
-    // Prevent back navigation if user is logged in
     return user != null ? false : true;
   }
 

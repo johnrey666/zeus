@@ -44,7 +44,8 @@ class _MemberLoginPageState extends State<MemberLoginPage> {
         if (userType == 'Member') {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(builder: (_) => const MemberHomePage(initialTabIndex: 0)),
+            MaterialPageRoute(
+                builder: (_) => const MemberHomePage(initialTabIndex: 0)),
           );
         } else {
           await _auth.signOut();
@@ -55,7 +56,7 @@ class _MemberLoginPageState extends State<MemberLoginPage> {
         }
       }
     } on FirebaseAuthException catch (e) {
-      String message = 'Login failed';
+      String message = 'Login failed, Wrong email or password.';
       if (e.code == 'user-not-found') {
         message = 'No user found for that email.';
       } else if (e.code == 'wrong-password') {
@@ -72,7 +73,6 @@ class _MemberLoginPageState extends State<MemberLoginPage> {
 
   @override
   Widget build(BuildContext context) {
-
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
@@ -125,7 +125,8 @@ class _MemberLoginPageState extends State<MemberLoginPage> {
                 controller: _emailController,
                 cursorColor: Colors.blue,
                 keyboardType: TextInputType.emailAddress,
-                decoration: _inputDecoration(Icons.email_outlined, "Enter your email"),
+                decoration:
+                    _inputDecoration(Icons.email_outlined, "Enter your email"),
               ),
               const SizedBox(height: 20),
 
@@ -138,7 +139,9 @@ class _MemberLoginPageState extends State<MemberLoginPage> {
                   prefixIcon: const Icon(Icons.lock_outline),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      _obscurePassword
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                       color: Colors.grey,
                     ),
                     onPressed: () {
@@ -150,7 +153,8 @@ class _MemberLoginPageState extends State<MemberLoginPage> {
                   hintText: "Enter your password",
                   filled: true,
                   fillColor: Colors.grey.shade100,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none,
@@ -161,49 +165,49 @@ class _MemberLoginPageState extends State<MemberLoginPage> {
 
               // Login button
               Center(
-  child: SizedBox(
-    width: double.infinity,
-    child: GestureDetector(
-      onTap: _isLoading ? null : _loginUser,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.15),
-              blurRadius: 4,
-              offset: const Offset(2, 2),
-            ),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: _isLoading
-            ? const SizedBox(
-                height: 20,
-                width: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              )
-            : const Text(
-                "Login",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: GestureDetector(
+                    onTap: _isLoading ? null : _loginUser,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.15),
+                            blurRadius: 4,
+                            offset: const Offset(2, 2),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text(
+                              "Login",
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                    ),
+                  ),
                 ),
               ),
-      ),
-    ),
-  ),
-),
               const SizedBox(height: 20),
               Center(
                 child: Wrap(

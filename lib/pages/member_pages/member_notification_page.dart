@@ -14,6 +14,62 @@ class _MemberNotificationPageState extends State<MemberNotificationPage> {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   bool _hasIncrementedSeen = false;
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.userId.isNotEmpty) {
+      _checkPlanExpiryAndNotify();
+    }
+  }
+
+  Future<void> _checkPlanExpiryAndNotify() async {
+    try {
+      final regSnap = await _firestore
+          .collection('registrations')
+          .where('userId', isEqualTo: widget.userId)
+          .orderBy('timestamp', descending: true)
+          .limit(1)
+          .get();
+
+      if (regSnap.docs.isEmpty) return;
+
+      final reg = regSnap.docs.first.data();
+      final endDateStr = reg['endDate'];
+      if (endDateStr == null) return;
+
+      final endDateParts = endDateStr.split('-');
+      if (endDateParts.length != 3) return;
+
+      final endDate = DateTime(
+        int.parse(endDateParts[0]),
+        int.parse(endDateParts[1]),
+        int.parse(endDateParts[2]),
+      );
+      final now = DateTime.now();
+      final diffDays = endDate.difference(now).inDays;
+
+      final notifSnap = await _firestore
+          .collection('announcements')
+          .where('userId', isEqualTo: widget.userId)
+          .where('text',
+              isEqualTo:
+                  'Your membership plan will expire in 3 days. Please renew to continue enjoying our services.')
+          .get();
+
+      if (diffDays == 3 && notifSnap.docs.isEmpty) {
+        await _firestore.collection('announcements').add({
+          'text':
+              'Your membership plan will expire in 3 days. Please renew to continue enjoying our services.',
+          'userId': widget.userId,
+          'timestamp': Timestamp.now(),
+          'seenBy': {},
+        });
+      }
+    } catch (e) {
+      debugPrint('Error in _checkPlanExpiryAndNotify: $e');
+    }
+  }
+
   Future<void> _incrementSeenCount(List<DocumentSnapshot> docs) async {
     for (var doc in docs) {
       final data = doc.data() as Map<String, dynamic>;
@@ -30,9 +86,8 @@ class _MemberNotificationPageState extends State<MemberNotificationPage> {
     final data = doc.data() as Map<String, dynamic>;
     final text = data['text'] ?? '';
     final ts = data['timestamp'] as Timestamp?;
-    final timeStr = ts != null
-        ? DateFormat('MMM d, h:mm a').format(ts.toDate())
-        : '';
+    final timeStr =
+        ts != null ? DateFormat('MMM d, h:mm a').format(ts.toDate()) : '';
 
     return Card(
       color: Colors.white,
@@ -114,6 +169,19 @@ class _MemberNotificationPageState extends State<MemberNotificationPage> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.userId.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text("Notifications",
+              style: TextStyle(color: Colors.black)),
+          backgroundColor: Colors.white,
+          elevation: 0,
+          iconTheme: const IconThemeData(color: Colors.black),
+        ),
+        body: const Center(child: Text('No user ID provided.')),
+      );
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -126,11 +194,21 @@ class _MemberNotificationPageState extends State<MemberNotificationPage> {
       body: StreamBuilder<QuerySnapshot>(
         stream: _firestore
             .collection('announcements')
+            .where('userId', whereIn: [
+              widget.userId,
+              "all"
+            ]) // <-- Show both personal and general
             .orderBy('timestamp', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
-          if (!snapshot.hasData) {
+          if (snapshot.hasError) {
+            return const Center(child: Text('Error loading notifications.'));
+          }
+          if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
+          }
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text('No notifications found.'));
           }
 
           final docs = snapshot.data!.docs;
