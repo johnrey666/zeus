@@ -8,6 +8,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
+import 'package:google_generative_ai/google_generative_ai.dart'; // NEW: For Gemini AI
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -30,6 +31,12 @@ class _HomePageState extends State<HomePage> {
   Map<String, dynamic> _userPlan = {};
   List<String> _suggestedWorkouts = [];
 
+  // NEW: Gemini setup
+  // NOTE: This API key should be securely loaded (e.g., environment variable) in a production app.
+  static const _apiKey = 'AIzaSyAv-8phkpHuQbEnZshddCxYIpl4nIbgqJs';
+  late final GenerativeModel _model =
+      GenerativeModel(model: 'gemini-1.5-flash', apiKey: _apiKey);
+
   @override
   void initState() {
     super.initState();
@@ -46,6 +53,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _initializeData() async {
+    // CHANGED: Now async to await AI call
     final uid = user!.uid;
     final calendarSnapshot = await FirebaseFirestore.instance
         .collection('users')
@@ -73,13 +81,17 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _events = tempEvents;
       _userPlan = planSnapshot.exists ? planSnapshot.data()! : {};
-      _suggestedWorkouts = _generateSuggestedWorkouts();
-      _isLoading = false;
     });
+
+    // CHANGED: Await AI suggestions instead of hardcoded
+    _suggestedWorkouts = await _generateAISuggestedWorkouts();
+    _isLoading = false;
+    if (mounted) setState(() {}); // Refresh UI
   }
 
-  List<String> _generateSuggestedWorkouts() {
-    // Use only existing workouts with confirmed images and videos
+  // NEW: AI-powered method - Generates personalized workout suggestions
+  Future<List<String>> _generateAISuggestedWorkouts() async {
+    // Your existing workout pool (to ensure matching assets)
     final availableWorkouts = [
       'Plank',
       'Crunches',
@@ -98,126 +110,78 @@ class _HomePageState extends State<HomePage> {
       'Fullbody Workout',
       'Lowerbody Workout',
       'AB Workout',
-    ];
+    ].join(', '); // Comma-separated for prompt
 
-    // Default workouts if no user plan exists
+    // Default if no plan or offline
     if (_userPlan.isEmpty) {
-      return ['Arm Raises', 'Incline Push-Ups', 'Cable Flyes', 'Plank'];
+      // Fallback for new user or missing plan data
+      return ['Warm-up', 'Squats', 'Yoga', 'Plank'];
     }
 
-    final goal = _userPlan['What is your fitness goal?']?.toString() ?? '';
+    // Extract user data from Firestore
+    final goal = _userPlan['What is your fitness goal?']?.toString() ??
+        'general fitness';
     final fitnessLevel =
-        _userPlan['Select Your Fitness Level']?.toString() ?? '';
+        _userPlan['Select Your Fitness Level']?.toString() ?? 'Beginner';
     final activityLevel =
-        _userPlan['Select your activity level']?.toString() ?? '';
+        _userPlan['Select your activity level']?.toString() ?? 'Sedentary';
     final weight = int.tryParse(_userPlan['Weight']?.toString() ?? '70') ?? 70;
     final height =
         int.tryParse(_userPlan['Height']?.toString() ?? '170') ?? 170;
 
-    // Calculate BMI
+    // Calculate BMI for context (used in prompt)
     final heightInMeters = height / 100;
     final bmi = weight / (heightInMeters * heightInMeters);
-    String bmiCategory;
-    if (bmi < 18.5) {
+    String bmiCategory = 'Normal';
+    if (bmi < 18.5)
       bmiCategory = 'Underweight';
-    } else if (bmi < 25) {
+    else if (bmi < 25)
       bmiCategory = 'Normal';
-    } else if (bmi < 30) {
+    else if (bmi < 30)
       bmiCategory = 'Overweight';
-    } else {
+    else
       bmiCategory = 'Obese';
+
+    // AI Prompt: Highly structured for Gemini to return a clean JSON array
+    final prompt = '''
+    Based on this user profile:
+    - Goal: $goal
+    - Fitness Level: $fitnessLevel
+    - Activity Level: $activityLevel
+    - BMI Category: $bmiCategory (Weight: $weight kg, Height: $height cm)
+    
+    Suggest exactly 4 personalized workout names from this list only: $availableWorkouts.
+    Prioritize safe, effective ones matching the profile (e.g., low-impact cardio and foundational strength for a beginner/sedentary person).
+    Return ONLY a JSON array like: ["Workout1", "Workout2", "Workout3", "Workout4"]
+    ''';
+
+    try {
+      final content = await _model.generateContent([Content.text(prompt)]);
+      final response = content.text ?? '';
+
+      // Cleanly parse JSON array response
+      final jsonMatch = RegExp(r'\[(.*?)\]').firstMatch(response);
+      if (jsonMatch != null) {
+        final workoutsStr = jsonMatch.group(1)!;
+        final List<String> suggestions = workoutsStr
+            .split(',')
+            .map((w) => w.trim().replaceAll('"', '').replaceAll("'", ""))
+            .where(
+                (w) => availableWorkouts.contains(w)) // Validate against pool
+            .take(4) // Ensure exactly 4
+            .toList();
+
+        // Final check for a valid list of 4
+        if (suggestions.length == 4) {
+          return suggestions;
+        }
+      }
+    } catch (e) {
+      debugPrint('AI Workout Generation Error: $e'); // Log error
     }
 
-    // Initialize workout scores
-    final workoutScores = {for (var w in availableWorkouts) w: 0.0};
-
-    // Adjust scores based on fitness goal
-    if (goal == 'Build Muscle') {
-      workoutScores['Push-Ups'] = workoutScores['Push-Ups']! + 2.0;
-      workoutScores['Incline Push-Ups'] =
-          workoutScores['Incline Push-Ups']! + 1.5;
-      workoutScores['Squats'] = workoutScores['Squats']! + 2.0;
-      workoutScores['Bench Press'] = workoutScores['Bench Press']! + 2.0;
-      workoutScores['Bicep Curls'] = workoutScores['Bicep Curls']! + 1.5;
-      workoutScores['Cable Flyes'] = workoutScores['Cable Flyes']! + 1.5;
-      workoutScores['Fullbody Workout'] =
-          workoutScores['Fullbody Workout']! + 2.0;
-    } else if (goal == 'Lose Weight') {
-      workoutScores['Jumping Jacks'] = workoutScores['Jumping Jacks']! + 2.0;
-      workoutScores['Skipping'] = workoutScores['Skipping']! + 1.5;
-      workoutScores['AB Workout'] = workoutScores['AB Workout']! + 1.5;
-      workoutScores['Fullbody Workout'] =
-          workoutScores['Fullbody Workout']! + 1.5;
-    } else if (goal == 'Improve Endurance') {
-      workoutScores['Yoga'] = workoutScores['Yoga']! + 2.0;
-      workoutScores['Plank'] = workoutScores['Plank']! + 2.0;
-      workoutScores['Jumping Jacks'] = workoutScores['Jumping Jacks']! + 1.5;
-      workoutScores['Skipping'] = workoutScores['Skipping']! + 1.5;
-      workoutScores['AB Workout'] = workoutScores['AB Workout']! + 1.5;
-    } else if (goal == 'Increase Strength') {
-      workoutScores['Bench Press'] = workoutScores['Bench Press']! + 2.0;
-      workoutScores['Squats'] = workoutScores['Squats']! + 2.0;
-      workoutScores['Bicep Curls'] = workoutScores['Bicep Curls']! + 1.5;
-      workoutScores['Push-Ups'] = workoutScores['Push-Ups']! + 1.5;
-      workoutScores['Fullbody Workout'] =
-          workoutScores['Fullbody Workout']! + 2.0;
-    }
-
-    // Adjust scores based on BMI
-    if (bmiCategory == 'Underweight') {
-      workoutScores['Yoga'] = workoutScores['Yoga']! + 1.0;
-      workoutScores['Warm-up'] = workoutScores['Warm-up']! + 1.0;
-      workoutScores['Arm Raises'] = workoutScores['Arm Raises']! + 1.0;
-      workoutScores['Incline Push-Ups'] =
-          workoutScores['Incline Push-Ups']! + 1.0;
-    } else if (bmiCategory == 'Overweight' || bmiCategory == 'Obese') {
-      workoutScores['Jumping Jacks'] = workoutScores['Jumping Jacks']! + 1.5;
-      workoutScores['Skipping'] = workoutScores['Skipping']! + 1.5;
-      workoutScores['Plank'] = workoutScores['Plank']! + 1.0;
-      workoutScores['AB Workout'] = workoutScores['AB Workout']! + 1.0;
-    }
-
-    // Adjust scores based on fitness level
-    if (fitnessLevel.contains('Beginner')) {
-      workoutScores['Warm-up'] = workoutScores['Warm-up']! + 1.0;
-      workoutScores['Plank'] = workoutScores['Plank']! + 1.0;
-      workoutScores['Arm Raises'] = workoutScores['Arm Raises']! + 1.0;
-      workoutScores['Incline Push-Ups'] =
-          workoutScores['Incline Push-Ups']! + 1.0;
-      workoutScores['Yoga'] = workoutScores['Yoga']! + 1.0;
-    } else if (fitnessLevel.contains('Intermediate')) {
-      workoutScores['Push-Ups'] = workoutScores['Push-Ups']! + 1.0;
-      workoutScores['Squats'] = workoutScores['Squats']! + 1.0;
-      workoutScores['Lunges'] = workoutScores['Lunges']! + 1.0;
-      workoutScores['Crunches'] = workoutScores['Crunches']! + 1.0;
-    } else if (fitnessLevel.contains('Expert')) {
-      workoutScores['Bench Press'] = workoutScores['Bench Press']! + 1.0;
-      workoutScores['Cable Flyes'] = workoutScores['Cable Flyes']! + 1.0;
-      workoutScores['Fullbody Workout'] =
-          workoutScores['Fullbody Workout']! + 1.0;
-      workoutScores['Lowerbody Workout'] =
-          workoutScores['Lowerbody Workout']! + 1.0;
-    }
-
-    // Adjust scores based on activity level
-    if (activityLevel.contains('Sedentary') ||
-        activityLevel.contains('Lightly active')) {
-      workoutScores['Warm-up'] = workoutScores['Warm-up']! + 1.0;
-      workoutScores['Yoga'] = workoutScores['Yoga']! + 1.0;
-      workoutScores['Plank'] = workoutScores['Plank']! + 1.0;
-    } else if (activityLevel.contains('Very active') ||
-        activityLevel.contains('Extra active')) {
-      workoutScores['Fullbody Workout'] =
-          workoutScores['Fullbody Workout']! + 1.0;
-      workoutScores['Lowerbody Workout'] =
-          workoutScores['Lowerbody Workout']! + 1.0;
-      workoutScores['Bench Press'] = workoutScores['Bench Press']! + 1.0;
-    }
-
-    // Select top 4 workouts with highest scores
-    final sortedWorkouts = workoutScores.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    return sortedWorkouts.take(4).map((e) => e.key).toList();
+    // Ultimate hardcoded fallback if AI fails or returns invalid JSON
+    return ['Warm-up', 'Squats', 'Yoga', 'Plank'];
   }
 
   List<Map<String, dynamic>> _getEventsForDay(DateTime day) {
@@ -1176,6 +1140,7 @@ class _HomePageState extends State<HomePage> {
                       .fadeIn(duration: 300.ms)
                       .slideY(begin: 0.1, end: 0),
                   SizedBox(height: 24),
+                  // Display dynamic, AI-generated suggestions
                   Text(
                     "Suggested Workout",
                     style: GoogleFonts.poppins(
