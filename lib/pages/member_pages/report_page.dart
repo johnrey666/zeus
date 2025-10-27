@@ -389,11 +389,16 @@ class _ReportPageState extends State<ReportPage> {
               },
               child: Row(
                 children: [
-                  Text(
-                    _bmi > 0
-                        ? "${_bmi.toStringAsFixed(1)} - ${_getBMICategory(_bmi)}"
-                        : '—',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  // FIXED: Wrapped Text in Flexible with overflow: TextOverflow.ellipsis for responsive truncation
+                  Flexible(
+                    child: Text(
+                      _bmi > 0
+                          ? "${_bmi.toStringAsFixed(1)} - ${_getBMICategory(_bmi)}"
+                          : '—',
+                      style:
+                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
                   if (_bmi > 0) ...[
                     SizedBox(width: 8),
