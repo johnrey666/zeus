@@ -9,7 +9,7 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
-import 'package:google_generative_ai/google_generative_ai.dart'; // NEW: For Gemini AI
+import 'package:google_generative_ai/google_generative_ai.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -21,22 +21,19 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final user = FirebaseAuth.instance.currentUser;
   bool _isLoading = true;
+  bool _isLoadingAISuggestions = true;
   Map<DateTime, List<Map<String, dynamic>>> _events = {};
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   String _selectedBodyPart = 'Abs';
-  VideoPlayerController? _videoController;
   ChewieController? _chewieController;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   Map<String, dynamic> _userPlan = {};
   List<String> _suggestedWorkouts = [];
   Map<String, int> _workoutDurations = {};
-
-  // NEW/UPDATED: Debugging flags
   bool _isAISuggestionFallback = false;
 
-  // NEW: Gemini setup
   static const _apiKey = 'AIzaSyAv-8phkpHuQbEnZshddCxYIpl4nIbgqJs';
   late final GenerativeModel _model =
       GenerativeModel(model: 'gemini-2.5-flash', apiKey: _apiKey);
@@ -50,7 +47,6 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _videoController?.dispose();
     _chewieController?.dispose();
     _searchController.dispose();
     super.dispose();
@@ -58,6 +54,7 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> _initializeData() async {
     final uid = user!.uid;
+
     final calendarSnapshot = await FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
@@ -75,7 +72,6 @@ class _HomePageState extends State<HomePage> {
       }
     }
 
-    // Fetch user plan from workout_plans collection
     final planSnapshot = await FirebaseFirestore.instance
         .collection('workout_plans')
         .doc(uid)
@@ -84,133 +80,30 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _events = tempEvents;
       _userPlan = planSnapshot.exists ? planSnapshot.data()! : {};
+      _isLoading = false;
+      _isLoadingAISuggestions = true;
     });
 
-    // Await AI suggestions
-    _suggestedWorkouts = await _generateAISuggestedWorkouts();
-    // NEW: Await AI durations
-    _workoutDurations = await _generateWorkoutDurations();
-    _isLoading = false;
-    if (mounted) setState(() {}); // Refresh UI
+    _loadAISuggestionsInBackground();
   }
 
-  // AI-powered - Generates personalized workout suggestions
-  Future<List<String>> _generateAISuggestedWorkouts() async {
-    const defaultSuggestions = [
-      'Warm-up',
-      'Squats',
-      'Yoga',
-      'Plank'
-    ]; // The fallback list
+  Future<void> _loadAISuggestionsInBackground() async {
+    final aiData = await _generateAIDataCombined();
 
-    final availableWorkouts = [
-      'Plank',
-      'Crunches',
-      'Push-Ups',
-      'Incline Push-Ups',
-      'Bench Press',
-      'Yoga',
-      'Jumping Jacks',
-      'Squats',
-      'Lunges',
-      'Bicep Curls',
-      'Arm Raises',
-      'Cable Flyes',
-      'Warm-up',
-      'Skipping',
-      'Fullbody Workout',
-      'Lowerbody Workout',
-      'AB Workout',
-    ].join(', ');
-
-    // Default if no plan or offline
-    if (_userPlan.isEmpty) {
-      // Set flag for UI notification
-      _isAISuggestionFallback = true;
-      // Fallback for new user or missing plan data
-      return defaultSuggestions;
+    if (mounted) {
+      setState(() {
+        _suggestedWorkouts = aiData['workouts'] as List<String>;
+        _workoutDurations = aiData['durations'] as Map<String, int>;
+        _isLoadingAISuggestions = false;
+      });
     }
-
-    // Extract user data from Firestore
-    final goal = _userPlan['What is your fitness goal?']?.toString() ??
-        'general fitness';
-    final fitnessLevel =
-        _userPlan['Select Your Fitness Level']?.toString() ?? 'Beginner';
-    final activityLevel =
-        _userPlan['Select your activity level']?.toString() ?? 'Sedentary';
-    final weight = int.tryParse(_userPlan['Weight']?.toString() ?? '70') ?? 70;
-    final height =
-        int.tryParse(_userPlan['Height']?.toString() ?? '170') ?? 170;
-
-    // Calculate BMI for context
-    final heightInMeters = height / 100;
-    final bmi = weight / (heightInMeters * heightInMeters);
-    String bmiCategory = 'Normal';
-    if (bmi < 18.5)
-      bmiCategory = 'Underweight';
-    else if (bmi < 25)
-      bmiCategory = 'Normal';
-    else if (bmi < 30)
-      bmiCategory = 'Overweight';
-    else
-      bmiCategory = 'Obese';
-
-    // Highly structured for Gemini to return a clean JSON array
-    final prompt = '''
-    Based on this user profile:
-    - Goal: $goal
-    - Fitness Level: $fitnessLevel
-    - Activity Level: $activityLevel
-    - BMI Category: $bmiCategory (Weight: $weight kg, Height: $height cm)
-    
-    Suggest exactly 4 personalized workout names from this list only: $availableWorkouts.
-    Prioritize safe, effective ones matching the profile (e.g., low-impact cardio and foundational strength for a beginner/sedentary person).
-    Return ONLY a JSON array like: ["Workout1", "Workout2", "Workout3", "Workout4"]
-    ''';
-
-    try {
-      final content = await _model.generateContent([Content.text(prompt)]);
-      final response = content.text ?? '';
-
-      // FIX: Clean response (remove markdown if present) for robust JSON parsing
-      final cleaned = response
-          .trim()
-          .replaceAll(RegExp(r'```(?:json)?'), '')
-          .replaceAll('```', '')
-          .trim();
-
-      // Parse as a list
-      final List<dynamic> jsonList = json.decode(cleaned);
-
-      final List<String> suggestions = jsonList
-          .map((item) => item.toString().trim())
-          .where((w) => availableWorkouts.contains(w)) // Validate against pool
-          .take(4)
-          .toList();
-
-      // Final check for a valid list of 4
-      if (suggestions.length == 4) {
-        _isAISuggestionFallback =
-            false; // Successfully retrieved AI suggestions
-        return suggestions;
-      } else {
-        // AI returned something that wasn't exactly 4, this is a soft fail
-        debugPrint(
-            'AI Workout Generation Soft Error: Response was not a list of 4: $response');
-      }
-    } catch (e) {
-      debugPrint(
-          'AI Workout Generation FATAL Error: $e'); // Log API/Parsing error
-    }
-
-    // Ultimate hardcoded fallback if AI fails or returns invalid JSON
-    _isAISuggestionFallback = true;
-    return defaultSuggestions;
   }
 
-  // NEW: AI-powered - Generates personalized durations for workouts
-  Future<Map<String, int>> _generateWorkoutDurations() async {
-    final defaultDurations = _getDefaultDurations(); // Get the fallback map
+  Future<Map<String, dynamic>> _generateAIDataCombined() async {
+    final defaultData = {
+      'workouts': ['Warm-up', 'Squats', 'Yoga', 'Plank'],
+      'durations': _getDefaultDurations(),
+    };
 
     final availableWorkoutsList = [
       'Plank',
@@ -233,12 +126,11 @@ class _HomePageState extends State<HomePage> {
     ];
     final availableWorkouts = availableWorkoutsList.join(', ');
 
-    // Default if no plan or offline
     if (_userPlan.isEmpty) {
-      return defaultDurations;
+      _isAISuggestionFallback = true;
+      return defaultData;
     }
 
-    // Extract user data from Firestore
     final goal = _userPlan['What is your fitness goal?']?.toString() ??
         'general fitness';
     final fitnessLevel =
@@ -249,7 +141,6 @@ class _HomePageState extends State<HomePage> {
     final height =
         int.tryParse(_userPlan['Height']?.toString() ?? '170') ?? 170;
 
-    // Calculate BMI for context
     final heightInMeters = height / 100;
     final bmi = weight / (heightInMeters * heightInMeters);
     String bmiCategory = 'Normal';
@@ -262,64 +153,77 @@ class _HomePageState extends State<HomePage> {
     else
       bmiCategory = 'Obese';
 
-    // Highly structured for Gemini to return a clean JSON object
     final prompt = '''
-    Based on this user profile:
-    - Goal: $goal
-    - Fitness Level: $fitnessLevel
-    - Activity Level: $activityLevel
-    - BMI Category: $bmiCategory (Weight: $weight kg, Height: $height cm)
-    
-    For each workout in this exact list: $availableWorkouts
-    Assign a realistic session duration in minutes: only 15, 30, 45, or 60.
-    Consider fitness level (shorter for beginners), goal, and workout type (e.g., 15-30 for isolations like Plank, 45-60 for full routines like Fullbody Workout).
-    Include EVERY workout from the list.
-    Return ONLY a JSON object like: {"Plank":15, "Crunches":30, "Push-Ups":20, ...}
-    ''';
+Based on this user profile:
+- Goal: $goal
+- Fitness Level: $fitnessLevel
+- Activity Level: $activityLevel
+- BMI Category: $bmiCategory (Weight: $weight kg, Height: $height cm)
+
+Task 1: Suggest exactly 4 personalized workout names from this list only: $availableWorkouts
+Prioritize safe, effective ones matching the profile (e.g., low-impact cardio and foundational strength for a beginner/sedentary person).
+
+
+
+Return ONLY this exact JSON structure (no markdown, no extra text):
+{
+  "suggestions": ["Workout1", "Workout2", "Workout3", "Workout4"],
+  "durations": {"Plank": 15, "Crunches": 30, "Push-Ups": 20, ...include all workouts...}
+}
+''';
 
     try {
       final content = await _model.generateContent([Content.text(prompt)]);
       final response = content.text ?? '';
 
-      // Clean response (remove markdown if present)
       final cleaned = response
           .trim()
           .replaceAll(RegExp(r'```(?:json)?'), '')
           .replaceAll('```', '')
           .trim();
 
-      final Map<String, dynamic> jsonMap = json.decode(cleaned);
+      final Map<String, dynamic> jsonData = json.decode(cleaned);
 
+      final List<dynamic> suggestionsList = jsonData['suggestions'] ?? [];
+      final List<String> suggestions = suggestionsList
+          .map((item) => item.toString().trim())
+          .where((w) => availableWorkoutsList.contains(w))
+          .take(4)
+          .toList();
+
+      final Map<String, dynamic> durationsMap = jsonData['durations'] ?? {};
       final Map<String, int> durations = {};
-      for (var entry in jsonMap.entries) {
+
+      for (var entry in durationsMap.entries) {
         final workout = entry.key.toString().trim();
         final duration = int.tryParse(entry.value.toString()) ?? 15;
         if (availableWorkoutsList.contains(workout) &&
-            (duration == 15 ||
-                duration == 30 ||
-                duration == 45 ||
-                duration == 60)) {
+            [15, 30, 45, 60].contains(duration)) {
           durations[workout] = duration;
         }
       }
 
-      // If we got here, parsing succeeded enough to generate a map
-
-      // Fill missing workouts with defaults
       for (var workout in availableWorkoutsList) {
         if (!durations.containsKey(workout)) {
           durations[workout] = _getDefaultDuration(workout);
         }
       }
 
-      return durations;
+      if (suggestions.length == 4) {
+        _isAISuggestionFallback = false;
+        return {'workouts': suggestions, 'durations': durations};
+      } else {
+        debugPrint(
+            'AI returned ${suggestions.length} suggestions instead of 4');
+      }
     } catch (e) {
-      debugPrint('AI Duration Generation Error: $e');
-      return defaultDurations;
+      debugPrint('AI Generation Error: $e');
     }
+
+    _isAISuggestionFallback = true;
+    return defaultData;
   }
 
-  // NEW: Default durations fallback
   Map<String, int> _getDefaultDurations() {
     return {
       'Plank': 15,
@@ -334,8 +238,7 @@ class _HomePageState extends State<HomePage> {
       'Bicep Curls': 15,
       'Arm Raises': 15,
       'Cable Flyes': 25,
-      'Warm-up':
-          10, // Note: 10 as special case, but clamped to 15 in display if needed
+      'Warm-up': 10,
       'Skipping': 15,
       'Fullbody Workout': 45,
       'Lowerbody Workout': 40,
@@ -352,7 +255,7 @@ class _HomePageState extends State<HomePage> {
     return _events[DateTime(day.year, day.month, day.day)] ?? [];
   }
 
-  void _showWorkoutDetails(String workoutName) {
+  void _showWorkoutDetails(String workoutName, bool isFromSuggested) {
     final now = DateTime.now();
     DateTime _selectedDate = now;
 
@@ -393,7 +296,7 @@ class _HomePageState extends State<HomePage> {
               SizedBox(height: 12),
               TextButton(
                 onPressed: () {
-                  _showVideoModal(context, workoutName);
+                  _showVideoModal(context, workoutName, isFromSuggested);
                 },
                 child: Text(
                   "Show Demo",
@@ -436,7 +339,7 @@ class _HomePageState extends State<HomePage> {
                   final pickedDate = await showDatePicker(
                     context: context,
                     initialDate: now,
-                    firstDate: now, // Restrict to today and future dates
+                    firstDate: now,
                     lastDate: DateTime(now.year + 1),
                     builder: (context, child) {
                       return Theme(
@@ -582,11 +485,9 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  void _showVideoModal(BuildContext context, String workoutName) {
+  void _showVideoModal(
+      BuildContext context, String workoutName, bool showDuration) {
     String videoPath = _getWorkoutVideo(workoutName);
-    print('Attempting to load video from: $videoPath');
-
-    // NEW: Dynamic duration from AI
     final int duration = _workoutDurations[workoutName] ?? 15;
 
     Future<ChewieController?> _initializeVideo(String path) async {
@@ -598,16 +499,14 @@ class _HomePageState extends State<HomePage> {
           autoPlay: false,
           looping: true,
           allowFullScreen: true,
-          allowMuting: true, // NEW: Better cross-device support
+          allowMuting: true,
           materialProgressColors: ChewieProgressColors(
             playedColor: Colors.blue,
             handleColor: Colors.blue.shade300,
             backgroundColor: Colors.grey,
             bufferedColor: Colors.blue.shade100,
           ),
-          placeholder: Container(
-            color: Colors.black,
-          ),
+          placeholder: Container(color: Colors.black),
           errorBuilder: (context, errorMessage) {
             return Center(
               child: Container(
@@ -646,7 +545,6 @@ class _HomePageState extends State<HomePage> {
         );
         return chewieController;
       } catch (e) {
-        print('Failed to initialize video at $path: $e');
         return null;
       }
     }
@@ -657,7 +555,6 @@ class _HomePageState extends State<HomePage> {
 
       final fallbackVideoPath = 'assets/videos/workout.mp4';
       if (videoPath != fallbackVideoPath) {
-        print('Falling back to default video: $fallbackVideoPath');
         chewieController = await _initializeVideo(fallbackVideoPath);
         if (chewieController != null) return chewieController;
       }
@@ -767,16 +664,18 @@ class _HomePageState extends State<HomePage> {
                                 decoration: TextDecoration.none,
                               ),
                             ),
-                            SizedBox(width: 8),
-                            Text(
-                              "${duration} mins per session",
-                              style: GoogleFonts.poppins(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w400,
-                                color: Colors.white70,
-                                decoration: TextDecoration.none,
+                            if (showDuration) ...[
+                              SizedBox(width: 8),
+                              Text(
+                                "$duration mins per session",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w400,
+                                  color: Colors.white70,
+                                  decoration: TextDecoration.none,
+                                ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                       ),
@@ -825,15 +724,6 @@ class _HomePageState extends State<HomePage> {
     return 'assets/videos/workout.mp4';
   }
 
-  Map<String, dynamic> _generateWorkoutSchedule(String workout) {
-    final lower = workout.toLowerCase();
-    if (lower.contains('yoga')) return {'days': 3, 'minutes': 30};
-    if (lower.contains('bench')) return {'days': 2, 'minutes': 40};
-    if (lower.contains('cardio') || lower.contains('jumping jack'))
-      return {'days': 5, 'minutes': 25};
-    return {'days': 3, 'minutes': 30};
-  }
-
   String _getWorkoutImage(String title) {
     final lower = title.toLowerCase();
     if (lower.contains('plank')) return 'assets/images/plank.jpg';
@@ -858,9 +748,9 @@ class _HomePageState extends State<HomePage> {
     return 'assets/images/workout.jpg';
   }
 
-  Widget buildWorkoutChip(String title) {
+  Widget buildWorkoutChip(String title, bool isFromSuggested) {
     return GestureDetector(
-      onTap: () => _showWorkoutDetails(title),
+      onTap: () => _showWorkoutDetails(title, isFromSuggested),
       child: Container(
         margin: EdgeInsets.symmetric(vertical: 10),
         padding: EdgeInsets.symmetric(vertical: 24, horizontal: 24),
@@ -886,13 +776,27 @@ class _HomePageState extends State<HomePage> {
             ),
             SizedBox(width: 16),
             Expanded(
-              child: Text(
-                title,
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.black,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: GoogleFonts.poppins(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500,
+                      color: Colors.black,
+                    ),
+                  ),
+                  if (isFromSuggested)
+                    Text(
+                      "${_workoutDurations[title] ?? 15} mins per session",
+                      style: GoogleFonts.poppins(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        color: Colors.grey.shade600,
+                      ),
+                    ),
+                ],
               ),
             ),
             Icon(IconlyLight.arrow_right_2, color: Colors.black, size: 24),
@@ -950,7 +854,7 @@ class _HomePageState extends State<HomePage> {
         SizedBox(height: 16),
         ...workoutsByBody[_selectedBodyPart]!
             .where((w) => w.toLowerCase().contains(_searchQuery))
-            .map(buildWorkoutChip)
+            .map((w) => buildWorkoutChip(w, false))
             .toList(),
       ],
     );
@@ -972,7 +876,7 @@ class _HomePageState extends State<HomePage> {
         SizedBox(height: 16),
         ...stretches
             .where((s) => s.toLowerCase().contains(_searchQuery))
-            .map(buildWorkoutChip)
+            .map((s) => buildWorkoutChip(s, false))
             .toList(),
       ],
     );
@@ -1013,7 +917,7 @@ class _HomePageState extends State<HomePage> {
           if (!program['title']!.toLowerCase().contains(_searchQuery))
             return SizedBox();
           return GestureDetector(
-            onTap: () => _showWorkoutDetails(program['title']!),
+            onTap: () => _showWorkoutDetails(program['title']!, false),
             child: Container(
               width: double.infinity,
               margin: EdgeInsets.symmetric(vertical: 10),
@@ -1047,7 +951,7 @@ class _HomePageState extends State<HomePage> {
                         SizedBox(height: 10),
                         ElevatedButton(
                           onPressed: () =>
-                              _showWorkoutDetails(program['title']!),
+                              _showWorkoutDetails(program['title']!, false),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.white,
                             elevation: 0,
@@ -1089,7 +993,6 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  // NEW: Widget to display the AI Fallback message
   Widget _buildAIFallbackAlert() {
     if (!_isAISuggestionFallback) return SizedBox.shrink();
 
@@ -1120,7 +1023,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 SizedBox(height: 4),
                 Text(
-                  "Failed to fetch personalized suggestions. Please check your Gemini API key in the code and your internet connection.",
+                  "Failed to fetch personalized suggestions. Please check your Gemini API key and internet connection.",
                   style: GoogleFonts.poppins(
                     fontSize: 14,
                     color: Colors.red.shade500,
@@ -1132,6 +1035,48 @@ class _HomePageState extends State<HomePage> {
         ],
       ),
     ).animate().fadeIn(duration: 500.ms);
+  }
+
+  Widget _buildSuggestedWorkoutSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Suggested Workout",
+          style: GoogleFonts.poppins(
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
+        ),
+        SizedBox(height: 16),
+        if (_isLoadingAISuggestions)
+          Center(
+            child: Container(
+              padding: EdgeInsets.all(40),
+              child: Column(
+                children: [
+                  CircularProgressIndicator(
+                    color: Colors.blue.shade300,
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    "Loading personalized workouts...",
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ).animate().fadeIn(duration: 300.ms)
+        else
+          ..._suggestedWorkouts
+              .where((w) => w.toLowerCase().contains(_searchQuery))
+              .map((w) => buildWorkoutChip(w, true)),
+      ],
+    );
   }
 
   @override
@@ -1188,175 +1133,169 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                   SizedBox(height: 16),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.grey.withOpacity(0.2),
-                          blurRadius: 8,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: TableCalendar(
-                      focusedDay: _focusedDay,
-                      firstDay: DateTime.utc(2020, 1, 1),
-                      lastDay: DateTime.utc(2030, 12, 31),
-                      calendarFormat: CalendarFormat.month,
-                      availableCalendarFormats: const {
-                        CalendarFormat.month: 'Month',
-                        CalendarFormat.week: 'Week',
-                      },
-                      startingDayOfWeek: StartingDayOfWeek.monday,
-                      selectedDayPredicate: (day) =>
-                          isSameDay(_selectedDay, day),
-                      onDaySelected: (selected, focused) {
-                        setState(() {
-                          _selectedDay = selected;
-                          _focusedDay = focused;
-                        });
-                      },
-                      onFormatChanged: (format) {
-                        setState(() {
-                          // No state variable needed as TableCalendar manages format
-                        });
-                      },
-                      eventLoader: _getEventsForDay,
-                      calendarStyle: CalendarStyle(
-                        todayDecoration: BoxDecoration(
-                          color: Colors.blue.shade200,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 4,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        selectedDecoration: BoxDecoration(
-                          color: Colors.blue.shade300,
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 4,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        defaultDecoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                        ),
-                        weekendDecoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                        ),
-                        outsideDecoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white,
-                        ),
-                        markerDecoration: BoxDecoration(
-                          color: Colors.amber.shade600,
-                          shape: BoxShape.circle,
-                        ),
-                        markersMaxCount: 3,
-                        cellMargin: EdgeInsets.all(6),
-                        defaultTextStyle: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black87,
-                        ),
-                        weekendTextStyle: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.black87,
-                        ),
-                        outsideTextStyle: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.grey.shade400,
-                        ),
-                        todayTextStyle: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                        selectedTextStyle: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
+                  IgnorePointer(
+                    ignoring: true,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.grey.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      headerStyle: HeaderStyle(
-                        titleTextStyle: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                        formatButtonVisible: true,
-                        formatButtonDecoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black12,
-                              blurRadius: 4,
-                              offset: Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        formatButtonTextStyle: GoogleFonts.poppins(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                        leftChevronIcon: Icon(
-                          Icons.chevron_left,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                        rightChevronIcon: Icon(
-                          Icons.chevron_right,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
-                          ),
-                          borderRadius: BorderRadius.vertical(
-                            top: Radius.circular(16),
-                          ),
-                        ),
-                      ),
-                      calendarBuilders: CalendarBuilders(
-                        dowBuilder: (context, day) {
-                          final text = [
-                            'Mon',
-                            'Tue',
-                            'Wed',
-                            'Thu',
-                            'Fri',
-                            'Sat',
-                            'Sun'
-                          ][day.weekday - 1];
-                          return Center(
-                            child: Text(
-                              text,
-                              style: GoogleFonts.poppins(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          );
+                      child: TableCalendar(
+                        focusedDay: _focusedDay,
+                        firstDay: DateTime.utc(2020, 1, 1),
+                        lastDay: DateTime.utc(2030, 12, 31),
+                        calendarFormat: CalendarFormat.month,
+                        availableCalendarFormats: const {
+                          CalendarFormat.month: 'Month',
+                          CalendarFormat.week: 'Week',
                         },
+                        startingDayOfWeek: StartingDayOfWeek.monday,
+                        selectedDayPredicate: (day) =>
+                            isSameDay(_selectedDay, day),
+                        onDaySelected: (selected, focused) {},
+                        onFormatChanged: (format) {},
+                        eventLoader: _getEventsForDay,
+                        calendarStyle: CalendarStyle(
+                          todayDecoration: BoxDecoration(
+                            color: Colors.blue.shade200,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          selectedDecoration: BoxDecoration(
+                            color: Colors.blue.shade300,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          defaultDecoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
+                          weekendDecoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
+                          outsideDecoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.white,
+                          ),
+                          markerDecoration: BoxDecoration(
+                            color: Colors.amber.shade600,
+                            shape: BoxShape.circle,
+                          ),
+                          markersMaxCount: 3,
+                          cellMargin: EdgeInsets.all(6),
+                          defaultTextStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87,
+                          ),
+                          weekendTextStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.black87,
+                          ),
+                          outsideTextStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.grey.shade400,
+                          ),
+                          todayTextStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                          selectedTextStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                        ),
+                        headerStyle: HeaderStyle(
+                          titleTextStyle: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
+                          ),
+                          formatButtonVisible: true,
+                          formatButtonDecoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 4,
+                                offset: Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          formatButtonTextStyle: GoogleFonts.poppins(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white,
+                          ),
+                          leftChevronIcon: Icon(
+                            Icons.chevron_left,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          rightChevronIcon: Icon(
+                            Icons.chevron_right,
+                            color: Colors.white,
+                            size: 28,
+                          ),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+                            ),
+                            borderRadius: BorderRadius.vertical(
+                              top: Radius.circular(16),
+                            ),
+                          ),
+                        ),
+                        calendarBuilders: CalendarBuilders(
+                          dowBuilder: (context, day) {
+                            final text = [
+                              'Mon',
+                              'Tue',
+                              'Wed',
+                              'Thu',
+                              'Fri',
+                              'Sat',
+                              'Sun'
+                            ][day.weekday - 1];
+                            return Center(
+                              child: Text(
+                                text,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
                       ),
                     ),
                   )
@@ -1364,23 +1303,8 @@ class _HomePageState extends State<HomePage> {
                       .fadeIn(duration: 300.ms)
                       .slideY(begin: 0.1, end: 0),
                   SizedBox(height: 24),
-
-                  // ADDED: AI Fallback Alert
                   _buildAIFallbackAlert(),
-
-                  // Display dynamic, AI-generated suggestions
-                  Text(
-                    "Suggested Workout",
-                    style: GoogleFonts.poppins(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.black,
-                    ),
-                  ),
-                  SizedBox(height: 16),
-                  ..._suggestedWorkouts
-                      .where((w) => w.toLowerCase().contains(_searchQuery))
-                      .map(buildWorkoutChip),
+                  _buildSuggestedWorkoutSection(),
                   SizedBox(height: 24),
                   buildBodyFocusSection(),
                   SizedBox(height: 24),
