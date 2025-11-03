@@ -18,7 +18,8 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage>
+    with AutomaticKeepAliveClientMixin {
   final user = FirebaseAuth.instance.currentUser;
   bool _isLoading = true;
   bool _isLoadingAISuggestions = true;
@@ -33,6 +34,7 @@ class _HomePageState extends State<HomePage> {
   List<String> _suggestedWorkouts = [];
   Map<String, int> _workoutDurations = {};
   bool _isAISuggestionFallback = false;
+  bool _hasLoadedAISuggestions = false; // Cache flag
 
   static const _apiKey = 'AIzaSyAv-8phkpHuQbEnZshddCxYIpl4nIbgqJs';
   late final GenerativeModel _model =
@@ -44,6 +46,9 @@ class _HomePageState extends State<HomePage> {
     _selectedDay = _focusedDay;
     _initializeData();
   }
+
+  @override
+  bool get wantKeepAlive => true;
 
   @override
   void dispose() {
@@ -81,10 +86,19 @@ class _HomePageState extends State<HomePage> {
       _events = tempEvents;
       _userPlan = planSnapshot.exists ? planSnapshot.data()! : {};
       _isLoading = false;
-      _isLoadingAISuggestions = true;
     });
 
-    _loadAISuggestionsInBackground();
+    // Only load AI suggestions if not already loaded
+    if (!_hasLoadedAISuggestions) {
+      setState(() {
+        _isLoadingAISuggestions = true;
+      });
+      _loadAISuggestionsInBackground();
+    } else {
+      setState(() {
+        _isLoadingAISuggestions = false;
+      });
+    }
   }
 
   Future<void> _loadAISuggestionsInBackground() async {
@@ -95,6 +109,7 @@ class _HomePageState extends State<HomePage> {
         _suggestedWorkouts = aiData['workouts'] as List<String>;
         _workoutDurations = aiData['durations'] as Map<String, int>;
         _isLoadingAISuggestions = false;
+        _hasLoadedAISuggestions = true; // Mark as loaded
       });
     }
   }
@@ -251,6 +266,10 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
     return defaults[workout] ?? 15;
   }
 
+  int _getWorkoutDuration(String workoutName) {
+    return _workoutDurations[workoutName] ?? _getDefaultDuration(workoutName);
+  }
+
   List<Map<String, dynamic>> _getEventsForDay(DateTime day) {
     return _events[DateTime(day.year, day.month, day.day)] ?? [];
   }
@@ -258,6 +277,7 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
   void _showWorkoutDetails(String workoutName, bool isFromSuggested) {
     final now = DateTime.now();
     DateTime _selectedDate = now;
+    final duration = _getWorkoutDuration(workoutName);
 
     showModalBottomSheet(
       context: context,
@@ -316,6 +336,17 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                   color: Colors.black,
                 ),
               ),
+              if (isFromSuggested) ...[
+                SizedBox(height: 8),
+                Text(
+                  "$duration mins per session",
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                    color: Colors.grey.shade600,
+                  ),
+                ),
+              ],
               SizedBox(height: 12),
               Divider(color: Colors.grey.shade200),
               SizedBox(height: 8),
@@ -433,6 +464,7 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                       'timestamp': Timestamp.fromDate(_selectedDate),
                       'image': image,
                       'completed': false,
+                      'duration': duration,
                     };
 
                     final uid = user!.uid;
@@ -488,7 +520,7 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
   void _showVideoModal(
       BuildContext context, String workoutName, bool showDuration) {
     String videoPath = _getWorkoutVideo(workoutName);
-    final int duration = _workoutDurations[workoutName] ?? 15;
+    final int duration = _getWorkoutDuration(workoutName);
 
     Future<ChewieController?> _initializeVideo(String path) async {
       try {
@@ -749,6 +781,8 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
   }
 
   Widget buildWorkoutChip(String title, bool isFromSuggested) {
+    final duration = _getWorkoutDuration(title);
+
     return GestureDetector(
       onTap: () => _showWorkoutDetails(title, isFromSuggested),
       child: Container(
@@ -789,7 +823,7 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                   ),
                   if (isFromSuggested)
                     Text(
-                      "${_workoutDurations[title] ?? 15} mins per session",
+                      "$duration mins per session",
                       style: GoogleFonts.poppins(
                         fontSize: 12,
                         fontWeight: FontWeight.w400,
@@ -886,17 +920,17 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
     final programs = [
       {
         'title': 'Fullbody Workout',
-        'desc': '11 Exercises | 32 mins',
+        'desc': '11 Exercises',
         'image': 'assets/images/fullbody.jpg'
       },
       {
         'title': 'Lowerbody Workout',
-        'desc': '12 Exercises | 40 mins',
+        'desc': '12 Exercises',
         'image': 'assets/images/lowerbody.jpg'
       },
       {
         'title': 'AB Workout',
-        'desc': '14 Exercises | 20 mins',
+        'desc': '14 Exercises',
         'image': 'assets/images/abworkout.jpg'
       },
     ];
@@ -1081,6 +1115,7 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       backgroundColor: Colors.white,
       body: _isLoading

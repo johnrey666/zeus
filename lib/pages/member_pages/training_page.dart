@@ -74,12 +74,16 @@ class _TrainingPageState extends State<TrainingPage> {
         .map((snapshot) => snapshot.docs.map((doc) {
               final data = doc.data();
               final ts = (data['timestamp'] as Timestamp).toDate();
+              // Get duration from Firestore, fallback to 15 if not available
+              final duration = data['duration'] as int? ?? 15;
+
               return {
                 'id': doc.id,
                 'title': data['workout'],
                 'image': data['image'] ?? 'assets/images/workout.jpg',
                 'timestamp': ts,
                 'completed': data['completed'] ?? false,
+                'duration': duration,
               };
             }).toList());
   }
@@ -95,6 +99,8 @@ class _TrainingPageState extends State<TrainingPage> {
   }
 
   void _showWorkoutModal(Map<String, dynamic> workout) {
+    final duration = workout['duration'] as int? ?? 15;
+
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -137,7 +143,7 @@ class _TrainingPageState extends State<TrainingPage> {
                   const Icon(Icons.access_time, color: Colors.grey),
                   const SizedBox(width: 8),
                   Text(
-                    "15 mins per session",
+                    "$duration mins per session",
                     style: GoogleFonts.poppins(
                       color: Colors.grey.shade600,
                       fontSize: 14,
@@ -470,6 +476,8 @@ class _TrainingPageState extends State<TrainingPage> {
                   }
                   return Column(
                     children: workouts.map((workout) {
+                      final duration = workout['duration'] as int? ?? 15;
+
                       return GestureDetector(
                         onTap: () => _showWorkoutModal(workout),
                         child: Container(
@@ -508,7 +516,7 @@ class _TrainingPageState extends State<TrainingPage> {
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
-                                      "15 mins per session",
+                                      "$duration mins per session",
                                       style: GoogleFonts.poppins(
                                         color: Colors.grey,
                                         fontSize: 14,
