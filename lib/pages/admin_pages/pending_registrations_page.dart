@@ -80,6 +80,32 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
         .delete();
   }
 
+  void _showEnlargedImage(Uint8List imageBytes) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Stack(
+          children: [
+            Center(
+              child: Image.memory(
+                imageBytes,
+                fit: BoxFit.contain,
+              ),
+            ),
+            Positioned(
+              top: 40,
+              right: 10,
+              child: IconButton(
+                icon: const Icon(Icons.close, color: Colors.black, size: 30),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showDetailsModal(BuildContext context, Map<String, dynamic> data,
       bool showButtons, String docId) {
     final name = data['name'] ?? 'No Name';
@@ -140,11 +166,14 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
               ClipRRect(
                 borderRadius: BorderRadius.circular(12),
                 child: proofBytes != null
-                    ? Image.memory(
-                        proofBytes,
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
+                    ? GestureDetector(
+                        onTap: () => _showEnlargedImage(proofBytes!),
+                        child: Image.memory(
+                          proofBytes,
+                          height: 200,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
                       )
                     : Container(
                         height: 200,

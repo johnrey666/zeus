@@ -15,11 +15,10 @@ class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomePage> createState() => HomePageState();
 }
 
-class _HomePageState extends State<HomePage>
-    with AutomaticKeepAliveClientMixin {
+class HomePageState extends State<HomePage> {
   final user = FirebaseAuth.instance.currentUser;
   bool _isLoading = true;
   bool _isLoadingAISuggestions = true;
@@ -40,15 +39,31 @@ class _HomePageState extends State<HomePage>
   late final GenerativeModel _model =
       GenerativeModel(model: 'gemini-2.5-flash', apiKey: _apiKey);
 
+  final Map<String, List<String>> _programWorkouts = {
+    'Fullbody Workout': [
+      'Warm-up',
+      'Push-Ups',
+      'Squats',
+      'Plank',
+      'Bicep Curls',
+      'Yoga'
+    ],
+    'Lowerbody Workout': [
+      'Warm-up',
+      'Jumping Jacks',
+      'Squats',
+      'Lunges',
+      'Skipping'
+    ],
+    'AB Workout': ['Warm-up', 'Plank', 'Crunches'],
+  };
+
   @override
   void initState() {
     super.initState();
     _selectedDay = _focusedDay;
     _initializeData();
   }
-
-  @override
-  bool get wantKeepAlive => true;
 
   @override
   void dispose() {
@@ -77,16 +92,14 @@ class _HomePageState extends State<HomePage>
       }
     }
 
-    final planSnapshot = await FirebaseFirestore.instance
-        .collection('workout_plans')
-        .doc(uid)
-        .get();
+    await _loadUserPlan();
 
-    setState(() {
-      _events = tempEvents;
-      _userPlan = planSnapshot.exists ? planSnapshot.data()! : {};
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _events = tempEvents;
+        _isLoading = false;
+      });
+    }
 
     // Only load AI suggestions if not already loaded
     if (!_hasLoadedAISuggestions) {
@@ -99,6 +112,33 @@ class _HomePageState extends State<HomePage>
         _isLoadingAISuggestions = false;
       });
     }
+  }
+
+  Future<void> _loadUserPlan() async {
+    if (user == null) return;
+
+    final planSnapshot = await FirebaseFirestore.instance
+        .collection('workout_plans')
+        .doc(user!.uid)
+        .get();
+
+    if (mounted) {
+      setState(() {
+        _userPlan = planSnapshot.exists ? planSnapshot.data()! : {};
+      });
+    }
+  }
+
+  void reloadSuggestions() {
+    setState(() {
+      _hasLoadedAISuggestions = false;
+      _isLoadingAISuggestions = true;
+    });
+    _loadUserPlan().then((_) {
+      if (mounted) {
+        _loadAISuggestionsInBackground();
+      }
+    });
   }
 
   Future<void> _loadAISuggestionsInBackground() async {
@@ -462,6 +502,299 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                     final data = {
                       'workout': workoutName,
                       'timestamp': Timestamp.fromDate(_selectedDate),
+                      'image': image,
+                      'completed': false,
+                      'duration': duration,
+                    };
+
+                    final uid = user!.uid;
+                    final calendarRef = FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(uid)
+                        .collection('calendar');
+                    final trainingRef = FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(uid)
+                        .collection('training');
+
+                    await calendarRef.add(data);
+                    await trainingRef.add(data);
+
+                    Navigator.pop(context);
+                    _initializeData();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          '$workoutName saved to calendar!',
+                          style: GoogleFonts.poppins(),
+                        ),
+                        backgroundColor: Colors.blue.shade300,
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        margin: EdgeInsets.all(16),
+                      ),
+                    );
+                  },
+                ),
+              ).animate().slideY(begin: 0.2, end: 0, duration: 300.ms),
+              SizedBox(height: 16),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: Text(
+                  "Cancel",
+                  style: GoogleFonts.poppins(
+                    color: Colors.redAccent,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showProgramModal(String title, List<String> workouts) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        padding: EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: GoogleFonts.poppins(
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+            ),
+            SizedBox(height: 16),
+            Expanded(
+              child: ListView.builder(
+                itemCount: workouts.length,
+                itemBuilder: (context, index) {
+                  final workout = workouts[index];
+                  return Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(12),
+                          child: Image.asset(
+                            _getWorkoutImage(workout),
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) => Icon(
+                              IconlyLight.activity,
+                              size: 60,
+                              color: Colors.blue.shade300,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            workout,
+                            style: GoogleFonts.poppins(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () =>
+                                  _showVideoModal(context, workout, false),
+                              child: Text(
+                                "Demo",
+                                style: GoogleFonts.poppins(
+                                  color: Colors.blue.shade300,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () => _showAddToCalendarModal(workout),
+                              child: Text(
+                                "Add",
+                                style: GoogleFonts.poppins(
+                                  color: Colors.green,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showAddToCalendarModal(String workoutName) {
+    final now = DateTime.now();
+    DateTime selectedDate = now;
+    final duration = _getWorkoutDuration(workoutName);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setModalState) => Padding(
+          padding: EdgeInsets.fromLTRB(24, 24, 24, 40),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                workoutName,
+                style: GoogleFonts.poppins(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+              SizedBox(height: 12),
+              Divider(color: Colors.grey.shade200),
+              SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(IconlyLight.calendar,
+                      color: Colors.blue.shade300, size: 20),
+                  SizedBox(width: 8),
+                  Text(
+                    "Choose a date",
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 8),
+              GestureDetector(
+                onTap: () async {
+                  final pickedDate = await showDatePicker(
+                    context: context,
+                    initialDate: now,
+                    firstDate: now,
+                    lastDate: DateTime(now.year + 1),
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          dialogBackgroundColor: Colors.white,
+                          colorScheme: ColorScheme.light(
+                            primary: Colors.blue.shade100,
+                            onPrimary: Colors.white,
+                            onSurface: Colors.black,
+                          ),
+                          textButtonTheme: TextButtonThemeData(
+                            style: ButtonStyle(
+                              foregroundColor:
+                                  MaterialStateProperty.all(Colors.green),
+                              overlayColor: MaterialStateProperty.all(
+                                  Colors.green.withOpacity(0.1)),
+                            ),
+                          ),
+                          dialogTheme: DialogTheme(
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+
+                  if (pickedDate != null) {
+                    setModalState(() => selectedDate = pickedDate);
+                  }
+                },
+                child: Container(
+                  height: 52,
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey.shade300),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Flexible(
+                        child: Text(
+                          "${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}",
+                          style: GoogleFonts.poppins(
+                            fontSize: 14,
+                            color: Colors.black,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Icon(Icons.calendar_today_outlined,
+                          size: 18, color: Colors.blue.shade300),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(height: 24),
+              Container(
+                width: double.infinity,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: LinearGradient(
+                    colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+                  ),
+                ),
+                child: ElevatedButton.icon(
+                  icon: Icon(IconlyLight.plus, size: 20),
+                  label: Text(
+                    "Add to Calendar",
+                    style: GoogleFonts.poppins(fontSize: 16),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    elevation: 0,
+                    foregroundColor: Colors.white,
+                    backgroundColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                    padding: EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () async {
+                    final image = _getWorkoutImage(workoutName);
+                    final data = {
+                      'workout': workoutName,
+                      'timestamp': Timestamp.fromDate(selectedDate),
                       'image': image,
                       'completed': false,
                       'duration': duration,
@@ -917,21 +1250,24 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
   }
 
   Widget buildProgramCards() {
-    final programs = [
+    final List<Map<String, dynamic>> programs = [
       {
         'title': 'Fullbody Workout',
-        'desc': '11 Exercises',
-        'image': 'assets/images/fullbody.jpg'
+        'desc': '${_programWorkouts['Fullbody Workout']!.length} Exercises',
+        'image': 'assets/images/fullbody.jpg',
+        'workouts': _programWorkouts['Fullbody Workout']!,
       },
       {
         'title': 'Lowerbody Workout',
-        'desc': '12 Exercises',
-        'image': 'assets/images/lowerbody.jpg'
+        'desc': '${_programWorkouts['Lowerbody Workout']!.length} Exercises',
+        'image': 'assets/images/lowerbody.jpg',
+        'workouts': _programWorkouts['Lowerbody Workout']!,
       },
       {
         'title': 'AB Workout',
-        'desc': '14 Exercises',
-        'image': 'assets/images/abworkout.jpg'
+        'desc': '${_programWorkouts['AB Workout']!.length} Exercises',
+        'image': 'assets/images/abworkout.jpg',
+        'workouts': _programWorkouts['AB Workout']!,
       },
     ];
 
@@ -948,80 +1284,79 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
         ),
         SizedBox(height: 16),
         ...programs.map((program) {
-          if (!program['title']!.toLowerCase().contains(_searchQuery))
-            return SizedBox();
-          return GestureDetector(
-            onTap: () => _showWorkoutDetails(program['title']!, false),
-            child: Container(
-              width: double.infinity,
-              margin: EdgeInsets.symmetric(vertical: 10),
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          program['title']!,
-                          style: GoogleFonts.poppins(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.black,
+          if (!program['title'].toLowerCase().contains(_searchQuery))
+            return SizedBox.shrink();
+          return Container(
+            width: double.infinity,
+            margin: EdgeInsets.symmetric(vertical: 10),
+            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        program['title'],
+                        style: GoogleFonts.poppins(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black,
+                        ),
+                      ),
+                      SizedBox(height: 6),
+                      Text(
+                        program['desc'],
+                        style: GoogleFonts.poppins(
+                          fontSize: 14,
+                          color: Colors.black,
+                        ),
+                      ),
+                      SizedBox(height: 10),
+                      ElevatedButton(
+                        onPressed: () => _showProgramModal(
+                          program['title'],
+                          program['workouts'],
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
                           ),
                         ),
-                        SizedBox(height: 6),
-                        Text(
-                          program['desc']!,
+                        child: Text(
+                          "View more",
                           style: GoogleFonts.poppins(
                             fontSize: 14,
-                            color: Colors.black,
+                            color: Colors.blue,
                           ),
                         ),
-                        SizedBox(height: 10),
-                        ElevatedButton(
-                          onPressed: () =>
-                              _showWorkoutDetails(program['title']!, false),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            padding: EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 10,
-                            ),
-                          ),
-                          child: Text(
-                            "View more",
-                            style: GoogleFonts.poppins(
-                              fontSize: 14,
-                              color: Colors.blue,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
-                  SizedBox(width: 10),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      program['image']!,
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.contain,
-                    ),
+                ),
+                SizedBox(width: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    program['image'],
+                    width: 100,
+                    height: 100,
+                    fit: BoxFit.contain,
                   ),
-                ],
-              ),
-            ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0),
-          );
+                ),
+              ],
+            ),
+          ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0);
         }).toList(),
       ],
     );
@@ -1115,7 +1450,6 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
 
   @override
   Widget build(BuildContext context) {
-    super.build(context);
     return Scaffold(
       backgroundColor: Colors.white,
       body: _isLoading

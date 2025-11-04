@@ -26,6 +26,9 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
 
+  String? _oldHeight;
+  String? _oldWeight;
+
   final ImagePicker _picker = ImagePicker();
   final user = FirebaseAuth.instance.currentUser;
 
@@ -76,6 +79,10 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
         }
       });
     }
+
+    // Store old values for change detection
+    _oldHeight = _heightController.text.trim();
+    _oldWeight = _weightController.text.trim();
   }
 
   Future<void> _pickImage() async {
@@ -88,45 +95,57 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
   }
 
   Future<void> _saveProfile() async {
-  if (user == null) return;
+    if (user == null) return;
 
-  final userData = {
-    'firstName': _firstNameController.text.trim(),
-    'lastName': _lastNameController.text.trim(),
-    'phone': _phoneController.text.trim(),
-    'age': _ageController.text.trim(),
-    'gender': _selectedGender,
-    'height': _heightController.text.trim(),
-    'weight': _weightController.text.trim(),
-    'profileImagePath': _profileImage?.path ?? '',
-  };
+    final userData = {
+      'firstName': _firstNameController.text.trim(),
+      'lastName': _lastNameController.text.trim(),
+      'phone': _phoneController.text.trim(),
+      'age': _ageController.text.trim(),
+      'gender': _selectedGender,
+      'height': _heightController.text.trim(),
+      'weight': _weightController.text.trim(),
+      'profileImagePath': _profileImage?.path ?? '',
+    };
 
-  final planData = {
-    'Height': _heightController.text.trim(),
-    'Weight': _weightController.text.trim(),
-  };
+    final planData = {
+      'Height': _heightController.text.trim(),
+      'Weight': _weightController.text.trim(),
+    };
 
-  final userId = user!.uid;
+    final userId = user!.uid;
 
-  try {
-    // 🔹 Update users collection
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(userId)
-        .set(userData, SetOptions(merge: true));
+    try {
+      // 🔹 Update users collection
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(userId)
+          .set(userData, SetOptions(merge: true));
 
-    // 🔹 Update workout_plans collection
-    await FirebaseFirestore.instance
-        .collection('workout_plans')
-        .doc(userId)
-        .set(planData, SetOptions(merge: true));
+      // 🔹 Update workout_plans collection
+      await FirebaseFirestore.instance
+          .collection('workout_plans')
+          .doc(userId)
+          .set(planData, SetOptions(merge: true));
 
-    _showModernSnackBar("✅ Profile updated successfully");
-  } catch (e) {
-    _showModernSnackBar("❌ Failed to update profile. Try again.");
-    debugPrint("Error saving profile: $e");
+      _showModernSnackBar("✅ Profile updated successfully");
+
+      // Check if body info changed to trigger suggestions reload
+      final newHeight = _heightController.text.trim();
+      final newWeight = _weightController.text.trim();
+      final changed = _oldHeight != newHeight || _oldWeight != newWeight;
+
+      // Update old values
+      _oldHeight = newHeight;
+      _oldWeight = newWeight;
+
+      // Pop with flag if body info changed
+      Navigator.pop(context, {'reloadSuggestions': changed});
+    } catch (e) {
+      _showModernSnackBar("❌ Failed to update profile. Try again.");
+      debugPrint("Error saving profile: $e");
+    }
   }
-}
 
   Future<void> _handleSubscription() async {
     if (user == null) return;
@@ -206,7 +225,8 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
                   ),
                   const SizedBox(height: 16),
                   _buildLabel("Phone Number"),
-                  _buildTextField(Icons.phone, 'Phone Number', _phoneController),
+                  _buildTextField(
+                      Icons.phone, 'Phone Number', _phoneController),
                   const SizedBox(height: 16),
                   _buildLabel("Age"),
                   _buildTextField(Icons.cake, 'Age', _ageController),
@@ -297,21 +317,21 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
   }
 
   Widget _buildGenderOption(String gender) {
-  return SizedBox(
-    height: 42,
-    child: ChoiceChip(
-      label: Text(gender, style: GoogleFonts.poppins()),
-      selected: _selectedGender == gender,
-      onSelected: (_) => setState(() => _selectedGender = gender),
-      selectedColor: Colors.blueAccent,
-      backgroundColor: Colors.grey[300],
-      labelStyle: TextStyle(
-        color: _selectedGender == gender ? Colors.white : Colors.black,
+    return SizedBox(
+      height: 42,
+      child: ChoiceChip(
+        label: Text(gender, style: GoogleFonts.poppins()),
+        selected: _selectedGender == gender,
+        onSelected: (_) => setState(() => _selectedGender = gender),
+        selectedColor: Colors.blueAccent,
+        backgroundColor: Colors.grey[300],
+        labelStyle: TextStyle(
+          color: _selectedGender == gender ? Colors.white : Colors.black,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-    ),
-  );
-}
+    );
+  }
 
   Widget _buildProfileImageBox() {
     return GestureDetector(

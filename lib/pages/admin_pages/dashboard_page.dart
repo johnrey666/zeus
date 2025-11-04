@@ -117,7 +117,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     final currencyFormatter =
-        NumberFormat.currency(locale: 'en_PH', symbol: '₱');
+        NumberFormat.currency(locale: 'en_PH', symbol: 'P');
     final textTheme = GoogleFonts.poppinsTextTheme();
     final size = MediaQuery.of(context).size;
 
@@ -144,7 +144,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   _buildStatCard(
                     "Today's Revenue",
                     todaysRevenue,
-                    const Text('₱',
+                    const Text('P',
                         style: TextStyle(
                             fontSize: 20,
                             fontWeight: FontWeight.bold,
@@ -216,7 +216,7 @@ class _DashboardPageState extends State<DashboardPage> {
       {VoidCallback? onTap}) {
     final isCurrency = title.toLowerCase().contains("revenue");
     final currencyFormatter =
-        NumberFormat.currency(locale: 'en_PH', symbol: '₱');
+        NumberFormat.currency(locale: 'en_PH', symbol: 'P');
 
     return GestureDetector(
       onTap: onTap,

@@ -26,7 +26,7 @@ class _MemberHomePageState extends State<MemberHomePage>
   final user = FirebaseAuth.instance.currentUser;
 
   final List<String> _titles = ['Home', 'Training', 'Reports', 'Scanner'];
-  final List<Widget> _pages = const [
+  final List<Widget> _pages = [
     HomePage(), // 🏠 New Home page
     TrainingPage(), // 🏋️ Placeholder
     ReportPage(), // 📊 Reports
@@ -34,11 +34,15 @@ class _MemberHomePageState extends State<MemberHomePage>
   ];
 
   late final PageController _pageController;
+  late final GlobalKey<HomePageState> _homeKey;
 
   @override
   void initState() {
     super.initState();
     _pageController = PageController();
+    _homeKey = GlobalKey<HomePageState>();
+    // Rebuild _pages with key
+    _pages[0] = HomePage(key: _homeKey);
   }
 
   void _onItemTapped(int index) {
@@ -46,10 +50,13 @@ class _MemberHomePageState extends State<MemberHomePage>
     _pageController.jumpToPage(index);
   }
 
-  void _handleMenu(String v) {
+  void _handleMenu(String v) async {
     if (v == 'profile') {
-      Navigator.push(context,
+      final result = await Navigator.push(context,
           MaterialPageRoute(builder: (_) => const ManageProfilePage()));
+      if (result != null && result['reloadSuggestions'] == true) {
+        _homeKey.currentState?.reloadSuggestions();
+      }
     } else if (v == 'logout') {
       _showLogoutDialog();
     } else if (v == 'toggle_theme') {
