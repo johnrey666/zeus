@@ -19,6 +19,7 @@ class _MemberListPageState extends State<MemberListPage> {
   final int _itemsPerPage = 10;
   List<Map<String, dynamic>> _allMembers = [];
   List<Map<String, dynamic>> _filteredMembers = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -28,68 +29,95 @@ class _MemberListPageState extends State<MemberListPage> {
   }
 
   Future<void> _fetchMembers() async {
-    final userSnapshot =
-        await FirebaseFirestore.instance.collection('users').get();
-    final allUsers = userSnapshot.docs.where((d) => d['userType'] == 'Member');
+    setState(() => _isLoading = true);
+    try {
+      final userSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('userType', isEqualTo: 'Member')
+          .get();
+      final allUsers =
+          userSnapshot.docs.map((d) => {'id': d.id, 'data': d.data()}).toList();
 
-    List<Map<String, dynamic>> enrichedMembers = [];
-
-    for (var userDoc in allUsers) {
-      final userId = userDoc.id;
-      final userData = userDoc.data();
-
-      final registrationSnap = await FirebaseFirestore.instance
+      final regSnapshot = await FirebaseFirestore.instance
           .collection('registrations')
-          .where('userId', isEqualTo: userId)
+          .where('status', isEqualTo: 'accepted')
           .get();
 
-      final acceptedRegs = registrationSnap.docs
-          .where((doc) => doc['status'] == 'accepted')
-          .toList()
-        ..sort((a, b) {
-          final aTime =
-              (a['timestamp'] as Timestamp?)?.toDate() ?? DateTime(2000);
-          final bTime =
-              (b['timestamp'] as Timestamp?)?.toDate() ?? DateTime(2000);
-          return bTime.compareTo(aTime);
-        });
+      final regMap = <String, Map<String, dynamic>>{};
+      for (var regDoc in regSnapshot.docs) {
+        final regData = regDoc.data();
+        final userId = regData['userId'] as String;
+        final currentTimestamp = regData['timestamp'] as Timestamp?;
 
-      String statusBadge = "Member";
-      String dateJoined = 'N/A';
-      String? expiryDate;
-
-      if (acceptedRegs.isNotEmpty) {
-        final regData = acceptedRegs.first.data();
-        dateJoined = regData['startDate'] ?? 'N/A';
-        expiryDate = regData['planExpiry'];
-
-        if (expiryDate != null) {
-          final planExpiry = DateTime.tryParse(expiryDate);
-          final now = DateTime.now();
-          if (planExpiry != null && now.isAfter(planExpiry)) {
-            statusBadge = "Inactive";
-          } else {
-            statusBadge = "Active";
+        if (regMap.containsKey(userId)) {
+          final existingTimestamp = regMap[userId]!['timestamp'] as Timestamp?;
+          if (currentTimestamp != null &&
+              (existingTimestamp == null ||
+                  currentTimestamp
+                      .toDate()
+                      .isAfter(existingTimestamp.toDate()))) {
+            regMap[userId] = regData;
           }
         } else {
-          statusBadge = "Active";
+          regMap[userId] = regData;
         }
       }
 
-      enrichedMembers.add({
-        'userId': userId,
-        'userData': userData,
-        'badge': statusBadge,
-        'dateJoined': dateJoined,
-      });
+      List<Map<String, dynamic>> enrichedMembers = [];
+
+      for (var user in allUsers) {
+        final userId = user['id'] as String;
+        final userData = user['data'] as Map<String, dynamic>;
+        final regData = regMap[userId];
+
+        String statusBadge = "Member";
+        String dateJoined = 'N/A';
+        String? planExpiry;
+        double? amount;
+
+        if (regData != null) {
+          dateJoined = regData['startDate'] ?? 'N/A';
+          planExpiry = regData['planExpiry'];
+          amount = (regData['amount'] as num?)?.toDouble();
+
+          if (planExpiry != null) {
+            final planExpiryDate = DateTime.tryParse(planExpiry);
+            final now = DateTime.now();
+            if (planExpiryDate != null && now.isAfter(planExpiryDate)) {
+              statusBadge = "Inactive";
+            } else {
+              statusBadge = "Active";
+            }
+          } else {
+            statusBadge = "Active";
+          }
+        }
+
+        enrichedMembers.add({
+          'userId': userId,
+          'data': {
+            ...userData,
+            'startDate': dateJoined,
+            'planExpiry': planExpiry,
+            'amount': amount,
+          },
+          'badge': statusBadge,
+        });
+      }
+
+      if (mounted) {
+        setState(() {
+          _allMembers = enrichedMembers;
+          _filteredMembers = List.from(enrichedMembers);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+      // Optionally show error snackbar
     }
-
-    if (!mounted) return;
-
-    setState(() {
-      _allMembers = enrichedMembers;
-      _filteredMembers = List.from(enrichedMembers);
-    });
   }
 
   void _filterSearchResults() {
@@ -99,7 +127,7 @@ class _MemberListPageState extends State<MemberListPage> {
         _filteredMembers = List.from(_allMembers);
       } else {
         _filteredMembers = _allMembers.where((member) {
-          final data = member['userData'] as Map<String, dynamic>;
+          final data = member['data'] as Map<String, dynamic>;
           final name = '${data['firstName'] ?? ''} ${data['lastName'] ?? ''}'
               .toLowerCase();
           return name.contains(query);
@@ -192,24 +220,34 @@ class _MemberListPageState extends State<MemberListPage> {
   }
 
   void _showEditModal(String userId, Map<String, dynamic> userData) {
+    final dateFormat = DateFormat('yyyy-MM-dd');
+    final nowFormatted = dateFormat.format(DateTime.now());
+
     final firstNameController =
-        TextEditingController(text: userData['firstName']);
+        TextEditingController(text: userData['firstName'] ?? '');
     final lastNameController =
-        TextEditingController(text: userData['lastName']);
-    final dateJoinedController = TextEditingController(
-        text: userData['dateJoined'] ??
-            DateFormat('yyyy-MM-dd').format(DateTime.now()));
+        TextEditingController(text: userData['lastName'] ?? '');
+    final startDateController = TextEditingController(
+      text: (userData['startDate'] ?? 'N/A') == 'N/A'
+          ? nowFormatted
+          : userData['startDate'] ?? nowFormatted,
+    );
     final planExpiryController = TextEditingController(
-        text: userData['planExpiry'] ??
-            DateFormat('yyyy-MM-dd').format(DateTime.now()));
+      text: (userData['planExpiry'] ?? 'N/A') == 'N/A'
+          ? nowFormatted
+          : userData['planExpiry'] ?? nowFormatted,
+    );
     final amountController =
         TextEditingController(text: userData['amount']?.toString() ?? '');
 
-    final dateFormat = DateFormat('yyyy-MM-dd');
-
     Future<void> _pickDate(
         BuildContext context, TextEditingController controller) async {
-      final initialDate = DateTime.tryParse(controller.text) ?? DateTime.now();
+      final initialDateStr = controller.text;
+      DateTime initialDate = DateTime.now();
+      if (initialDateStr != 'N/A' && initialDateStr.isNotEmpty) {
+        final parsed = DateTime.tryParse(initialDateStr);
+        if (parsed != null) initialDate = parsed;
+      }
       final picked = await showDatePicker(
         context: context,
         initialDate: initialDate,
@@ -280,12 +318,12 @@ class _MemberListPageState extends State<MemberListPage> {
               ),
               const SizedBox(height: 10),
               TextField(
-                controller: dateJoinedController,
+                controller: startDateController,
                 cursorColor: Colors.blue,
                 readOnly: true,
                 decoration:
                     blackInputDecoration.copyWith(labelText: "Date of Joining"),
-                onTap: () => _pickDate(context, dateJoinedController),
+                onTap: () => _pickDate(context, startDateController),
               ),
               const SizedBox(height: 10),
               TextField(
@@ -316,7 +354,7 @@ class _MemberListPageState extends State<MemberListPage> {
             onTap: () async {
               if (firstNameController.text.trim().isEmpty ||
                   lastNameController.text.trim().isEmpty ||
-                  dateJoinedController.text.trim().isEmpty ||
+                  startDateController.text.trim().isEmpty ||
                   planExpiryController.text.trim().isEmpty ||
                   amountController.text.trim().isEmpty ||
                   double.tryParse(amountController.text.trim()) == null) {
@@ -329,7 +367,7 @@ class _MemberListPageState extends State<MemberListPage> {
 
               final String firstName = firstNameController.text.trim();
               final String lastName = lastNameController.text.trim();
-              final String dateJoined = dateJoinedController.text.trim();
+              final String startDate = startDateController.text.trim();
               final String planExpiry = planExpiryController.text.trim();
               final double amount = double.parse(amountController.text.trim());
 
@@ -352,7 +390,7 @@ class _MemberListPageState extends State<MemberListPage> {
               if (registrationSnapshot.docs.isNotEmpty) {
                 final regDoc = registrationSnapshot.docs.first;
                 await regDoc.reference.update({
-                  'startDate': dateJoined,
+                  'startDate': startDate,
                   'planExpiry': planExpiry,
                   'amount': amount,
                 });
@@ -448,166 +486,180 @@ class _MemberListPageState extends State<MemberListPage> {
               ),
               const SizedBox(height: 12),
               Expanded(
-                child: _filteredMembers.isEmpty
-                    ? const Center(child: Text("No members found"))
-                    : ListView.builder(
-                        itemCount: _paginatedMembers().length,
-                        itemBuilder: (context, index) {
-                          final member = _paginatedMembers()[index];
-                          final userId = member['userId'];
-                          final data =
-                              member['userData'] as Map<String, dynamic>;
-                          final name =
-                              '${data['firstName']} ${data['lastName']}';
-                          final badge = member['badge'];
-                          final dateJoined = member['dateJoined'];
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _filteredMembers.isEmpty
+                        ? const Center(child: Text("No members found"))
+                        : ListView.builder(
+                            itemCount: _paginatedMembers().length,
+                            itemBuilder: (context, index) {
+                              final member = _paginatedMembers()[index];
+                              final userId = member['userId'];
+                              final data =
+                                  member['data'] as Map<String, dynamic>;
+                              final name =
+                                  '${data['firstName']} ${data['lastName']}';
+                              final badge = member['badge'];
 
-                          Color badgeColor;
-                          Color badgeTextColor;
-                          switch (badge) {
-                            case "Active":
-                              badgeColor = Colors.green[100]!;
-                              badgeTextColor = Colors.green;
-                              break;
-                            case "Inactive":
-                              badgeColor = Colors.red[100]!;
-                              badgeTextColor = Colors.red;
-                              break;
-                            default:
-                              badgeColor = Colors.grey[300]!;
-                              badgeTextColor = Colors.black87;
-                          }
+                              Color badgeColor;
+                              Color badgeTextColor;
+                              switch (badge) {
+                                case "Active":
+                                  badgeColor = Colors.green[100]!;
+                                  badgeTextColor = Colors.green;
+                                  break;
+                                case "Inactive":
+                                  badgeColor = Colors.red[100]!;
+                                  badgeTextColor = Colors.red;
+                                  break;
+                                default:
+                                  badgeColor = Colors.grey[300]!;
+                                  badgeTextColor = Colors.black87;
+                              }
 
-                          return Card(
-                            color: Colors.white,
-                            margin: const EdgeInsets.only(bottom: 12),
-                            child: ExpansionTile(
-                              leading: const Icon(Icons.person_outline,
-                                  color: Colors.black),
-                              title: Text(name, style: styleName),
-                              children: [
-                                Padding(
-                                  padding: const EdgeInsets.all(16),
-                                  child: Column(
-                                    children: [
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                              horizontal: 10, vertical: 4),
-                                          decoration: BoxDecoration(
-                                            color: badgeColor,
-                                            borderRadius:
-                                                BorderRadius.circular(20),
-                                          ),
-                                          child: Text(
-                                            badge,
-                                            style: TextStyle(
-                                                fontSize: 12,
-                                                color: badgeTextColor,
-                                                fontWeight: FontWeight.w600),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 12),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
+                              return Card(
+                                color: Colors.white,
+                                margin: const EdgeInsets.only(bottom: 12),
+                                child: ExpansionTile(
+                                  leading: const Icon(Icons.person_outline,
+                                      color: Colors.black),
+                                  title: Text(name, style: styleName),
+                                  children: [
+                                    Padding(
+                                      padding: const EdgeInsets.all(16),
+                                      child: Column(
                                         children: [
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                const Text("Name:",
-                                                    style: TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold)),
-                                                Text(name),
-                                                const SizedBox(height: 10),
-                                                const Text("Date of Joining:",
-                                                    style: TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold)),
-                                                Text(dateJoined),
-                                              ],
+                                          Align(
+                                            alignment: Alignment.centerRight,
+                                            child: Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: badgeColor,
+                                                borderRadius:
+                                                    BorderRadius.circular(20),
+                                              ),
+                                              child: Text(
+                                                badge,
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    color: badgeTextColor,
+                                                    fontWeight:
+                                                        FontWeight.w600),
+                                              ),
                                             ),
                                           ),
-                                          Expanded(
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                const Text("Plan Expiry:",
-                                                    style: TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold)),
-                                                Text(data['planExpiry'] ??
-                                                    'N/A'),
-                                                const SizedBox(height: 10),
-                                                const Text("Amount:",
-                                                    style: TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold)),
-                                                Text(
-                                                    'Php ${data['amount'] ?? 'N/A'}'),
-                                              ],
-                                            ),
+                                          const SizedBox(height: 12),
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text("Name:",
+                                                        style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .bold)),
+                                                    Text(name),
+                                                    const SizedBox(height: 10),
+                                                    const Text(
+                                                        "Date of Joining:",
+                                                        style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .bold)),
+                                                    Text(data['startDate'] ??
+                                                        'N/A'),
+                                                  ],
+                                                ),
+                                              ),
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    const Text("Plan Expiry:",
+                                                        style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .bold)),
+                                                    Text(data['planExpiry'] ??
+                                                        'N/A'),
+                                                    const SizedBox(height: 10),
+                                                    const Text("Amount:",
+                                                        style: TextStyle(
+                                                            fontWeight:
+                                                                FontWeight
+                                                                    .bold)),
+                                                    Text(
+                                                        'Php ${data['amount'] ?? 'N/A'}'),
+                                                  ],
+                                                ),
+                                              ),
+                                            ],
                                           ),
+                                          const SizedBox(height: 16),
+                                          Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              ElevatedButton.icon(
+                                                onPressed: () => _showEditModal(
+                                                    userId, data),
+                                                icon: const Icon(Icons.edit,
+                                                    color: Colors.black,
+                                                    size: 18),
+                                                label: const Text("Edit",
+                                                    style: TextStyle(
+                                                        color: Colors.black,
+                                                        fontSize: 13)),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.white,
+                                                  shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8)),
+                                                  elevation: 2,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              ElevatedButton.icon(
+                                                onPressed: () =>
+                                                    _showQrModal(userId),
+                                                icon: const Icon(Icons.qr_code,
+                                                    color: Colors.black,
+                                                    size: 18),
+                                                label: const Text("QR Code",
+                                                    style: TextStyle(
+                                                        color: Colors.black,
+                                                        fontSize: 13)),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.white,
+                                                  shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8)),
+                                                  elevation: 2,
+                                                ),
+                                              ),
+                                            ],
+                                          )
                                         ],
                                       ),
-                                      const SizedBox(height: 16),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          ElevatedButton.icon(
-                                            onPressed: () =>
-                                                _showEditModal(userId, data),
-                                            icon: const Icon(Icons.edit,
-                                                color: Colors.black, size: 18),
-                                            label: const Text("Edit",
-                                                style: TextStyle(
-                                                    color: Colors.black,
-                                                    fontSize: 13)),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.white,
-                                              shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8)),
-                                              elevation: 2,
-                                            ),
-                                          ),
-                                          const SizedBox(width: 10),
-                                          ElevatedButton.icon(
-                                            onPressed: () =>
-                                                _showQrModal(userId),
-                                            icon: const Icon(Icons.qr_code,
-                                                color: Colors.black, size: 18),
-                                            label: const Text("QR Code",
-                                                style: TextStyle(
-                                                    color: Colors.black,
-                                                    fontSize: 13)),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: Colors.white,
-                                              shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8)),
-                                              elevation: 2,
-                                            ),
-                                          ),
-                                        ],
-                                      )
-                                    ],
-                                  ),
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
+                              );
+                            },
+                          ),
               ),
-              if (_filteredMembers.length > _itemsPerPage)
+              if (!_isLoading && _filteredMembers.length > _itemsPerPage)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [

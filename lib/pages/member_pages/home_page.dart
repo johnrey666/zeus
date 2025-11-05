@@ -48,13 +48,7 @@ class HomePageState extends State<HomePage> {
       'Bicep Curls',
       'Yoga'
     ],
-    'Lowerbody Workout': [
-      'Warm-up',
-      'Jumping Jacks',
-      'Squats',
-      'Lunges',
-      'Skipping'
-    ],
+    'Lowerbody Workout': ['Warm-up', 'Jumping Jacks', 'Squats', 'Lunges'],
     'AB Workout': ['Warm-up', 'Plank', 'Crunches'],
   };
 
@@ -171,13 +165,10 @@ class HomePageState extends State<HomePage> {
       'Squats',
       'Lunges',
       'Bicep Curls',
-      'Arm Raises',
+      'Dumbbell Curl',
       'Cable Flyes',
       'Warm-up',
-      'Skipping',
-      'Fullbody Workout',
-      'Lowerbody Workout',
-      'AB Workout',
+      'Dumbbell Press',
     ];
     final availableWorkouts = availableWorkoutsList.join(', ');
 
@@ -291,13 +282,10 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
       'Squats': 20,
       'Lunges': 20,
       'Bicep Curls': 15,
-      'Arm Raises': 15,
+      'Dumbbell Curl': 15,
       'Cable Flyes': 25,
       'Warm-up': 10,
-      'Skipping': 15,
-      'Fullbody Workout': 45,
-      'Lowerbody Workout': 40,
-      'AB Workout': 30,
+      'Dumbbell Press': 25,
     };
   }
 
@@ -1077,15 +1065,12 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
       return 'assets/videos/jumping_jacks.mp4';
     if (lower.contains('squat')) return 'assets/videos/squat.mp4';
     if (lower.contains('lunge')) return 'assets/videos/lunge.mp4';
-    if (lower.contains('bicep') ||
-        lower.contains('arm raise') ||
-        lower.contains('arm raises')) return 'assets/videos/bicep_curl.mp4';
+    if (lower.contains('bicep') || lower.contains('dumbbell curl'))
+      return 'assets/videos/bicep_curl.mp4';
     if (lower.contains('cable')) return 'assets/videos/cable_flyes.mp4';
-    if (lower.contains('warm-up') || lower.contains('skipping'))
-      return 'assets/videos/warm_up.mp4';
-    if (lower.contains('fullbody')) return 'assets/videos/fullbody.mp4';
-    if (lower.contains('lowerbody')) return 'assets/videos/lowerbody.mp4';
-    if (lower.contains('ab workout')) return 'assets/videos/abworkout.mp4';
+    if (lower.contains('warm-up')) return 'assets/videos/warm_up.mp4';
+    if (lower.contains('dumbbell press'))
+      return 'assets/videos/dumbbell_press.mp4';
     return 'assets/videos/workout.mp4';
   }
 
@@ -1102,14 +1087,12 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
         lower.contains('jumping')) return 'assets/images/jumping_jacks.jpg';
     if (lower.contains('squat')) return 'assets/images/squat.jpg';
     if (lower.contains('lunge')) return 'assets/images/lunge.jpg';
-    if (lower.contains('bicep') || lower.contains('arm raise'))
+    if (lower.contains('bicep') || lower.contains('dumbbell curl'))
       return 'assets/images/bicep_curl.jpg';
     if (lower.contains('cable')) return 'assets/images/cable_flyes.jpg';
-    if (lower.contains('warm-up') || lower.contains('skipping'))
-      return 'assets/images/warm_up.jpg';
-    if (lower.contains('fullbody')) return 'assets/images/fullbody.jpg';
-    if (lower.contains('lowerbody')) return 'assets/images/lowerbody.jpg';
-    if (lower.contains('ab workout')) return 'assets/images/abworkout.jpg';
+    if (lower.contains('warm-up')) return 'assets/images/warm_up.jpg';
+    if (lower.contains('dumbbell press'))
+      return 'assets/images/dumbbell_press.jpg';
     return 'assets/images/workout.jpg';
   }
 
@@ -1176,8 +1159,14 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
   Widget buildBodyFocusSection() {
     final workoutsByBody = {
       'Abs': ['Plank', 'Crunches'],
-      'Arms': ['Arm Raises', 'Bicep Curls'],
-      'Chest': ['Push-Ups', 'Bench Press', 'Incline Push-Ups', 'Cable Flyes'],
+      'Arms': ['Dumbbell Curl', 'Bicep Curls'],
+      'Chest': [
+        'Push-Ups',
+        'Bench Press',
+        'Incline Push-Ups',
+        'Cable Flyes',
+        'Dumbbell Press'
+      ],
       'Legs': ['Squats', 'Lunges'],
     };
 
@@ -1228,7 +1217,7 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
   }
 
   Widget buildStretchSection() {
-    final stretches = ['Warm-up', 'Jumping Jacks', 'Skipping', 'Arm Raises'];
+    final stretches = ['Warm-up', 'Jumping Jacks', 'Dumbbell Curl'];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
