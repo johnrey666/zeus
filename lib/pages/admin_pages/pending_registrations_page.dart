@@ -43,6 +43,18 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
 
     final timestamp = DateTime.now();
     final startDateStr = DateFormat('yyyy-MM-dd').format(timestamp);
+    final endDateStr = DateFormat('yyyy-MM-dd')
+        .format(timestamp.add(const Duration(days: 30)));
+
+    // Update registration record
+    await FirebaseFirestore.instance
+        .collection('registrations')
+        .doc(docId)
+        .update({
+      'startDate': startDateStr,
+      'endDate': endDateStr,
+      'amount': amount,
+    });
 
     // Add sales record
     await FirebaseFirestore.instance.collection('sales').add({
@@ -60,8 +72,7 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
         'plan': plan,
         'amount': amount,
         'startDate': startDateStr,
-        'planExpiry': DateFormat('yyyy-MM-dd')
-            .format(timestamp.add(const Duration(days: 30))),
+        'endDate': endDateStr,
       });
 
       await FirebaseFirestore.instance.collection('notifications').add({
@@ -113,10 +124,7 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
     final startDate = data['startDate'] ?? '-';
     final paymentMethod = data['paymentMethod'] ?? '-';
     final base64Image = data['proofImageBase64'];
-    final timestamp = data['timestamp'] as Timestamp?;
-    final expiration = timestamp?.toDate().add(const Duration(days: 30));
-    final expirationStr =
-        expiration != null ? DateFormat('yyyy-MM-dd').format(expiration) : '-';
+    final endDateStr = data['endDate'] ?? '-';
 
     Uint8List? proofBytes;
     if (base64Image != null && base64Image.isNotEmpty) {
@@ -158,7 +166,7 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
               _infoRow("Start Date", startDate),
               _infoRow("Payment", paymentMethod),
               if (!showButtons)
-                _infoRow("Expires", expirationStr, color: Colors.redAccent),
+                _infoRow("Expires", endDateStr, color: Colors.redAccent),
               const SizedBox(height: 12),
               Text("Proof of Payment",
                   style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
@@ -343,9 +351,7 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
 
   @override
   Widget build(BuildContext context) {
-    final thirtyDaysAgo = Timestamp.fromDate(
-      DateTime.now().subtract(const Duration(days: 30)),
-    );
+    final todayStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
     final pendingStream = FirebaseFirestore.instance
         .collection('registrations')
@@ -356,8 +362,8 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
     final acceptedStream = FirebaseFirestore.instance
         .collection('registrations')
         .where('status', isEqualTo: 'accepted')
-        .where('timestamp', isGreaterThan: thirtyDaysAgo)
-        .orderBy('timestamp', descending: true)
+        .where('endDate', isGreaterThanOrEqualTo: todayStr)
+        .orderBy('endDate', descending: true)
         .snapshots();
 
     return Scaffold(

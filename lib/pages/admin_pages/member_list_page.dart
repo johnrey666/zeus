@@ -71,19 +71,20 @@ class _MemberListPageState extends State<MemberListPage> {
         final regData = regMap[userId];
 
         String statusBadge = "Member";
-        String dateJoined = 'N/A';
-        String? planExpiry;
+        String dateJoined = userData['startDate'] ?? 'Not Registered';
+        String? endDate;
         double? amount;
 
         if (regData != null) {
-          dateJoined = regData['startDate'] ?? 'N/A';
-          planExpiry = regData['planExpiry'];
-          amount = (regData['amount'] as num?)?.toDouble();
+          dateJoined = regData['startDate'] ?? dateJoined;
+          endDate = regData['endDate'];
+          amount = (regData['amount'] as num?)?.toDouble() ??
+              userData['amount']?.toDouble();
 
-          if (planExpiry != null) {
-            final planExpiryDate = DateTime.tryParse(planExpiry);
+          if (endDate != null) {
+            final endDateParsed = DateTime.tryParse(endDate);
             final now = DateTime.now();
-            if (planExpiryDate != null && now.isAfter(planExpiryDate)) {
+            if (endDateParsed != null && now.isAfter(endDateParsed)) {
               statusBadge = "Inactive";
             } else {
               statusBadge = "Active";
@@ -98,7 +99,7 @@ class _MemberListPageState extends State<MemberListPage> {
           'data': {
             ...userData,
             'startDate': dateJoined,
-            'planExpiry': planExpiry,
+            'endDate': endDate,
             'amount': amount,
           },
           'badge': statusBadge,
@@ -219,6 +220,63 @@ class _MemberListPageState extends State<MemberListPage> {
     );
   }
 
+  Future<void> _deleteMember(String userId) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: Colors.white,
+        title:
+            const Text('Delete Member?', style: TextStyle(color: Colors.black)),
+        content: const Text(
+            'This will permanently delete the member and their registration records.',
+            style: TextStyle(color: Colors.black)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel", style: TextStyle(color: Colors.blue)),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              try {
+                await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(userId)
+                    .delete();
+                final regSnapshot = await FirebaseFirestore.instance
+                    .collection('registrations')
+                    .where('userId', isEqualTo: userId)
+                    .where('status', isEqualTo: 'accepted')
+                    .get();
+                for (var regDoc in regSnapshot.docs) {
+                  await regDoc.reference.delete();
+                }
+                _fetchMembers();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Member deleted successfully.')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error deleting member: $e')),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showEditModal(String userId, Map<String, dynamic> userData) {
     final dateFormat = DateFormat('yyyy-MM-dd');
     final nowFormatted = dateFormat.format(DateTime.now());
@@ -228,14 +286,14 @@ class _MemberListPageState extends State<MemberListPage> {
     final lastNameController =
         TextEditingController(text: userData['lastName'] ?? '');
     final startDateController = TextEditingController(
-      text: (userData['startDate'] ?? 'N/A') == 'N/A'
+      text: (userData['startDate'] ?? 'Not Registered') == 'Not Registered'
           ? nowFormatted
           : userData['startDate'] ?? nowFormatted,
     );
-    final planExpiryController = TextEditingController(
-      text: (userData['planExpiry'] ?? 'N/A') == 'N/A'
+    final endDateController = TextEditingController(
+      text: (userData['endDate'] ?? 'Not Registered') == 'Not Registered'
           ? nowFormatted
-          : userData['planExpiry'] ?? nowFormatted,
+          : userData['endDate'] ?? nowFormatted,
     );
     final amountController =
         TextEditingController(text: userData['amount']?.toString() ?? '');
@@ -244,7 +302,7 @@ class _MemberListPageState extends State<MemberListPage> {
         BuildContext context, TextEditingController controller) async {
       final initialDateStr = controller.text;
       DateTime initialDate = DateTime.now();
-      if (initialDateStr != 'N/A' && initialDateStr.isNotEmpty) {
+      if (initialDateStr != 'Not Registered' && initialDateStr.isNotEmpty) {
         final parsed = DateTime.tryParse(initialDateStr);
         if (parsed != null) initialDate = parsed;
       }
@@ -327,12 +385,12 @@ class _MemberListPageState extends State<MemberListPage> {
               ),
               const SizedBox(height: 10),
               TextField(
-                controller: planExpiryController,
+                controller: endDateController,
                 cursorColor: Colors.blue,
                 readOnly: true,
                 decoration:
                     blackInputDecoration.copyWith(labelText: "Plan Expiry"),
-                onTap: () => _pickDate(context, planExpiryController),
+                onTap: () => _pickDate(context, endDateController),
               ),
               const SizedBox(height: 10),
               TextField(
@@ -355,7 +413,7 @@ class _MemberListPageState extends State<MemberListPage> {
               if (firstNameController.text.trim().isEmpty ||
                   lastNameController.text.trim().isEmpty ||
                   startDateController.text.trim().isEmpty ||
-                  planExpiryController.text.trim().isEmpty ||
+                  endDateController.text.trim().isEmpty ||
                   amountController.text.trim().isEmpty ||
                   double.tryParse(amountController.text.trim()) == null) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -368,7 +426,7 @@ class _MemberListPageState extends State<MemberListPage> {
               final String firstName = firstNameController.text.trim();
               final String lastName = lastNameController.text.trim();
               final String startDate = startDateController.text.trim();
-              final String planExpiry = planExpiryController.text.trim();
+              final String endDate = endDateController.text.trim();
               final double amount = double.parse(amountController.text.trim());
 
               await FirebaseFirestore.instance
@@ -377,7 +435,7 @@ class _MemberListPageState extends State<MemberListPage> {
                   .update({
                 'firstName': firstName,
                 'lastName': lastName,
-                'planExpiry': planExpiry,
+                'endDate': endDate,
                 'amount': amount,
               });
 
@@ -391,7 +449,7 @@ class _MemberListPageState extends State<MemberListPage> {
                 final regDoc = registrationSnapshot.docs.first;
                 await regDoc.reference.update({
                   'startDate': startDate,
-                  'planExpiry': planExpiry,
+                  'endDate': endDate,
                   'amount': amount,
                 });
               }
@@ -575,7 +633,7 @@ class _MemberListPageState extends State<MemberListPage> {
                                                                 FontWeight
                                                                     .bold)),
                                                     Text(data['startDate'] ??
-                                                        'N/A'),
+                                                        'Not Registered'),
                                                   ],
                                                 ),
                                               ),
@@ -589,8 +647,8 @@ class _MemberListPageState extends State<MemberListPage> {
                                                             fontWeight:
                                                                 FontWeight
                                                                     .bold)),
-                                                    Text(data['planExpiry'] ??
-                                                        'N/A'),
+                                                    Text(data['endDate'] ??
+                                                        'Not Registered'),
                                                     const SizedBox(height: 10),
                                                     const Text("Amount:",
                                                         style: TextStyle(
@@ -598,7 +656,12 @@ class _MemberListPageState extends State<MemberListPage> {
                                                                 FontWeight
                                                                     .bold)),
                                                     Text(
-                                                        'Php ${data['amount'] ?? 'N/A'}'),
+                                                      data['amount'] != null &&
+                                                              data['amount']
+                                                                  is num
+                                                          ? 'P${(data['amount'] as num).toStringAsFixed(0)}'
+                                                          : 'Not Registered',
+                                                    ),
                                                   ],
                                                 ),
                                               ),
@@ -647,6 +710,22 @@ class _MemberListPageState extends State<MemberListPage> {
                                                               8)),
                                                   elevation: 2,
                                                 ),
+                                              ),
+                                              const SizedBox(width: 10),
+                                              ElevatedButton(
+                                                onPressed: () =>
+                                                    _deleteMember(userId),
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: Colors.white,
+                                                  shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              8)),
+                                                  elevation: 2,
+                                                ),
+                                                child: const Icon(Icons.delete,
+                                                    color: Colors.red,
+                                                    size: 18),
                                               ),
                                             ],
                                           )
