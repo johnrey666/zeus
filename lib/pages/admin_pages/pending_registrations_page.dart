@@ -18,7 +18,7 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
   late TabController _tabController;
   int _pendingPage = 0;
   int _acceptedPage = 0;
-  final int _pageSize = 4;
+  final int _pageSize = 3; // Reduced to 3 as suggested to help prevent overflow
 
   @override
   void initState() {
@@ -319,29 +319,33 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
         final displayStart = startIndex + 1;
         final displayEnd = startIndex + paginatedDocs.length;
 
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        return ListView(
+          shrinkWrap: true,
           children: [
             Text(title, style: headerStyle),
             const SizedBox(height: 12),
             ...paginatedDocs.map((doc) => _buildCard(doc, showButtons)),
             const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                TextButton(
-                  onPressed: page > 0 ? () => setPage(page - 1) : null,
-                  child: const Text('Previous'),
-                ),
-                Text('$displayStart - $displayEnd of $total'),
-                TextButton(
-                  onPressed:
-                      paginatedDocs.length == _pageSize && endIndex < total
-                          ? () => setPage(page + 1)
-                          : null,
-                  child: const Text('Next'),
-                ),
-              ],
+            Padding(
+              padding: const EdgeInsets.only(
+                  bottom: 20.0), // Extra bottom padding for safety
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  TextButton(
+                    onPressed: page > 0 ? () => setPage(page - 1) : null,
+                    child: const Text('Previous'),
+                  ),
+                  Text('$displayStart - $displayEnd of $total'),
+                  TextButton(
+                    onPressed:
+                        paginatedDocs.length == _pageSize && endIndex < total
+                            ? () => setPage(page + 1)
+                            : null,
+                    child: const Text('Next'),
+                  ),
+                ],
+              ),
             ),
           ],
         );
@@ -370,7 +374,8 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
       backgroundColor: Colors.white,
       body: SafeArea(
         top: true,
-        bottom: false,
+        bottom:
+            true, // Enabled bottom SafeArea to prevent overlap/overflow issues
         child: Column(
           children: [
             TabBar(
