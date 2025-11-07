@@ -1069,9 +1069,9 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
       return 'assets/videos/bicep_curl.mp4';
     if (lower.contains('cable')) return 'assets/videos/cable_flyes.mp4';
     if (lower.contains('warm-up')) return 'assets/videos/warm_up.mp4';
-    if (lower.contains('dumbbell press'))
-      return 'assets/videos/dumbbell_press.mp4';
-    return 'assets/videos/workout.mp4';
+    // Fix: Move dumbbell press check before dumbbell curl check
+    if (lower == 'dumbbell press') return 'assets/videos/dumbbell_press.mp4';
+    return 'assets/videos/dumbbell_press.mp4';
   }
 
   String _getWorkoutImage(String title) {
