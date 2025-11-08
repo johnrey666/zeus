@@ -29,6 +29,55 @@ class _NotificationsPageState extends State<NotificationsPage> {
     setState(() {});
   }
 
+  Future<void> _deleteAnnouncement(String docId) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('announcements')
+          .doc(docId)
+          .delete();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Announcement deleted"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error deleting announcement: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showDeleteConfirmation(String docId) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Announcement?'),
+        content: const Text('This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteAnnouncement(docId);
+            },
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
@@ -159,6 +208,14 @@ class _NotificationsPageState extends State<NotificationsPage> {
                               const SizedBox(width: 6),
                               Text(time,
                                   style: GoogleFonts.poppins(fontSize: 12)),
+                              const SizedBox(width: 8),
+                              IconButton(
+                                icon:
+                                    const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () =>
+                                    _showDeleteConfirmation(doc.id),
+                                tooltip: 'Delete announcement',
+                              ),
                             ],
                           ),
                           const SizedBox(height: 12),

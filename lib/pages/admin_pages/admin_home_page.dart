@@ -20,7 +20,6 @@ class _AdminHomePageState extends State<AdminHomePage>
   int _selectedIndex = 0;
 
   final user = FirebaseAuth.instance.currentUser;
-
   final List<String> _titles = [
     'Admin Dashboard',
     'Members Update',

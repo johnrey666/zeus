@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 
 class RegistrationPage extends StatefulWidget {
   const RegistrationPage({super.key});
@@ -33,7 +34,48 @@ class _RegistrationPageState extends State<RegistrationPage> {
   @override
   void initState() {
     super.initState();
+    _checkAccess();
     _loadUserName();
+  }
+
+  Future<void> _checkAccess() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Check for active membership
+    final userDoc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    if (userDoc.exists && userDoc.data()?['membershipStatus'] == 'Active') {
+      if (mounted) {
+        _showSnackBar("🎉 You're already a member!");
+        Navigator.pop(context);
+      }
+      return;
+    }
+
+    // Check for pending registration
+    final regSnapshot = await FirebaseFirestore.instance
+        .collection('registrations')
+        .where('userId', isEqualTo: user.uid)
+        .where('status', isEqualTo: 'pending')
+        .get();
+
+    if (regSnapshot.docs.isNotEmpty && mounted) {
+      _showSnackBar("⏳ You already have a pending registration.");
+      Navigator.pop(context);
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        duration: const Duration(seconds: 3),
+      ),
+    );
   }
 
   Future<void> _loadUserName() async {
@@ -45,9 +87,11 @@ class _RegistrationPageState extends State<RegistrationPage> {
           .get();
       final firstName = doc['firstName'] ?? '';
       final lastName = doc['lastName'] ?? '';
-      setState(() {
-        _memberNameController.text = "$firstName $lastName";
-      });
+      if (mounted) {
+        setState(() {
+          _memberNameController.text = "$firstName $lastName";
+        });
+      }
     }
   }
 
@@ -84,8 +128,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
     if (picked != null) {
       setState(() {
         _pickedStartDate = picked;
-        _startDateController.text =
-            "${picked.year}-${picked.month}-${picked.day}";
+        _startDateController.text = DateFormat('yyyy-MM-dd').format(picked);
       });
     }
   }
@@ -130,7 +173,7 @@ class _RegistrationPageState extends State<RegistrationPage> {
       'name': name,
       'plan': _selectedPlan,
       'startDate': date,
-      'endDate': "${endDate.year}-${endDate.month}-${endDate.day}",
+      'endDate': DateFormat('yyyy-MM-dd').format(endDate),
       'paymentMethod': _selectedPayment,
       'proofImageBase64': base64Image,
       'status': 'pending',

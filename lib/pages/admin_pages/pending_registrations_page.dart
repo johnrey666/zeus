@@ -26,69 +26,162 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
     _tabController = TabController(length: 2, vsync: this);
   }
 
-  Future<void> _acceptRequest(String docId, Map<String, dynamic> data) async {
-    await FirebaseFirestore.instance
-        .collection('registrations')
-        .doc(docId)
-        .update({'status': 'accepted'});
+  Future<void> _acceptRequest(
+      String docId, Map<String, dynamic> data, BuildContext context) async {
+    try {
+      final startDateStr =
+          data['startDate'] ?? DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final startDate = DateTime.parse(startDateStr);
+      final endDateStr = DateFormat('yyyy-MM-dd')
+          .format(startDate.add(const Duration(days: 30)));
 
-    final userId = data['userId'];
-    final plan = data['plan'] ?? '';
-    double amount = 0;
-    final RegExp priceRegex = RegExp(r'(\d+)PHP');
-    final match = priceRegex.firstMatch(plan);
-    if (match != null) {
-      amount = double.tryParse(match.group(1)!) ?? 0;
-    }
+      final plan = data['plan'] ?? '';
+      double amount = 0;
+      final RegExp priceRegex = RegExp(r'(\d+)PHP');
+      final match = priceRegex.firstMatch(plan);
+      if (match != null) {
+        amount = double.tryParse(match.group(1)!) ?? 0;
+      }
 
-    final timestamp = DateTime.now();
-    final startDateStr = DateFormat('yyyy-MM-dd').format(timestamp);
-    final endDateStr = DateFormat('yyyy-MM-dd')
-        .format(timestamp.add(const Duration(days: 30)));
-
-    // Update registration record
-    await FirebaseFirestore.instance
-        .collection('registrations')
-        .doc(docId)
-        .update({
-      'startDate': startDateStr,
-      'endDate': endDateStr,
-      'amount': amount,
-    });
-
-    // Add sales record
-    await FirebaseFirestore.instance.collection('sales').add({
-      'userId': userId,
-      'amount': amount,
-      'date': startDateStr,
-      'source': 'Registration',
-      'plan': plan,
-    });
-
-    // Update user record
-    if (userId != null && userId.toString().isNotEmpty) {
-      await FirebaseFirestore.instance.collection('users').doc(userId).update({
-        'membershipStatus': 'Active',
-        'plan': plan,
-        'amount': amount,
+      // Update registration record
+      await FirebaseFirestore.instance
+          .collection('registrations')
+          .doc(docId)
+          .update({
+        'status': 'accepted',
         'startDate': startDateStr,
         'endDate': endDateStr,
+        'amount': amount,
       });
 
-      await FirebaseFirestore.instance.collection('notifications').add({
-        'toUserId': userId,
-        'text':
-            '🎉 You have successfully registered! You can now communicate with your Trainer.',
-        'timestamp': FieldValue.serverTimestamp(),
+      // Add sales record
+      await FirebaseFirestore.instance.collection('sales').add({
+        'userId': data['userId'],
+        'amount': amount,
+        'date': startDateStr,
+        'source': 'Registration',
+        'plan': plan,
       });
+
+      // Update user record
+      final userId = data['userId'];
+      if (userId != null && userId.toString().isNotEmpty) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .update({
+          'membershipStatus': 'Active',
+          'plan': plan,
+          'amount': amount,
+          'startDate': startDateStr,
+          'endDate': endDateStr,
+        });
+
+        await FirebaseFirestore.instance.collection('notifications').add({
+          'toUserId': userId,
+          'text':
+              '🎉 You have successfully registered! You can now communicate with your Trainer.',
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Registration Accepted"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error accepting registration: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      rethrow;
     }
   }
 
-  Future<void> _deleteRequest(String docId) async {
-    await FirebaseFirestore.instance
-        .collection('registrations')
-        .doc(docId)
-        .delete();
+  Future<void> _cancelMembership(
+      String docId, Map<String, dynamic> data, BuildContext context) async {
+    try {
+      // Update registration record
+      await FirebaseFirestore.instance
+          .collection('registrations')
+          .doc(docId)
+          .update({
+        'status': 'cancelled',
+        'cancelDate': Timestamp.now(),
+      });
+
+      // Update user record
+      final userId = data['userId'];
+      if (userId != null && userId.toString().isNotEmpty) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(userId)
+            .update({
+          'membershipStatus': 'Cancelled',
+        });
+
+        await FirebaseFirestore.instance.collection('notifications').add({
+          'toUserId': userId,
+          'text': 'Your membership has been cancelled.',
+          'timestamp': FieldValue.serverTimestamp(),
+        });
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Membership Cancelled"),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error cancelling membership: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _deleteRequest(String docId, BuildContext context) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('registrations')
+          .doc(docId)
+          .delete();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Registration Declined"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error deleting registration: $e"),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      rethrow;
+    }
   }
 
   void _showEnlargedImage(Uint8List imageBytes) {
@@ -202,7 +295,7 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
                       child: OutlinedButton(
                         onPressed: () async {
                           Navigator.pop(context);
-                          await _deleteRequest(docId);
+                          await _deleteRequest(docId, context);
                         },
                         child: const Text("Delete",
                             style: TextStyle(color: Colors.redAccent)),
@@ -213,7 +306,7 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
                       child: ElevatedButton(
                         onPressed: () async {
                           Navigator.pop(context);
-                          await _acceptRequest(docId, data);
+                          await _acceptRequest(docId, data, context);
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Color.fromARGB(255, 58, 136, 61),
@@ -223,6 +316,21 @@ class _PendingRegistrationsPageState extends State<PendingRegistrationsPage>
                       ),
                     ),
                   ],
+                ),
+              ] else ...[
+                const SizedBox(height: 20),
+                Center(
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      Navigator.pop(context);
+                      await _cancelMembership(docId, data, context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.redAccent,
+                      foregroundColor: Colors.white,
+                    ),
+                    child: const Text("Cancel Membership"),
+                  ),
                 ),
               ]
             ],

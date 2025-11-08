@@ -29,6 +29,9 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
   String? _oldHeight;
   String? _oldWeight;
 
+  bool _isMember = false;
+  String? _registrationDocId;
+
   final ImagePicker _picker = ImagePicker();
   final user = FirebaseAuth.instance.currentUser;
 
@@ -79,6 +82,29 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
         }
       });
     }
+
+    // Check membership status
+    bool isActive = false;
+    String? regId;
+    if (userDoc.exists) {
+      isActive = userDoc.data()!['membershipStatus'] == 'Active';
+      if (isActive) {
+        final regSnapshot = await FirebaseFirestore.instance
+            .collection('registrations')
+            .where('userId', isEqualTo: user!.uid)
+            .where('status', isEqualTo: 'accepted')
+            .limit(1)
+            .get();
+        if (regSnapshot.docs.isNotEmpty) {
+          regId = regSnapshot.docs.first.id;
+        }
+      }
+    }
+
+    setState(() {
+      _isMember = isActive;
+      _registrationDocId = regId;
+    });
 
     // Store old values for change detection
     _oldHeight = _heightController.text.trim();
@@ -147,24 +173,95 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
     }
   }
 
-  Future<void> _handleSubscription() async {
+  Future<void> _handleMembershipAction() async {
     if (user == null) return;
 
-    final regSnapshot = await FirebaseFirestore.instance
-        .collection('registrations')
-        .where('userId', isEqualTo: user!.uid)
-        .where('status', isEqualTo: 'pending')
-        .get();
+    if (_isMember) {
+      // Show confirmation dialog for cancel
+      final bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: const Text('Cancel Membership'),
+            content:
+                const Text('Are you sure you want to cancel your membership?'),
+            actions: <Widget>[
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancel'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                child: const Text(
+                  'Confirm',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+            ],
+          );
+        },
+      );
 
-    if (regSnapshot.docs.isNotEmpty) {
-      _showModernSnackBar("⏳ You already have a pending registration.");
-      return;
+      if (confirm == true) {
+        await _cancelMembership();
+      }
+    } else {
+      // Check for pending registration
+      final regSnapshot = await FirebaseFirestore.instance
+          .collection('registrations')
+          .where('userId', isEqualTo: user!.uid)
+          .where('status', isEqualTo: 'pending')
+          .get();
+
+      if (regSnapshot.docs.isNotEmpty) {
+        _showModernSnackBar("⏳ You already have a pending registration.");
+        return;
+      }
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const RegistrationPage()),
+      );
     }
+  }
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const RegistrationPage()),
-    );
+  Future<void> _cancelMembership() async {
+    if (_registrationDocId == null || user == null) return;
+
+    try {
+      // Update registration record
+      await FirebaseFirestore.instance
+          .collection('registrations')
+          .doc(_registrationDocId!)
+          .update({
+        'status': 'cancelled',
+        'cancelDate': Timestamp.now(),
+      });
+
+      // Update user record
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user!.uid)
+          .update({
+        'membershipStatus': 'Cancelled',
+      });
+
+      // Add notification
+      await FirebaseFirestore.instance.collection('notifications').add({
+        'toUserId': user!.uid,
+        'text': 'Your membership has been cancelled.',
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+
+      _showModernSnackBar("Membership cancelled successfully.");
+      setState(() {
+        _isMember = false;
+        _registrationDocId = null;
+      });
+    } catch (e) {
+      _showModernSnackBar("❌ Error cancelling membership. Try again.");
+      debugPrint("Error cancelling membership: $e");
+    }
   }
 
   void _showModernSnackBar(String message) {
@@ -263,20 +360,25 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
               width: double.infinity,
               height: 50,
               child: InkWell(
-                onTap: _handleSubscription,
+                onTap: _handleMembershipAction,
                 child: Container(
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
-                    ),
+                    gradient: _isMember
+                        ? null
+                        : const LinearGradient(
+                            colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+                          ),
+                    color: _isMember ? Colors.red : null,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   alignment: Alignment.center,
-                  child: Text("Subscribe to Plan",
-                      style: GoogleFonts.poppins(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
-                          color: Colors.white)),
+                  child: Text(
+                    _isMember ? "Cancel Membership" : "Subscribe to Plan",
+                    style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white),
+                  ),
                 ),
               ),
             ),
