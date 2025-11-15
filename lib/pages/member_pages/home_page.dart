@@ -10,10 +10,10 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
+import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
-
   @override
   State<HomePage> createState() => HomePageState();
 }
@@ -34,11 +34,10 @@ class HomePageState extends State<HomePage> {
   Map<String, int> _workoutDurations = {};
   bool _isAISuggestionFallback = false;
   bool _hasLoadedAISuggestions = false; // Cache flag
-
+  late ScrollController _scrollController; // Add this
   static const _apiKey = 'AIzaSyAv-8phkpHuQbEnZshddCxYIpl4nIbgqJs';
   late final GenerativeModel _model =
       GenerativeModel(model: 'gemini-2.5-flash', apiKey: _apiKey);
-
   final Map<String, List<String>> _programWorkouts = {
     'Fullbody Workout': [
       'Warm-up',
@@ -51,16 +50,17 @@ class HomePageState extends State<HomePage> {
     'Lowerbody Workout': ['Warm-up', 'Jumping Jacks', 'Squats', 'Lunges'],
     'AB Workout': ['Warm-up', 'Plank', 'Crunches'],
   };
-
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController(); // Initialize here
     _selectedDay = _focusedDay;
     _initializeData();
   }
 
   @override
   void dispose() {
+    _scrollController.dispose(); // Dispose here
     _chewieController?.dispose();
     _searchController.dispose();
     super.dispose();
@@ -68,13 +68,11 @@ class HomePageState extends State<HomePage> {
 
   Future<void> _initializeData() async {
     final uid = user!.uid;
-
     final calendarSnapshot = await FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
         .collection('calendar')
         .get();
-
     final Map<DateTime, List<Map<String, dynamic>>> tempEvents = {};
     for (var doc in calendarSnapshot.docs) {
       final data = doc.data();
@@ -85,16 +83,13 @@ class HomePageState extends State<HomePage> {
         tempEvents[key]!.add({...data, 'id': doc.id});
       }
     }
-
     await _loadUserPlan();
-
     if (mounted) {
       setState(() {
         _events = tempEvents;
         _isLoading = false;
       });
     }
-
     // Only load AI suggestions if not already loaded
     if (!_hasLoadedAISuggestions) {
       setState(() {
@@ -110,12 +105,10 @@ class HomePageState extends State<HomePage> {
 
   Future<void> _loadUserPlan() async {
     if (user == null) return;
-
     final planSnapshot = await FirebaseFirestore.instance
         .collection('workout_plans')
         .doc(user!.uid)
         .get();
-
     if (mounted) {
       setState(() {
         _userPlan = planSnapshot.exists ? planSnapshot.data()! : {};
@@ -137,7 +130,6 @@ class HomePageState extends State<HomePage> {
 
   Future<void> _loadAISuggestionsInBackground() async {
     final aiData = await _generateAIDataCombined();
-
     if (mounted) {
       setState(() {
         _suggestedWorkouts = aiData['workouts'] as List<String>;
@@ -153,7 +145,6 @@ class HomePageState extends State<HomePage> {
       'workouts': ['Warm-up', 'Squats', 'Yoga', 'Plank'],
       'durations': _getDefaultDurations(),
     };
-
     final availableWorkoutsList = [
       'Plank',
       'Crunches',
@@ -171,12 +162,10 @@ class HomePageState extends State<HomePage> {
       'Dumbbell Press',
     ];
     final availableWorkouts = availableWorkoutsList.join(', ');
-
     if (_userPlan.isEmpty) {
       _isAISuggestionFallback = true;
       return defaultData;
     }
-
     final goal = _userPlan['What is your fitness goal?']?.toString() ??
         'general fitness';
     final fitnessLevel =
@@ -186,7 +175,6 @@ class HomePageState extends State<HomePage> {
     final weight = int.tryParse(_userPlan['Weight']?.toString() ?? '70') ?? 70;
     final height =
         int.tryParse(_userPlan['Height']?.toString() ?? '170') ?? 170;
-
     final heightInMeters = height / 100;
     final bmi = weight / (heightInMeters * heightInMeters);
     String bmiCategory = 'Normal';
@@ -198,48 +186,37 @@ class HomePageState extends State<HomePage> {
       bmiCategory = 'Overweight';
     else
       bmiCategory = 'Obese';
-
     final prompt = '''
 Based on this user profile:
 - Goal: $goal
 - Fitness Level: $fitnessLevel
 - Activity Level: $activityLevel
 - BMI Category: $bmiCategory (Weight: $weight kg, Height: $height cm)
-
 Task 1: Suggest exactly 4 personalized workout names from this list only: $availableWorkouts
 Prioritize safe, effective ones matching the profile (e.g., low-impact cardio and foundational strength for a beginner/sedentary person).
-
-
-
 Return ONLY this exact JSON structure (no markdown, no extra text):
 {
   "suggestions": ["Workout1", "Workout2", "Workout3", "Workout4"],
   "durations": {"Plank": 15, "Crunches": 30, "Push-Ups": 20, ...include all workouts...}
 }
 ''';
-
     try {
       final content = await _model.generateContent([Content.text(prompt)]);
       final response = content.text ?? '';
-
       final cleaned = response
           .trim()
           .replaceAll(RegExp(r'```(?:json)?'), '')
           .replaceAll('```', '')
           .trim();
-
       final Map<String, dynamic> jsonData = json.decode(cleaned);
-
       final List<dynamic> suggestionsList = jsonData['suggestions'] ?? [];
       final List<String> suggestions = suggestionsList
           .map((item) => item.toString().trim())
           .where((w) => availableWorkoutsList.contains(w))
           .take(4)
           .toList();
-
       final Map<String, dynamic> durationsMap = jsonData['durations'] ?? {};
       final Map<String, int> durations = {};
-
       for (var entry in durationsMap.entries) {
         final workout = entry.key.toString().trim();
         final duration = int.tryParse(entry.value.toString()) ?? 15;
@@ -248,13 +225,11 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
           durations[workout] = duration;
         }
       }
-
       for (var workout in availableWorkoutsList) {
         if (!durations.containsKey(workout)) {
           durations[workout] = _getDefaultDuration(workout);
         }
       }
-
       if (suggestions.length == 4) {
         _isAISuggestionFallback = false;
         return {'workouts': suggestions, 'durations': durations};
@@ -265,7 +240,6 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
     } catch (e) {
       debugPrint('AI Generation Error: $e');
     }
-
     _isAISuggestionFallback = true;
     return defaultData;
   }
@@ -302,11 +276,182 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
     return _events[DateTime(day.year, day.month, day.day)] ?? [];
   }
 
+  Future<void> _markAsDoneForEvent(
+      String calendarId, String workoutName, Timestamp timestamp) async {
+    final uid = user!.uid;
+    // Update calendar
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('calendar')
+        .doc(calendarId)
+        .update({'completed': true});
+    // Update training
+    final trainingQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('training')
+        .where('timestamp', isEqualTo: timestamp)
+        .where('workout', isEqualTo: workoutName)
+        .get();
+    for (var doc in trainingQuery.docs) {
+      await doc.reference.update({'completed': true});
+    }
+  }
+
+  void _showScheduledWorkoutsModal(
+      DateTime day, List<Map<String, dynamic>> events) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.6,
+        padding: EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Scheduled Workouts",
+              style: GoogleFonts.poppins(
+                fontSize: 24,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+            ),
+            SizedBox(height: 8),
+            Text(
+              DateFormat('EEEE, MMMM d, yyyy').format(day),
+              style: GoogleFonts.poppins(
+                fontSize: 16,
+                color: Colors.grey.shade600,
+              ),
+            ),
+            SizedBox(height: 16),
+            Expanded(
+              child: ListView.builder(
+                itemCount: events.length,
+                itemBuilder: (context, index) {
+                  final event = events[index];
+                  final workout = event['workout'];
+                  final duration = event['duration'] ?? 15;
+                  final completed = event['completed'] ?? false;
+                  final image = event['image'] ?? _getWorkoutImage(workout);
+                  return Container(
+                    margin: EdgeInsets.only(bottom: 12),
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.grey.withOpacity(0.1),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.asset(
+                            image,
+                            width: 60,
+                            height: 60,
+                            fit: BoxFit.cover,
+                            errorBuilder: (c, e, s) => Icon(
+                              Icons.fitness_center,
+                              size: 60,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                workout,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              Text(
+                                "$duration mins",
+                                style: GoogleFonts.poppins(
+                                  fontSize: 14,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.play_arrow, color: Colors.blue),
+                              onPressed: () =>
+                                  _showVideoModal(context, workout, true),
+                            ),
+                            if (!completed)
+                              ElevatedButton(
+                                onPressed: () async {
+                                  await _markAsDoneForEvent(
+                                    event['id'],
+                                    workout,
+                                    event['timestamp'],
+                                  );
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Marked as done!'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                  Navigator.pop(context);
+                                  _initializeData();
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  padding: EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                    vertical: 8,
+                                  ),
+                                ),
+                                child: Text("Done"),
+                              )
+                            else
+                              Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   void _showWorkoutDetails(String workoutName, bool isFromSuggested) {
     final now = DateTime.now();
     DateTime _selectedDate = now;
     final duration = _getWorkoutDuration(workoutName);
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -427,7 +572,6 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                       );
                     },
                   );
-
                   if (pickedDate != null) {
                     setModalState(() => _selectedDate = pickedDate);
                   }
@@ -494,7 +638,6 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                       'completed': false,
                       'duration': duration,
                     };
-
                     final uid = user!.uid;
                     final calendarRef = FirebaseFirestore.instance
                         .collection('users')
@@ -504,10 +647,8 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                         .collection('users')
                         .doc(uid)
                         .collection('training');
-
                     await calendarRef.add(data);
                     await trainingRef.add(data);
-
                     Navigator.pop(context);
                     _initializeData();
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -645,7 +786,6 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
     final now = DateTime.now();
     DateTime selectedDate = now;
     final duration = _getWorkoutDuration(workoutName);
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -720,7 +860,6 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                       );
                     },
                   );
-
                   if (pickedDate != null) {
                     setModalState(() => selectedDate = pickedDate);
                   }
@@ -787,7 +926,6 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                       'completed': false,
                       'duration': duration,
                     };
-
                     final uid = user!.uid;
                     final calendarRef = FirebaseFirestore.instance
                         .collection('users')
@@ -797,10 +935,8 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                         .collection('users')
                         .doc(uid)
                         .collection('training');
-
                     await calendarRef.add(data);
                     await trainingRef.add(data);
-
                     Navigator.pop(context);
                     _initializeData();
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -842,7 +978,6 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
       BuildContext context, String workoutName, bool showDuration) {
     String videoPath = _getWorkoutVideo(workoutName);
     final int duration = _getWorkoutDuration(workoutName);
-
     Future<ChewieController?> _initializeVideo(String path) async {
       try {
         final videoController = VideoPlayerController.asset(path);
@@ -905,13 +1040,11 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
     Future<ChewieController?> _loadVideo() async {
       var chewieController = await _initializeVideo(videoPath);
       if (chewieController != null) return chewieController;
-
       final fallbackVideoPath = 'assets/videos/workout.mp4';
       if (videoPath != fallbackVideoPath) {
         chewieController = await _initializeVideo(fallbackVideoPath);
         if (chewieController != null) return chewieController;
       }
-
       return null;
     }
 
@@ -965,7 +1098,6 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                 ),
               );
             }
-
             _chewieController = snapshot.data!;
             return Center(
               child: AnimatedContainer(
@@ -1098,7 +1230,6 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
 
   Widget buildWorkoutChip(String title, bool isFromSuggested) {
     final duration = _getWorkoutDuration(title);
-
     return GestureDetector(
       onTap: () => _showWorkoutDetails(title, isFromSuggested),
       child: Container(
@@ -1169,7 +1300,6 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
       ],
       'Legs': ['Squats', 'Lunges'],
     };
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1259,7 +1389,6 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
         'workouts': _programWorkouts['AB Workout']!,
       },
     ];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1353,7 +1482,6 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
 
   Widget _buildAIFallbackAlert() {
     if (!_isAISuggestionFallback) return SizedBox.shrink();
-
     return Container(
       margin: EdgeInsets.only(bottom: 24),
       padding: EdgeInsets.all(16),
@@ -1445,6 +1573,7 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
           ? Center(
               child: CircularProgressIndicator(color: Colors.blue.shade300))
           : SingleChildScrollView(
+              controller: _scrollController, // Add this line
               padding: EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1491,8 +1620,20 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                     ),
                   ),
                   SizedBox(height: 16),
-                  IgnorePointer(
-                    ignoring: true,
+                  // Wrap the Container in GestureDetector
+                  GestureDetector(
+                    behavior: HitTestBehavior
+                        .translucent, // Allows taps to reach calendar
+                    onPanUpdate: (details) {
+                      // Only handle vertical drags (ignore horizontal swipes)
+                      if (details.delta.dy.abs() > details.delta.dx.abs()) {
+                        final newOffset =
+                            (_scrollController.offset + details.delta.dy).clamp(
+                                0.0,
+                                _scrollController.position.maxScrollExtent);
+                        _scrollController.jumpTo(newOffset);
+                      }
+                    },
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -1517,7 +1658,17 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                         startingDayOfWeek: StartingDayOfWeek.monday,
                         selectedDayPredicate: (day) =>
                             isSameDay(_selectedDay, day),
-                        onDaySelected: (selected, focused) {},
+                        onDaySelected: (selectedDay, focusedDay) {
+                          setState(() {
+                            _selectedDay = selectedDay;
+                            _focusedDay = focusedDay;
+                          });
+                          final eventsForDay = _getEventsForDay(selectedDay);
+                          if (eventsForDay.isNotEmpty) {
+                            _showScheduledWorkoutsModal(
+                                selectedDay, eventsForDay);
+                          }
+                        },
                         onFormatChanged: (format) {},
                         eventLoader: _getEventsForDay,
                         calendarStyle: CalendarStyle(

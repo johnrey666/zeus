@@ -88,14 +88,32 @@ class _TrainingPageState extends State<TrainingPage> {
             }).toList());
   }
 
-  Future<void> _markAsDone(String id) async {
+  Future<void> _markAsDone(Map<String, dynamic> workout) async {
     final uid = user!.uid;
+    final trainingId = workout['id'];
+    final workoutTitle = workout['title'];
+    final workoutTimestamp = workout['timestamp'] as DateTime;
+
+    // Update training
     await FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
         .collection('training')
-        .doc(id)
+        .doc(trainingId)
         .update({'completed': true});
+
+    // Update corresponding calendar entry
+    final calendarQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('calendar')
+        .where('timestamp', isEqualTo: Timestamp.fromDate(workoutTimestamp))
+        .where('workout', isEqualTo: workoutTitle)
+        .get();
+
+    for (var doc in calendarQuery.docs) {
+      await doc.reference.update({'completed': true});
+    }
   }
 
   void _showWorkoutModal(Map<String, dynamic> workout) {
@@ -174,8 +192,8 @@ class _TrainingPageState extends State<TrainingPage> {
                       )
                     : ElevatedButton(
                         onPressed: () async {
-                          await _markAsDone(workout['id']);
-                          Navigator.of(context).pop(true);
+                          await _markAsDone(workout);
+                          Navigator.of(context).pop();
                         },
                         style: ElevatedButton.styleFrom(
                           elevation: 0,

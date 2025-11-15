@@ -85,16 +85,26 @@ class _ReportPageState extends State<ReportPage> {
 
   @override
   Widget build(BuildContext context) {
-    final spots = <FlSpot>[];
-    final sorted = _allWorkouts.keys.toList()..sort();
+    // ===== FIXED: Build spots for a fixed Mon-Sun week =====
+    final now = DateTime.now();
+    // Get Monday of current week
+    final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
 
-    for (int i = 0; i < sorted.length; i++) {
-      final day = sorted[i];
-      final completedWorkouts =
-          _allWorkouts[day]!.where((w) => w['completed'] == true).toList();
-      final count = completedWorkouts.length;
-      spots.add(FlSpot(i.toDouble(), count.toDouble()));
+    final List<DateTime> weekDays = List.generate(
+      7,
+      (i) => DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day + i),
+    );
+
+    final spots = <FlSpot>[];
+    for (int i = 0; i < 7; i++) {
+      final day = weekDays[i];
+      final key = DateTime(day.year, day.month, day.day);
+      final todaysWorkouts = _allWorkouts[key] ?? [];
+      final completed =
+          todaysWorkouts.where((w) => w['completed'] == true).length;
+      spots.add(FlSpot(i.toDouble(), completed.toDouble()));
     }
+    // ======================================================
 
     return Scaffold(
       backgroundColor: Color(0xFFF8F9FB),
@@ -106,7 +116,7 @@ class _ReportPageState extends State<ReportPage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildPerformanceOverview(spots, sorted),
+              _buildPerformanceOverview(spots, weekDays),
               SizedBox(height: 24),
               _buildWorkoutScheduleCard(),
               SizedBox(height: 24),
@@ -138,9 +148,19 @@ class _ReportPageState extends State<ReportPage> {
                   showTitles: true,
                   getTitlesWidget: (value, meta) {
                     final idx = value.toInt();
-                    if (idx >= 0 && idx < dayKeys.length) {
+                    // Use fixed labels Mon..Sun
+                    const labels = [
+                      'Mon',
+                      'Tue',
+                      'Wed',
+                      'Thu',
+                      'Fri',
+                      'Sat',
+                      'Sun'
+                    ];
+                    if (idx >= 0 && idx < labels.length) {
                       return Text(
-                        DateFormat('E').format(dayKeys[idx]),
+                        labels[idx],
                         style: TextStyle(fontSize: 12, color: Colors.black54),
                       );
                     }
@@ -204,7 +224,14 @@ class _ReportPageState extends State<ReportPage> {
                 tooltipBgColor: Colors.black87,
                 getTooltipItems: (spotsData) => spotsData.map((spot) {
                   final idx = spot.spotIndex;
-                  final day = dayKeys[idx];
+                  // Map idx to the fixed week day key safely
+                  DateTime day;
+                  if (idx >= 0 && idx < dayKeys.length) {
+                    day = DateTime(dayKeys[idx].year, dayKeys[idx].month,
+                        dayKeys[idx].day);
+                  } else {
+                    day = DateTime.now();
+                  }
                   final workouts = _allWorkouts[day]
                           ?.where((w) => w['completed'] == true)
                           .toList() ??
