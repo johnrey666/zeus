@@ -11,6 +11,7 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:intl/intl.dart';
+import 'dart:async'; // Added for Timer
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -50,6 +51,7 @@ class HomePageState extends State<HomePage> {
     'Lowerbody Workout': ['Warm-up', 'Jumping Jacks', 'Squats', 'Lunges'],
     'AB Workout': ['Warm-up', 'Plank', 'Crunches'],
   };
+
   @override
   void initState() {
     super.initState();
@@ -978,7 +980,10 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
       BuildContext context, String workoutName, bool showDuration) {
     String videoPath = _getWorkoutVideo(workoutName);
     final int duration = _getWorkoutDuration(workoutName);
+
     Future<ChewieController?> _initializeVideo(String path) async {
+      // Add a micro-delay to avoid rare init timing issues
+      await Future.delayed(Duration(milliseconds: 50));
       try {
         final videoController = VideoPlayerController.asset(path);
         await videoController.initialize();
@@ -1033,6 +1038,7 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
         );
         return chewieController;
       } catch (e) {
+        debugPrint('Video init failed for $path: $e'); // For debugging
         return null;
       }
     }
@@ -1040,7 +1046,8 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
     Future<ChewieController?> _loadVideo() async {
       var chewieController = await _initializeVideo(videoPath);
       if (chewieController != null) return chewieController;
-      final fallbackVideoPath = 'assets/videos/workout.mp4';
+      // Fixed: Use consistent fallback (same as _getWorkoutVideo default)
+      final fallbackVideoPath = 'assets/videos/dumbbell_press.mp4';
       if (videoPath != fallbackVideoPath) {
         chewieController = await _initializeVideo(fallbackVideoPath);
         if (chewieController != null) return chewieController;
@@ -1201,9 +1208,10 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
       return 'assets/videos/bicep_curl.mp4';
     if (lower.contains('cable')) return 'assets/videos/cable_flyes.mp4';
     if (lower.contains('warm-up')) return 'assets/videos/warm_up.mp4';
-    // Fix: Move dumbbell press check before dumbbell curl check
-    if (lower == 'dumbbell press') return 'assets/videos/dumbbell_press.mp4';
-    return 'assets/videos/dumbbell_press.mp4';
+    // Fixed: Check for exact "dumbbell press" before other dumbbell matches
+    if (lower.contains('dumbbell press'))
+      return 'assets/videos/dumbbell_press.mp4';
+    return 'assets/videos/dumbbell_press.mp4'; // Consistent default
   }
 
   String _getWorkoutImage(String title) {

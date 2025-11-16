@@ -56,6 +56,7 @@ flutter:
     - assets/videos/lowerbody.mp4
     - assets/videos/abworkout.mp4
     - assets/videos/workout.mp4
+    - assets/videos/
 
 flutter_launcher_icons:
   android: true
