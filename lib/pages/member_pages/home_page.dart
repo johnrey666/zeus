@@ -2,6 +2,7 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart'; // For debugPrint
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iconly/iconly.dart';
@@ -27,7 +28,6 @@ class HomePageState extends State<HomePage> {
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   String _selectedBodyPart = 'Abs';
-  ChewieController? _chewieController;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   Map<String, dynamic> _userPlan = {};
@@ -63,7 +63,6 @@ class HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _scrollController.dispose(); // Dispose here
-    _chewieController?.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -452,7 +451,7 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
 
   void _showWorkoutDetails(String workoutName, bool isFromSuggested) {
     final now = DateTime.now();
-    DateTime _selectedDate = now;
+    DateTime selectedDate = now;
     final duration = _getWorkoutDuration(workoutName);
     showModalBottomSheet(
       context: context,
@@ -575,7 +574,7 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                     },
                   );
                   if (pickedDate != null) {
-                    setModalState(() => _selectedDate = pickedDate);
+                    setModalState(() => selectedDate = pickedDate);
                   }
                 },
                 child: Container(
@@ -591,7 +590,7 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                     children: [
                       Flexible(
                         child: Text(
-                          "${_selectedDate.year}-${_selectedDate.month.toString().padLeft(2, '0')}-${_selectedDate.day.toString().padLeft(2, '0')}",
+                          "${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}",
                           style: GoogleFonts.poppins(
                             fontSize: 14,
                             color: Colors.black,
@@ -635,7 +634,7 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                     final image = _getWorkoutImage(workoutName);
                     final data = {
                       'workout': workoutName,
-                      'timestamp': Timestamp.fromDate(_selectedDate),
+                      'timestamp': Timestamp.fromDate(selectedDate),
                       'image': image,
                       'completed': false,
                       'duration': duration,
@@ -978,213 +977,17 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
 
   void _showVideoModal(
       BuildContext context, String workoutName, bool showDuration) {
-    String videoPath = _getWorkoutVideo(workoutName);
+    final String videoPath = _getWorkoutVideo(workoutName);
     final int duration = _getWorkoutDuration(workoutName);
-
-    Future<ChewieController?> _initializeVideo(String path) async {
-      // Add a micro-delay to avoid rare init timing issues
-      await Future.delayed(Duration(milliseconds: 50));
-      try {
-        final videoController = VideoPlayerController.asset(path);
-        await videoController.initialize();
-        final chewieController = ChewieController(
-          videoPlayerController: videoController,
-          autoPlay: false,
-          looping: true,
-          allowFullScreen: true,
-          allowMuting: true,
-          materialProgressColors: ChewieProgressColors(
-            playedColor: Colors.blue,
-            handleColor: Colors.blue.shade300,
-            backgroundColor: Colors.grey,
-            bufferedColor: Colors.blue.shade100,
-          ),
-          placeholder: Container(color: Colors.black),
-          errorBuilder: (context, errorMessage) {
-            return Center(
-              child: Container(
-                padding: EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.error_outline,
-                        size: 48, color: Colors.redAccent),
-                    SizedBox(height: 10),
-                    Text(
-                      'Video Error',
-                      style: GoogleFonts.poppins(
-                        fontSize: 18,
-                        color: Colors.redAccent,
-                      ),
-                    ),
-                    SizedBox(height: 10),
-                    Text(
-                      errorMessage,
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        color: Colors.black,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-        return chewieController;
-      } catch (e) {
-        debugPrint('Video init failed for $path: $e'); // For debugging
-        return null;
-      }
-    }
-
-    Future<ChewieController?> _loadVideo() async {
-      var chewieController = await _initializeVideo(videoPath);
-      if (chewieController != null) return chewieController;
-      // Fixed: Use consistent fallback (same as _getWorkoutVideo default)
-      final fallbackVideoPath = 'assets/videos/dumbbell_press.mp4';
-      if (videoPath != fallbackVideoPath) {
-        chewieController = await _initializeVideo(fallbackVideoPath);
-        if (chewieController != null) return chewieController;
-      }
-      return null;
-    }
-
-    showGeneralDialog(
+    showDialog(
       context: context,
       barrierDismissible: true,
-      barrierLabel: "VideoDemo",
-      barrierColor: Colors.black.withOpacity(0.6),
-      transitionDuration: Duration(milliseconds: 300),
-      pageBuilder: (context, anim1, anim2) {
-        return FutureBuilder<ChewieController?>(
-          future: _loadVideo(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(
-                child: CircularProgressIndicator(color: Colors.blue.shade300),
-              );
-            }
-            if (snapshot.hasError || snapshot.data == null) {
-              return Center(
-                child: Container(
-                  padding: EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.error_outline,
-                          size: 48, color: Colors.redAccent),
-                      SizedBox(height: 10),
-                      Text(
-                        'Failed to Load Video',
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          color: Colors.redAccent,
-                        ),
-                      ),
-                      SizedBox(height: 10),
-                      Text(
-                        'Please check if the video file is correctly included in assets.',
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.black,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-            _chewieController = snapshot.data!;
-            return Center(
-              child: AnimatedContainer(
-                duration: Duration(milliseconds: 300),
-                width: MediaQuery.of(context).size.width * 0.9,
-                height: (MediaQuery.of(context).size.width * 0.9) * (9 / 16),
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black26,
-                      blurRadius: 10,
-                      offset: Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(20),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      Chewie(controller: _chewieController!),
-                      Positioned(
-                        top: 10,
-                        right: 10,
-                        child: IconButton(
-                          icon: Icon(Icons.close, color: Colors.white),
-                          onPressed: () {
-                            _chewieController?.pause();
-                            _chewieController?.videoPlayerController.dispose();
-                            _chewieController?.dispose();
-                            _chewieController = null;
-                            Navigator.of(context).pop();
-                          },
-                        ),
-                      ),
-                      Positioned(
-                        top: 10,
-                        left: 10,
-                        child: Row(
-                          children: [
-                            Text(
-                              workoutName,
-                              style: GoogleFonts.poppins(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                                decoration: TextDecoration.none,
-                              ),
-                            ),
-                            if (showDuration) ...[
-                              SizedBox(width: 8),
-                              Text(
-                                "$duration mins per session",
-                                style: GoogleFonts.poppins(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w400,
-                                  color: Colors.white70,
-                                  decoration: TextDecoration.none,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-      transitionBuilder: (context, anim1, anim2, child) {
-        return FadeTransition(
-          opacity: anim1,
-          child: child,
-        );
-      },
+      builder: (context) => VideoPlayerDialog(
+        videoPath: videoPath,
+        workoutName: workoutName,
+        showDuration: showDuration,
+        duration: duration,
+      ),
     );
   }
 
@@ -1581,7 +1384,7 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
           ? Center(
               child: CircularProgressIndicator(color: Colors.blue.shade300))
           : SingleChildScrollView(
-              controller: _scrollController, // Add this line
+              controller: _scrollController,
               padding: EdgeInsets.all(24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1831,6 +1634,243 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
                 ],
               ),
             ),
+    );
+  }
+}
+
+// VideoPlayerDialog class (moved to top-level)
+class VideoPlayerDialog extends StatefulWidget {
+  final String videoPath;
+  final String workoutName;
+  final bool showDuration;
+  final int duration;
+
+  const VideoPlayerDialog({
+    super.key,
+    required this.videoPath,
+    required this.workoutName,
+    required this.showDuration,
+    required this.duration,
+  });
+
+  @override
+  State<VideoPlayerDialog> createState() => _VideoPlayerDialogState();
+}
+
+class _VideoPlayerDialogState extends State<VideoPlayerDialog> {
+  ChewieController? _chewieController;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVideo();
+  }
+
+  Future<void> _loadVideo() async {
+    List<String> pathsToTry = [widget.videoPath];
+    final fallbackPath = 'assets/videos/dumbbell_press.mp4';
+    if (widget.videoPath != fallbackPath) {
+      pathsToTry.add(fallbackPath);
+    }
+
+    for (final path in pathsToTry) {
+      VideoPlayerController? videoController;
+      try {
+        // Micro-delay for timing stability
+        await Future.delayed(const Duration(milliseconds: 50));
+        videoController = VideoPlayerController.asset(path);
+        await videoController.initialize();
+        _chewieController = ChewieController(
+          videoPlayerController: videoController,
+          autoPlay: false,
+          looping: true,
+          allowFullScreen: true,
+          allowMuting: true,
+          materialProgressColors: ChewieProgressColors(
+            playedColor: Colors.blue,
+            handleColor: Colors.blue.shade300,
+            backgroundColor: Colors.grey,
+            bufferedColor: Colors.blue.shade100,
+          ),
+          placeholder: Container(color: Colors.black),
+          errorBuilder: (context, errorMessage) {
+            return Center(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.error_outline,
+                        size: 48, color: Colors.redAccent),
+                    SizedBox(height: 10),
+                    Text(
+                      'Video Playback Error',
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        color: Colors.redAccent,
+                      ),
+                    ),
+                    SizedBox(height: 10),
+                    Text(
+                      errorMessage,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.black,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+            _error = null;
+          });
+        }
+        return; // Success, exit loop
+      } catch (e) {
+        debugPrint('Video init failed for $path: $e');
+        // Clean up partial controller
+        videoController?.dispose();
+        if (mounted && path == pathsToTry.last) {
+          setState(() {
+            _isLoading = false;
+            _error =
+                'Failed to load video: $e. Tried paths: ${pathsToTry.join(', ')}';
+          });
+        }
+      }
+    }
+  }
+
+  @override
+  void dispose() {
+    _chewieController?.pause();
+    _chewieController?.videoPlayerController.dispose();
+    _chewieController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: const EdgeInsets.all(32),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        width: MediaQuery.of(context).size.width * 0.9,
+        height: (MediaQuery.of(context).size.width * 0.9) * (9 / 16),
+        decoration: BoxDecoration(
+          color: Colors.black,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 10,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(20),
+          child: _isLoading
+              ? const Center(
+                  child: CircularProgressIndicator(color: Colors.blue),
+                )
+              : _error != null
+                  ? Center(
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.error_outline,
+                                size: 48, color: Colors.redAccent),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Failed to Load Video',
+                              style: GoogleFonts.poppins(
+                                fontSize: 18,
+                                color: Colors.redAccent,
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              _error!,
+                              style: GoogleFonts.poppins(
+                                fontSize: 14,
+                                color: Colors.black,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 20),
+                            ElevatedButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Close'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  : Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Chewie(controller: _chewieController!),
+                        Positioned(
+                          top: 10,
+                          right: 10,
+                          child: IconButton(
+                            icon: const Icon(Icons.close, color: Colors.white),
+                            onPressed: () => Navigator.of(context).pop(),
+                          ),
+                        ),
+                        Positioned(
+                          top: 10,
+                          left: 10,
+                          child: Row(
+                            children: [
+                              Text(
+                                widget.workoutName,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.white,
+                                  decoration: TextDecoration.none,
+                                ),
+                              ),
+                              if (widget.showDuration) ...[
+                                const SizedBox(width: 8),
+                                Text(
+                                  "${widget.duration} mins per session",
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w400,
+                                    color: Colors.white70,
+                                    decoration: TextDecoration.none,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+        ),
+      ),
     );
   }
 }
