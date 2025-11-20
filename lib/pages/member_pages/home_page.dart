@@ -34,7 +34,6 @@ class HomePageState extends State<HomePage> {
   List<String> _suggestedWorkouts = [];
   Map<String, int> _workoutDurations = {};
   bool _isAISuggestionFallback = false;
-  bool _hasLoadedAISuggestions = false; // Cache flag
   late ScrollController _scrollController; // Add this
   static const _apiKey = 'AIzaSyAv-8phkpHuQbEnZshddCxYIpl4nIbgqJs';
   late final GenerativeModel _model =
@@ -51,7 +50,6 @@ class HomePageState extends State<HomePage> {
     'Lowerbody Workout': ['Warm-up', 'Jumping Jacks', 'Squats', 'Lunges'],
     'AB Workout': ['Warm-up', 'Plank', 'Crunches'],
   };
-
   @override
   void initState() {
     super.initState();
@@ -91,17 +89,8 @@ class HomePageState extends State<HomePage> {
         _isLoading = false;
       });
     }
-    // Only load AI suggestions if not already loaded
-    if (!_hasLoadedAISuggestions) {
-      setState(() {
-        _isLoadingAISuggestions = true;
-      });
-      _loadAISuggestionsInBackground();
-    } else {
-      setState(() {
-        _isLoadingAISuggestions = false;
-      });
-    }
+    // Load AI suggestions (cached or fresh)
+    await _loadAISuggestions();
   }
 
   Future<void> _loadUserPlan() async {
@@ -117,28 +106,130 @@ class HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _saveAISuggestionsToFirestore(List<String> workouts,
+      Map<String, int> durations, String? inputHash) async {
+    if (user == null) return;
+    final saveData = {
+      'ai_suggestions': workouts,
+      'ai_durations': durations,
+    };
+    if (inputHash != null && inputHash.isNotEmpty) {
+      saveData['ai_input_hash'] = inputHash;
+    }
+    await FirebaseFirestore.instance
+        .collection('workout_plans')
+        .doc(user!.uid)
+        .set(saveData, SetOptions(merge: true));
+  }
+
+  Future<Map<String, dynamic>?> _loadAISuggestionsFromFirestore() async {
+    if (user == null) return null;
+    final planSnapshot = await FirebaseFirestore.instance
+        .collection('workout_plans')
+        .doc(user!.uid)
+        .get();
+    if (!planSnapshot.exists) return null;
+    final data = planSnapshot.data();
+    if (data == null ||
+        !data.containsKey('ai_suggestions') ||
+        !data.containsKey('ai_durations') ||
+        !data.containsKey('ai_input_hash')) {
+      return null;
+    }
+    final suggestions = List<String>.from(data['ai_suggestions'] ?? []);
+    final durationsData = Map<String, dynamic>.from(data['ai_durations'] ?? {});
+    final durations = durationsData.map((key, value) => MapEntry(
+        key, value is int ? value : int.tryParse(value.toString()) ?? 15));
+    final savedHash = data['ai_input_hash']?.toString() ?? '';
+    return {'workouts': suggestions, 'durations': durations, 'hash': savedHash};
+  }
+
   void reloadSuggestions() {
     setState(() {
-      _hasLoadedAISuggestions = false;
       _isLoadingAISuggestions = true;
     });
     _loadUserPlan().then((_) {
       if (mounted) {
-        _loadAISuggestionsInBackground();
+        _loadAISuggestions(); // Will auto-detect changes via hash
       }
     });
   }
 
-  Future<void> _loadAISuggestionsInBackground() async {
-    final aiData = await _generateAIDataCombined();
-    if (mounted) {
-      setState(() {
-        _suggestedWorkouts = aiData['workouts'] as List<String>;
-        _workoutDurations = aiData['durations'] as Map<String, int>;
-        _isLoadingAISuggestions = false;
-        _hasLoadedAISuggestions = true; // Mark as loaded
-      });
+  Future<void> _loadAISuggestions() async {
+    setState(() {
+      _isLoadingAISuggestions = true;
+    });
+    try {
+      final currentHash = _computeInputHash();
+      final savedData = await _loadAISuggestionsFromFirestore();
+      if (savedData != null && savedData['hash'] == currentHash) {
+        // Use cached (stable)
+        if (mounted) {
+          setState(() {
+            _suggestedWorkouts = List<String>.from(savedData['workouts']);
+            _workoutDurations = Map<String, int>.from(savedData['durations']);
+            _isLoadingAISuggestions = false;
+            _isAISuggestionFallback = false; // Assume cached is valid
+          });
+        }
+        return;
+      }
+      // Regenerate and save
+      final aiData = await _generateAIDataCombined();
+      if (mounted) {
+        setState(() {
+          _suggestedWorkouts = aiData['workouts'] as List<String>;
+          _workoutDurations = aiData['durations'] as Map<String, int>;
+          _isLoadingAISuggestions = false;
+          // _isAISuggestionFallback is set inside _generateAIDataCombined()
+        });
+        await _saveAISuggestionsToFirestore(
+          _suggestedWorkouts,
+          _workoutDurations,
+          currentHash,
+        );
+      }
+    } catch (e) {
+      debugPrint('Error loading AI suggestions: $e');
+      if (mounted) {
+        setState(() {
+          _suggestedWorkouts = ['Warm-up', 'Squats', 'Yoga', 'Plank'];
+          _workoutDurations = _getDefaultDurations();
+          _isLoadingAISuggestions = false;
+          _isAISuggestionFallback = true;
+        });
+      }
     }
+  }
+
+  String _computeInputHash() {
+    if (_userPlan.isEmpty) return '';
+    final goal = _userPlan['What is your fitness goal?']?.toString() ?? '';
+    final fitnessLevel =
+        _userPlan['Select Your Fitness Level']?.toString() ?? '';
+    final activityLevel =
+        _userPlan['Select your activity level']?.toString() ?? '';
+    final weightStr = _userPlan['Weight']?.toString() ?? '70';
+    final heightStr = _userPlan['Height']?.toString() ?? '170';
+    final weight = int.tryParse(weightStr) ?? 70;
+    final height = int.tryParse(heightStr) ?? 170;
+    final heightInMeters = height / 100;
+    final bmi = weight / (heightInMeters * heightInMeters);
+    String bmiCategory = 'Normal';
+    if (bmi < 18.5)
+      bmiCategory = 'Underweight';
+    else if (bmi < 25)
+      bmiCategory = 'Normal';
+    else if (bmi < 30)
+      bmiCategory = 'Overweight';
+    else
+      bmiCategory = 'Obese';
+    return json.encode({
+      'goal': goal,
+      'fitnessLevel': fitnessLevel,
+      'activityLevel': activityLevel,
+      'bmiCategory': bmiCategory,
+    });
   }
 
   Future<Map<String, dynamic>> _generateAIDataCombined() async {
@@ -1644,7 +1735,6 @@ class VideoPlayerDialog extends StatefulWidget {
   final String workoutName;
   final bool showDuration;
   final int duration;
-
   const VideoPlayerDialog({
     super.key,
     required this.videoPath,
@@ -1652,7 +1742,6 @@ class VideoPlayerDialog extends StatefulWidget {
     required this.showDuration,
     required this.duration,
   });
-
   @override
   State<VideoPlayerDialog> createState() => _VideoPlayerDialogState();
 }
@@ -1661,7 +1750,6 @@ class _VideoPlayerDialogState extends State<VideoPlayerDialog> {
   ChewieController? _chewieController;
   bool _isLoading = true;
   String? _error;
-
   @override
   void initState() {
     super.initState();
@@ -1674,7 +1762,6 @@ class _VideoPlayerDialogState extends State<VideoPlayerDialog> {
     if (widget.videoPath != fallbackPath) {
       pathsToTry.add(fallbackPath);
     }
-
     for (final path in pathsToTry) {
       VideoPlayerController? videoController;
       try {
