@@ -55,7 +55,7 @@ class _MemberHomePageState extends State<MemberHomePage>
       final result = await Navigator.push(context,
           MaterialPageRoute(builder: (_) => const ManageProfilePage()));
       if (result != null && result['reloadSuggestions'] == true) {
-        _homeKey.currentState?.reloadSuggestions();
+        _homeKey.currentState?.refreshAISuggestions();
       }
     } else if (v == 'logout') {
       _showLogoutDialog();

@@ -35,7 +35,7 @@ class HomePageState extends State<HomePage> {
   Map<String, int> _workoutDurations = {};
   bool _isAISuggestionFallback = false;
   late ScrollController _scrollController; // Add this
-  static const _apiKey = 'AIzaSyAv-8phkpHuQbEnZshddCxYIpl4nIbgqJs';
+  static const _apiKey = 'AIzaSyB5_B3sIGAe6GHPV9F-ULUn7VHqQxUPdmA';
   late final GenerativeModel _model =
       GenerativeModel(model: 'gemini-2.5-flash', apiKey: _apiKey);
   final Map<String, List<String>> _programWorkouts = {
@@ -50,6 +50,7 @@ class HomePageState extends State<HomePage> {
     'Lowerbody Workout': ['Warm-up', 'Jumping Jacks', 'Squats', 'Lunges'],
     'AB Workout': ['Warm-up', 'Plank', 'Crunches'],
   };
+
   @override
   void initState() {
     super.initState();
@@ -95,99 +96,163 @@ class HomePageState extends State<HomePage> {
 
   Future<void> _loadUserPlan() async {
     if (user == null) return;
-    final planSnapshot = await FirebaseFirestore.instance
-        .collection('workout_plans')
-        .doc(user!.uid)
-        .get();
-    if (mounted) {
-      setState(() {
-        _userPlan = planSnapshot.exists ? planSnapshot.data()! : {};
-      });
+
+    try {
+      final planSnapshot = await FirebaseFirestore.instance
+          .collection('workout_plans')
+          .doc(user!.uid)
+          .get();
+
+      if (mounted) {
+        setState(() {
+          _userPlan = planSnapshot.exists ? planSnapshot.data()! : {};
+        });
+      }
+
+      // Force reload AI suggestions when user plan changes
+      await _loadAISuggestions();
+    } catch (e) {
+      debugPrint('Error loading user plan: $e');
+      if (mounted) {
+        setState(() {
+          _userPlan = {};
+        });
+      }
     }
   }
 
   Future<void> _saveAISuggestionsToFirestore(List<String> workouts,
       Map<String, int> durations, String? inputHash) async {
     if (user == null) return;
-    final saveData = {
-      'ai_suggestions': workouts,
-      'ai_durations': durations,
-    };
-    if (inputHash != null && inputHash.isNotEmpty) {
-      saveData['ai_input_hash'] = inputHash;
+
+    try {
+      final saveData = {
+        'ai_suggestions': workouts,
+        'ai_durations': durations,
+        'ai_input_hash': inputHash ?? '',
+        'last_updated': FieldValue.serverTimestamp(),
+      };
+
+      await FirebaseFirestore.instance
+          .collection('workout_plans')
+          .doc(user!.uid)
+          .set(saveData, SetOptions(merge: true));
+    } catch (e) {
+      debugPrint('Error saving AI suggestions: $e');
     }
-    await FirebaseFirestore.instance
-        .collection('workout_plans')
-        .doc(user!.uid)
-        .set(saveData, SetOptions(merge: true));
   }
 
   Future<Map<String, dynamic>?> _loadAISuggestionsFromFirestore() async {
     if (user == null) return null;
-    final planSnapshot = await FirebaseFirestore.instance
-        .collection('workout_plans')
-        .doc(user!.uid)
-        .get();
-    if (!planSnapshot.exists) return null;
-    final data = planSnapshot.data();
-    if (data == null ||
-        !data.containsKey('ai_suggestions') ||
-        !data.containsKey('ai_durations') ||
-        !data.containsKey('ai_input_hash')) {
+
+    try {
+      final planSnapshot = await FirebaseFirestore.instance
+          .collection('workout_plans')
+          .doc(user!.uid)
+          .get();
+
+      if (!planSnapshot.exists) return null;
+
+      final data = planSnapshot.data();
+      if (data == null ||
+          !data.containsKey('ai_suggestions') ||
+          !data.containsKey('ai_durations') ||
+          !data.containsKey('ai_input_hash')) {
+        return null;
+      }
+
+      final suggestions = List<String>.from(data['ai_suggestions'] ?? []);
+      final durationsData =
+          Map<String, dynamic>.from(data['ai_durations'] ?? {});
+      final durations = durationsData.map((key, value) => MapEntry(
+          key, value is int ? value : int.tryParse(value.toString()) ?? 15));
+      final savedHash = data['ai_input_hash']?.toString() ?? '';
+
+      return {
+        'workouts': suggestions,
+        'durations': durations,
+        'hash': savedHash
+      };
+    } catch (e) {
+      debugPrint('Error loading AI suggestions from Firestore: $e');
       return null;
     }
-    final suggestions = List<String>.from(data['ai_suggestions'] ?? []);
-    final durationsData = Map<String, dynamic>.from(data['ai_durations'] ?? {});
-    final durations = durationsData.map((key, value) => MapEntry(
-        key, value is int ? value : int.tryParse(value.toString()) ?? 15));
-    final savedHash = data['ai_input_hash']?.toString() ?? '';
-    return {'workouts': suggestions, 'durations': durations, 'hash': savedHash};
   }
 
-  void reloadSuggestions() {
+  void refreshAISuggestions() {
+    if (_isLoadingAISuggestions) return;
+
     setState(() {
       _isLoadingAISuggestions = true;
     });
-    _loadUserPlan().then((_) {
-      if (mounted) {
-        _loadAISuggestions(); // Will auto-detect changes via hash
-      }
+
+    // Clear the cached AI suggestions to force regeneration
+    FirebaseFirestore.instance
+        .collection('workout_plans')
+        .doc(user!.uid)
+        .update({
+      'ai_input_hash': FieldValue.delete(),
+    }).then((_) {
+      _loadAISuggestions();
+    }).catchError((e) {
+      debugPrint('Error clearing AI cache: $e');
+      _loadAISuggestions();
     });
   }
 
   Future<void> _loadAISuggestions() async {
-    setState(() {
-      _isLoadingAISuggestions = true;
-    });
+    if (mounted) {
+      setState(() {
+        _isLoadingAISuggestions = true;
+      });
+    }
+
     try {
       final currentHash = _computeInputHash();
+
+      debugPrint('Current user data hash: $currentHash');
+
+      // Always regenerate if we have user data, don't use cache
+      if (currentHash.isNotEmpty) {
+        debugPrint('User data available, forcing AI regeneration...');
+        final aiData = await _generateAIDataCombined();
+        if (mounted) {
+          setState(() {
+            _suggestedWorkouts = aiData['workouts'] as List<String>;
+            _workoutDurations = aiData['durations'] as Map<String, int>;
+            _isLoadingAISuggestions = false;
+          });
+          await _saveAISuggestionsToFirestore(
+            _suggestedWorkouts,
+            _workoutDurations,
+            currentHash,
+          );
+        }
+        return;
+      }
+
+      // If no user data, try cache or use fallback
       final savedData = await _loadAISuggestionsFromFirestore();
       if (savedData != null && savedData['hash'] == currentHash) {
-        // Use cached (stable)
         if (mounted) {
           setState(() {
             _suggestedWorkouts = List<String>.from(savedData['workouts']);
             _workoutDurations = Map<String, int>.from(savedData['durations']);
             _isLoadingAISuggestions = false;
-            _isAISuggestionFallback = false; // Assume cached is valid
+            _isAISuggestionFallback = false;
           });
         }
         return;
       }
-      // Regenerate and save
-      final aiData = await _generateAIDataCombined();
+
+      // No data and no cache - use fallback
       if (mounted) {
         setState(() {
-          _suggestedWorkouts = aiData['workouts'] as List<String>;
-          _workoutDurations = aiData['durations'] as Map<String, int>;
+          _suggestedWorkouts = ['Warm-up', 'Squats', 'Yoga', 'Plank'];
+          _workoutDurations = _getDefaultDurations();
           _isLoadingAISuggestions = false;
-          // _isAISuggestionFallback is set inside _generateAIDataCombined()
+          _isAISuggestionFallback = true;
         });
-        await _saveAISuggestionsToFirestore(
-          _suggestedWorkouts,
-          _workoutDurations,
-          currentHash,
-        );
       }
     } catch (e) {
       debugPrint('Error loading AI suggestions: $e');
@@ -204,17 +269,33 @@ class HomePageState extends State<HomePage> {
 
   String _computeInputHash() {
     if (_userPlan.isEmpty) return '';
+
     final goal = _userPlan['What is your fitness goal?']?.toString() ?? '';
     final fitnessLevel =
         _userPlan['Select Your Fitness Level']?.toString() ?? '';
     final activityLevel =
         _userPlan['Select your activity level']?.toString() ?? '';
-    final weightStr = _userPlan['Weight']?.toString() ?? '70';
-    final heightStr = _userPlan['Height']?.toString() ?? '170';
-    final weight = int.tryParse(weightStr) ?? 70;
-    final height = int.tryParse(heightStr) ?? 170;
+
+    // Get weight and height from userPlan, don't use defaults
+    final weightStr = _userPlan['Weight']?.toString() ?? '';
+    final heightStr = _userPlan['Height']?.toString() ?? '';
+
+    // If weight or height is empty/missing, return empty hash to force regeneration
+    if (weightStr.isEmpty || heightStr.isEmpty) {
+      return '';
+    }
+
+    final weight = int.tryParse(weightStr) ?? 0;
+    final height = int.tryParse(heightStr) ?? 0;
+
+    // If we have invalid weight/height values, return empty hash
+    if (weight <= 0 || height <= 0) {
+      return '';
+    }
+
     final heightInMeters = height / 100;
     final bmi = weight / (heightInMeters * heightInMeters);
+
     String bmiCategory = 'Normal';
     if (bmi < 18.5)
       bmiCategory = 'Underweight';
@@ -224,11 +305,14 @@ class HomePageState extends State<HomePage> {
       bmiCategory = 'Overweight';
     else
       bmiCategory = 'Obese';
+
     return json.encode({
       'goal': goal,
       'fitnessLevel': fitnessLevel,
       'activityLevel': activityLevel,
       'bmiCategory': bmiCategory,
+      'weight': weight, // Include raw values in hash
+      'height': height, // Include raw values in hash
     });
   }
 
@@ -237,6 +321,7 @@ class HomePageState extends State<HomePage> {
       'workouts': ['Warm-up', 'Squats', 'Yoga', 'Plank'],
       'durations': _getDefaultDurations(),
     };
+
     final availableWorkoutsList = [
       'Plank',
       'Crunches',
@@ -253,85 +338,168 @@ class HomePageState extends State<HomePage> {
       'Warm-up',
       'Dumbbell Press',
     ];
-    final availableWorkouts = availableWorkoutsList.join(', ');
+
+    // DEBUG: Print user data to see what's being used
+    debugPrint('=== AI GENERATION DEBUG ===');
+    debugPrint('User Plan: $_userPlan');
+    debugPrint('Goal: ${_userPlan['What is your fitness goal?']}');
+    debugPrint('Fitness Level: ${_userPlan['Select Your Fitness Level']}');
+    debugPrint('Activity Level: ${_userPlan['Select your activity level']}');
+    debugPrint('Weight: ${_userPlan['Weight']}');
+    debugPrint('Height: ${_userPlan['Height']}');
+    debugPrint('===========================');
+
+    // Check if we have sufficient user data
     if (_userPlan.isEmpty) {
+      debugPrint('User plan is empty - using fallback');
       _isAISuggestionFallback = true;
       return defaultData;
     }
-    final goal = _userPlan['What is your fitness goal?']?.toString() ??
-        'general fitness';
-    final fitnessLevel =
-        _userPlan['Select Your Fitness Level']?.toString() ?? 'Beginner';
-    final activityLevel =
-        _userPlan['Select your activity level']?.toString() ?? 'Sedentary';
-    final weight = int.tryParse(_userPlan['Weight']?.toString() ?? '70') ?? 70;
-    final height =
-        int.tryParse(_userPlan['Height']?.toString() ?? '170') ?? 170;
-    final heightInMeters = height / 100;
-    final bmi = weight / (heightInMeters * heightInMeters);
-    String bmiCategory = 'Normal';
-    if (bmi < 18.5)
-      bmiCategory = 'Underweight';
-    else if (bmi < 25)
-      bmiCategory = 'Normal';
-    else if (bmi < 30)
-      bmiCategory = 'Overweight';
-    else
-      bmiCategory = 'Obese';
-    final prompt = '''
-Based on this user profile:
-- Goal: $goal
-- Fitness Level: $fitnessLevel
+
+    final goal = _userPlan['What is your fitness goal?']?.toString();
+    final fitnessLevel = _userPlan['Select Your Fitness Level']?.toString();
+    final activityLevel = _userPlan['Select your activity level']?.toString();
+    final weightStr = _userPlan['Weight']?.toString();
+    final heightStr = _userPlan['Height']?.toString();
+
+    // Check if we have all required data
+    if (goal == null ||
+        goal.isEmpty ||
+        fitnessLevel == null ||
+        fitnessLevel.isEmpty ||
+        activityLevel == null ||
+        activityLevel.isEmpty ||
+        weightStr == null ||
+        weightStr.isEmpty ||
+        heightStr == null ||
+        heightStr.isEmpty) {
+      debugPrint('Missing required user data - using fallback');
+      _isAISuggestionFallback = true;
+      return defaultData;
+    }
+
+    final weight = int.tryParse(weightStr) ?? 0;
+    final height = int.tryParse(heightStr) ?? 0;
+
+    // Validate we have proper data
+    if (weight <= 0 || height <= 0) {
+      debugPrint('Invalid weight/height values - using fallback');
+      _isAISuggestionFallback = true;
+      return defaultData;
+    }
+
+    try {
+      final heightInMeters = height / 100;
+      final bmi = weight / (heightInMeters * heightInMeters);
+      String bmiCategory = 'Normal';
+      if (bmi < 18.5)
+        bmiCategory = 'Underweight';
+      else if (bmi < 25)
+        bmiCategory = 'Normal';
+      else if (bmi < 30)
+        bmiCategory = 'Overweight';
+      else
+        bmiCategory = 'Obese';
+
+      final availableWorkouts = availableWorkoutsList.join(', ');
+
+      final prompt = '''
+User Profile:
+- Fitness Goal: $goal
+- Fitness Level: $fitnessLevel  
 - Activity Level: $activityLevel
 - BMI Category: $bmiCategory (Weight: $weight kg, Height: $height cm)
-Task 1: Suggest exactly 4 personalized workout names from this list only: $availableWorkouts
-Prioritize safe, effective ones matching the profile (e.g., low-impact cardio and foundational strength for a beginner/sedentary person).
-Return ONLY this exact JSON structure (no markdown, no extra text):
+
+Based on this profile, suggest exactly 4 personalized workout names from this list only: $availableWorkouts
+
+Consider:
+- For beginners: focus on foundational exercises like Squats, Push-Ups, Plank
+- For weight loss: include cardio like Jumping Jacks, Yoga
+- For muscle gain: include strength exercises like Bench Press, Bicep Curls
+- Match intensity to fitness level
+
+Return ONLY valid JSON in this exact format (no other text):
 {
   "suggestions": ["Workout1", "Workout2", "Workout3", "Workout4"],
-  "durations": {"Plank": 15, "Crunches": 30, "Push-Ups": 20, ...include all workouts...}
+  "durations": {
+    "Plank": 30, "Crunches": 45, "Push-Ups": 20, "Incline Push-Ups": 20,
+    "Bench Press": 30, "Yoga": 30, "Jumping Jacks": 15, "Squats": 25,
+    "Lunges": 25, "Bicep Curls": 20, "Dumbbell Curl": 20, "Cable Flyes": 25,
+    "Warm-up": 10, "Dumbbell Press": 25
+  }
 }
 ''';
-    try {
+
+      debugPrint('Sending prompt to AI...');
+
       final content = await _model.generateContent([Content.text(prompt)]);
       final response = content.text ?? '';
+
+      debugPrint('AI Response: $response');
+
+      if (response.isEmpty) {
+        throw Exception('Empty response from AI');
+      }
+
+      // Clean the response
       final cleaned = response
           .trim()
           .replaceAll(RegExp(r'```(?:json)?'), '')
           .replaceAll('```', '')
           .trim();
+
+      debugPrint('Cleaned response: $cleaned');
+
       final Map<String, dynamic> jsonData = json.decode(cleaned);
       final List<dynamic> suggestionsList = jsonData['suggestions'] ?? [];
+
+      debugPrint('Parsed suggestions: $suggestionsList');
+
+      // Validate suggestions
       final List<String> suggestions = suggestionsList
           .map((item) => item.toString().trim())
           .where((w) => availableWorkoutsList.contains(w))
           .take(4)
           .toList();
+
+      if (suggestions.length < 4) {
+        debugPrint(
+            'AI returned only ${suggestions.length} valid suggestions, filling with defaults');
+        // Fill missing slots with appropriate defaults
+        final defaultSuggestions = ['Warm-up', 'Squats', 'Push-Ups', 'Plank'];
+        for (int i = suggestions.length; i < 4; i++) {
+          suggestions.add(defaultSuggestions[i]);
+        }
+      }
+
       final Map<String, dynamic> durationsMap = jsonData['durations'] ?? {};
       final Map<String, int> durations = {};
+
       for (var entry in durationsMap.entries) {
         final workout = entry.key.toString().trim();
         final duration = int.tryParse(entry.value.toString()) ?? 15;
-        if (availableWorkoutsList.contains(workout) &&
-            [15, 30, 45, 60].contains(duration)) {
-          durations[workout] = duration;
+        if (availableWorkoutsList.contains(workout)) {
+          durations[workout] =
+              duration.clamp(10, 60); // Limit to reasonable range
         }
       }
+
+      // Fill in missing durations with defaults
       for (var workout in availableWorkoutsList) {
         if (!durations.containsKey(workout)) {
           durations[workout] = _getDefaultDuration(workout);
         }
       }
-      if (suggestions.length == 4) {
-        _isAISuggestionFallback = false;
-        return {'workouts': suggestions, 'durations': durations};
-      } else {
-        debugPrint(
-            'AI returned ${suggestions.length} suggestions instead of 4');
-      }
+
+      debugPrint('Final suggestions: $suggestions');
+      _isAISuggestionFallback = false;
+      return {'workouts': suggestions, 'durations': durations};
     } catch (e) {
       debugPrint('AI Generation Error: $e');
+      debugPrint('Stack trace: ${e.toString()}');
     }
+
+    debugPrint('Using fallback workouts due to error');
     _isAISuggestionFallback = true;
     return defaultData;
   }
@@ -1384,39 +1552,78 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
 
   Widget _buildAIFallbackAlert() {
     if (!_isAISuggestionFallback) return SizedBox.shrink();
+
+    final hasUserData = _computeInputHash().isNotEmpty;
+
     return Container(
       margin: EdgeInsets.only(bottom: 24),
       padding: EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.red.shade50,
+        color: hasUserData ? Colors.orange.shade50 : Colors.blue.shade50,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.red.shade300, width: 1),
+        border: Border.all(
+            color: hasUserData ? Colors.orange.shade300 : Colors.blue.shade300,
+            width: 1),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(IconlyBold.danger, color: Colors.red.shade600, size: 24),
+          Icon(hasUserData ? Icons.warning_amber : Icons.info,
+              color:
+                  hasUserData ? Colors.orange.shade600 : Colors.blue.shade600,
+              size: 24),
           SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Default Workouts Displayed",
+                  hasUserData
+                      ? "AI Service Temporary Unavailable"
+                      : "Complete Your Profile",
                   style: GoogleFonts.poppins(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.red.shade600,
+                    color: hasUserData
+                        ? Colors.orange.shade600
+                        : Colors.blue.shade600,
                   ),
                 ),
                 SizedBox(height: 4),
                 Text(
-                  "Failed to fetch personalized suggestions. Please check your Gemini API key and internet connection.",
+                  hasUserData
+                      ? "Using default workouts. This might be due to network issues or AI service limits. Your personalized data is ready when service resumes."
+                      : "Add your height, weight, and fitness goals to get personalized workout suggestions tailored just for you!",
                   style: GoogleFonts.poppins(
                     fontSize: 14,
-                    color: Colors.red.shade500,
+                    color: hasUserData
+                        ? Colors.orange.shade500
+                        : Colors.blue.shade500,
                   ),
                 ),
+                if (hasUserData) ...[
+                  SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: refreshAISuggestions,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange.shade100,
+                      foregroundColor: Colors.orange.shade800,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    ),
+                    child: Text(
+                      "Retry Now",
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
               ],
             ),
           ),
@@ -1429,13 +1636,25 @@ Return ONLY this exact JSON structure (no markdown, no extra text):
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "Suggested Workout",
-          style: GoogleFonts.poppins(
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
-          ),
+        Row(
+          children: [
+            Text(
+              "Suggested Workout",
+              style: GoogleFonts.poppins(
+                fontSize: 22,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
+              ),
+            ),
+            SizedBox(width: 8),
+            if (!_isLoadingAISuggestions)
+              IconButton(
+                icon:
+                    Icon(Icons.refresh, size: 20, color: Colors.blue.shade300),
+                onPressed: refreshAISuggestions,
+                tooltip: 'Refresh suggestions',
+              ),
+          ],
         ),
         SizedBox(height: 16),
         if (_isLoadingAISuggestions)
