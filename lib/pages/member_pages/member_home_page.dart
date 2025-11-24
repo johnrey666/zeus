@@ -34,7 +34,7 @@ class _MemberHomePageState extends State<MemberHomePage>
   ];
 
   late final PageController _pageController;
-  late final GlobalKey<HomePageState> _homeKey;
+  late GlobalKey<HomePageState> _homeKey;
 
   @override
   void initState() {
@@ -52,10 +52,19 @@ class _MemberHomePageState extends State<MemberHomePage>
 
   void _handleMenu(String v) async {
     if (v == 'profile') {
-      final result = await Navigator.push(context,
-          MaterialPageRoute(builder: (_) => const ManageProfilePage()));
+      final result = await Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ManageProfilePage()),
+      );
+
       if (result != null && result['reloadSuggestions'] == true) {
-        _homeKey.currentState?.refreshAISuggestions();
+        // Use a small delay to ensure Firestore has updated
+        await Future.delayed(const Duration(milliseconds: 1000));
+
+        // Force reload AI suggestions in the current HomePage
+        if (_homeKey.currentState != null && mounted) {
+          await _homeKey.currentState!.reloadAISuggestions();
+        }
       }
     } else if (v == 'logout') {
       _showLogoutDialog();

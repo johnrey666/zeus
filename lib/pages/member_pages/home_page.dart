@@ -2,7 +2,7 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart'; // For debugPrint
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:iconly/iconly.dart';
@@ -12,7 +12,7 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:intl/intl.dart';
-import 'dart:async'; // Added for Timer
+import 'dart:async';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -34,10 +34,10 @@ class HomePageState extends State<HomePage> {
   List<String> _suggestedWorkouts = [];
   Map<String, int> _workoutDurations = {};
   bool _isAISuggestionFallback = false;
-  late ScrollController _scrollController; // Add this
-  static const _apiKey = 'AIzaSyB5_B3sIGAe6GHPV9F-ULUn7VHqQxUPdmA';
-  late final GenerativeModel _model =
-      GenerativeModel(model: 'gemini-2.5-flash', apiKey: _apiKey);
+  late ScrollController _scrollController;
+
+  late final GenerativeModel _model;
+
   final Map<String, List<String>> _programWorkouts = {
     'Fullbody Workout': [
       'Warm-up',
@@ -54,14 +54,57 @@ class HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController(); // Initialize here
+    _scrollController = ScrollController();
     _selectedDay = _focusedDay;
+    _initializeApiKey();
+  }
+
+  Future<void> _initializeApiKey() async {
+    try {
+      debugPrint('Fetching API key from Firestore...');
+
+      final doc = await FirebaseFirestore.instance
+          .collection('app_config')
+          .doc('api_keys')
+          .get();
+
+      if (doc.exists) {
+        final apiKey = doc.data()?['gemini_api_key'] as String?;
+        if (apiKey != null && apiKey.isNotEmpty) {
+          debugPrint('API key successfully loaded from Firestore');
+          _model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
+
+          // Now initialize the rest of the data
+          _initializeData();
+          return;
+        }
+      }
+      throw Exception('API key not found in Firestore');
+    } catch (e) {
+      debugPrint('Error loading API key from Firestore: $e');
+      _showApiKeyError();
+    }
+  }
+
+  Future<void> reloadAISuggestions() async {
+    debugPrint('Manually reloading AI suggestions...');
+    await _loadUserPlan(); // Reload the user plan first to get updated data
+    await _loadAISuggestions(); // Then reload AI suggestions
+  }
+
+  void _showApiKeyError() {
+    debugPrint('Failed to load API key - AI features will be disabled');
+
+    // Initialize with empty key (will fail gracefully when used)
+    _model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: '');
+
+    // Still initialize the rest of the app
     _initializeData();
   }
 
   @override
   void dispose() {
-    _scrollController.dispose(); // Dispose here
+    _scrollController.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -108,9 +151,6 @@ class HomePageState extends State<HomePage> {
           _userPlan = planSnapshot.exists ? planSnapshot.data()! : {};
         });
       }
-
-      // Force reload AI suggestions when user plan changes
-      await _loadAISuggestions();
     } catch (e) {
       debugPrint('Error loading user plan: $e');
       if (mounted) {
@@ -179,27 +219,6 @@ class HomePageState extends State<HomePage> {
     }
   }
 
-  void refreshAISuggestions() {
-    if (_isLoadingAISuggestions) return;
-
-    setState(() {
-      _isLoadingAISuggestions = true;
-    });
-
-    // Clear the cached AI suggestions to force regeneration
-    FirebaseFirestore.instance
-        .collection('workout_plans')
-        .doc(user!.uid)
-        .update({
-      'ai_input_hash': FieldValue.delete(),
-    }).then((_) {
-      _loadAISuggestions();
-    }).catchError((e) {
-      debugPrint('Error clearing AI cache: $e');
-      _loadAISuggestions();
-    });
-  }
-
   Future<void> _loadAISuggestions() async {
     if (mounted) {
       setState(() {
@@ -209,12 +228,30 @@ class HomePageState extends State<HomePage> {
 
     try {
       final currentHash = _computeInputHash();
-
       debugPrint('Current user data hash: $currentHash');
 
-      // Always regenerate if we have user data, don't use cache
+      // Try to load cached suggestions first
+      final savedData = await _loadAISuggestionsFromFirestore();
+
+      if (savedData != null &&
+          savedData['hash'] == currentHash &&
+          currentHash.isNotEmpty) {
+        debugPrint('Using cached AI suggestions');
+        if (mounted) {
+          setState(() {
+            _suggestedWorkouts = List<String>.from(savedData['workouts']);
+            _workoutDurations = Map<String, int>.from(savedData['durations']);
+            _isLoadingAISuggestions = false;
+            _isAISuggestionFallback = false;
+          });
+        }
+        return;
+      }
+
+      // Only regenerate if we have user data AND it's different from cached data
       if (currentHash.isNotEmpty) {
-        debugPrint('User data available, forcing AI regeneration...');
+        debugPrint(
+            'User data changed or no cache available, generating new AI suggestions...');
         final aiData = await _generateAIDataCombined();
         if (mounted) {
           setState(() {
@@ -231,21 +268,8 @@ class HomePageState extends State<HomePage> {
         return;
       }
 
-      // If no user data, try cache or use fallback
-      final savedData = await _loadAISuggestionsFromFirestore();
-      if (savedData != null && savedData['hash'] == currentHash) {
-        if (mounted) {
-          setState(() {
-            _suggestedWorkouts = List<String>.from(savedData['workouts']);
-            _workoutDurations = Map<String, int>.from(savedData['durations']);
-            _isLoadingAISuggestions = false;
-            _isAISuggestionFallback = false;
-          });
-        }
-        return;
-      }
-
-      // No data and no cache - use fallback
+      // No user data - use fallback
+      debugPrint('No user data available, using fallback workouts');
       if (mounted) {
         setState(() {
           _suggestedWorkouts = ['Warm-up', 'Squats', 'Yoga', 'Plank'];
@@ -276,11 +300,11 @@ class HomePageState extends State<HomePage> {
     final activityLevel =
         _userPlan['Select your activity level']?.toString() ?? '';
 
-    // Get weight and height from userPlan, don't use defaults
+    // Get weight and height from userPlan
     final weightStr = _userPlan['Weight']?.toString() ?? '';
     final heightStr = _userPlan['Height']?.toString() ?? '';
 
-    // If weight or height is empty/missing, return empty hash to force regeneration
+    // If weight or height is empty/missing, return empty hash
     if (weightStr.isEmpty || heightStr.isEmpty) {
       return '';
     }
@@ -293,26 +317,30 @@ class HomePageState extends State<HomePage> {
       return '';
     }
 
+    // Calculate BMI and category
     final heightInMeters = height / 100;
     final bmi = weight / (heightInMeters * heightInMeters);
 
     String bmiCategory = 'Normal';
-    if (bmi < 18.5)
+    if (bmi < 18.5) {
       bmiCategory = 'Underweight';
-    else if (bmi < 25)
+    } else if (bmi < 25) {
       bmiCategory = 'Normal';
-    else if (bmi < 30)
+    } else if (bmi < 30) {
       bmiCategory = 'Overweight';
-    else
+    } else {
       bmiCategory = 'Obese';
+    }
 
+    // Create a hash that only changes when BMI category or fitness goals change
+    // This prevents regeneration when minor weight/height changes don't affect BMI category
     return json.encode({
       'goal': goal,
       'fitnessLevel': fitnessLevel,
       'activityLevel': activityLevel,
       'bmiCategory': bmiCategory,
-      'weight': weight, // Include raw values in hash
-      'height': height, // Include raw values in hash
+      // Include rounded BMI to detect significant changes
+      'bmi': bmi.toStringAsFixed(1),
     });
   }
 
@@ -1270,10 +1298,9 @@ Return ONLY valid JSON in this exact format (no other text):
       return 'assets/videos/bicep_curl.mp4';
     if (lower.contains('cable')) return 'assets/videos/cable_flyes.mp4';
     if (lower.contains('warm-up')) return 'assets/videos/warm_up.mp4';
-    // Fixed: Check for exact "dumbbell press" before other dumbbell matches
     if (lower.contains('dumbbell press'))
       return 'assets/videos/dumbbell_press.mp4';
-    return 'assets/videos/dumbbell_press.mp4'; // Consistent default
+    return 'assets/videos/dumbbell_press.mp4';
   }
 
   String _getWorkoutImage(String title) {
@@ -1601,29 +1628,6 @@ Return ONLY valid JSON in this exact format (no other text):
                         : Colors.blue.shade500,
                   ),
                 ),
-                if (hasUserData) ...[
-                  SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: refreshAISuggestions,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange.shade100,
-                      foregroundColor: Colors.orange.shade800,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding:
-                          EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    ),
-                    child: Text(
-                      "Retry Now",
-                      style: GoogleFonts.poppins(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ],
               ],
             ),
           ),
@@ -1636,25 +1640,13 @@ Return ONLY valid JSON in this exact format (no other text):
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Text(
-              "Suggested Workout",
-              style: GoogleFonts.poppins(
-                fontSize: 22,
-                fontWeight: FontWeight.w600,
-                color: Colors.black,
-              ),
-            ),
-            SizedBox(width: 8),
-            if (!_isLoadingAISuggestions)
-              IconButton(
-                icon:
-                    Icon(Icons.refresh, size: 20, color: Colors.blue.shade300),
-                onPressed: refreshAISuggestions,
-                tooltip: 'Refresh suggestions',
-              ),
-          ],
+        Text(
+          "Suggested Workout",
+          style: GoogleFonts.poppins(
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
         ),
         SizedBox(height: 16),
         if (_isLoadingAISuggestions)
@@ -1741,12 +1733,9 @@ Return ONLY valid JSON in this exact format (no other text):
                     ),
                   ),
                   SizedBox(height: 16),
-                  // Wrap the Container in GestureDetector
                   GestureDetector(
-                    behavior: HitTestBehavior
-                        .translucent, // Allows taps to reach calendar
+                    behavior: HitTestBehavior.translucent,
                     onPanUpdate: (details) {
-                      // Only handle vertical drags (ignore horizontal swipes)
                       if (details.delta.dy.abs() > details.delta.dx.abs()) {
                         final newOffset =
                             (_scrollController.offset + details.delta.dy).clamp(
@@ -1984,7 +1973,6 @@ class _VideoPlayerDialogState extends State<VideoPlayerDialog> {
     for (final path in pathsToTry) {
       VideoPlayerController? videoController;
       try {
-        // Micro-delay for timing stability
         await Future.delayed(const Duration(milliseconds: 50));
         videoController = VideoPlayerController.asset(path);
         await videoController.initialize();
@@ -2043,10 +2031,9 @@ class _VideoPlayerDialogState extends State<VideoPlayerDialog> {
             _error = null;
           });
         }
-        return; // Success, exit loop
+        return;
       } catch (e) {
         debugPrint('Video init failed for $path: $e');
-        // Clean up partial controller
         videoController?.dispose();
         if (mounted && path == pathsToTry.last) {
           setState(() {

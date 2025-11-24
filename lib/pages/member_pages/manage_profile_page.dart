@@ -392,7 +392,7 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
       IconData icon, String hint, TextEditingController controller) {
     return TextField(
       controller: controller,
-      cursorColor: Colors.blue, // 🔵 Blue cursor color
+      cursorColor: Colors.blue,
       style: GoogleFonts.poppins(),
       decoration: InputDecoration(
         prefixIcon: Icon(icon),
