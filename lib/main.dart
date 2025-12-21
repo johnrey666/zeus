@@ -7,6 +7,7 @@ import 'firebase_options.dart';
 import 'package:zeus/pages/select_profile_page.dart';
 // ignore: unused_import
 import 'package:intl/intl.dart';
+import 'package:zeus/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding
@@ -14,6 +15,23 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Initialize notification service (don't block app startup if it fails)
+  try {
+    await NotificationService().initialize();
+    
+    // Schedule daily reminders (non-blocking)
+    NotificationService().scheduleHydrationReminders().catchError((e) {
+      print('Error scheduling hydration reminders: $e');
+    });
+    NotificationService().scheduleStepsReminder().catchError((e) {
+      print('Error scheduling steps reminder: $e');
+    });
+  } catch (e) {
+    print('Error initializing notifications: $e');
+    // Continue app startup even if notifications fail
+  }
+  
   runApp(const ZeusLandingPage());
 }
 

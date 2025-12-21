@@ -1,11 +1,15 @@
 import 'dart:math';
+import 'dart:io';
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 import 'member_login_page.dart';
+// ignore: unused_import
 import 'package:zeus/pages/member_pages/planning_page.dart';
+import 'package:zeus/pages/member_pages/health_declaration_page.dart';
 
 class MemberSignUpPage extends StatefulWidget {
   const MemberSignUpPage({super.key});
@@ -29,6 +33,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
   final TextEditingController _confirmPasswordController =
       TextEditingController();
   final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _ageController = TextEditingController();
+  String? _selectedGender;
 
   final Color primaryColor = const Color(0xFF4A90E2);
 
@@ -48,6 +54,15 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     return (100000 + rand.nextInt(900000)).toString(); // 6-digit code
   }
 
+  Future<bool> _checkInternetConnection() async {
+    try {
+      final result = await InternetAddress.lookup('google.com');
+      return result.isNotEmpty && result[0].rawAddress.isNotEmpty;
+    } catch (e) {
+      return false;
+    }
+  }
+
   Future<void> _sendVerificationCode() async {
     final email = _emailController.text.trim();
 
@@ -61,11 +76,22 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       _isLoading = true;
     });
 
+    // Check internet connection first
+    final hasInternet = await _checkInternetConnection();
+    if (!hasInternet) {
+      setState(() {
+        _isLoading = false;
+      });
+      _showMessage(
+          "No internet connection. Please check your network and try again.");
+      return;
+    }
+
     try {
       // Generate verification code
       _generatedCode = _generateVerificationCode();
 
-      // Set up Gmail SMTP server
+      // Set up Gmail SMTP server with timeout
       final smtpServer = gmail(gmailUsername, gmailAppPassword);
 
       // Create the email message
@@ -75,23 +101,49 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
         ..subject = 'Your Verification Code'
         ..text = 'Your verification code is: $_generatedCode';
 
-      // Send the email
-      final sendReport = await send(message, smtpServer);
+      // Send the email with timeout
+      final sendReport = await send(message, smtpServer)
+          .timeout(const Duration(seconds: 30), onTimeout: () {
+        throw TimeoutException(
+            'Email sending timed out. Please check your internet connection.');
+      });
+
       print('Message sent: $sendReport');
 
       setState(() {
         _isVerificationCodeSent = true;
+        _isLoading = false; // Reset loading state on success
       });
       _showMessage(
           "Verification code sent to $email. Please check your inbox or spam folder.");
+    } on SocketException catch (e) {
+      _showMessage(
+          "Network error: Unable to connect to email server. Please check your internet connection and try again.");
+      print('SocketException: $e');
+    } on TimeoutException catch (e) {
+      _showMessage(
+          "Request timed out. Please check your internet connection and try again.");
+      print('TimeoutException: $e');
     } on MailerException catch (e) {
       _showMessage("Failed to send verification code: ${e.message}");
+      print('MailerException: $e');
     } catch (e) {
-      _showMessage("Error sending verification code: $e");
+      final errorMsg = e.toString();
+      if (errorMsg.contains('failed host lookup') ||
+          errorMsg.contains('No address associated with hostname')) {
+        _showMessage(
+            "Network error: Cannot reach email server. Please check your internet connection. If using an emulator, ensure it has network access.");
+      } else {
+        _showMessage("Error sending verification code: ${e.toString()}");
+      }
+      print('Error: $e');
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      // Always reset loading state
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -189,8 +241,16 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
         lastName.isEmpty ||
         email.isEmpty ||
         password.isEmpty ||
-        confirmPassword.isEmpty) {
-      _showMessage("All fields are required.");
+        confirmPassword.isEmpty ||
+        _ageController.text.trim().isEmpty ||
+        _selectedGender == null) {
+      _showMessage("All fields are required, including age and gender.");
+      return;
+    }
+
+    final age = int.tryParse(_ageController.text.trim());
+    if (age == null || age < 13 || age > 120) {
+      _showMessage("Please enter a valid age (13-120).");
       return;
     }
 
@@ -217,6 +277,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
           'email': email,
           'userType': 'Member',
           'memberId': generatedMemberId,
+          'age': age,
+          'gender': _selectedGender,
           'createdAt': FieldValue.serverTimestamp(),
           'qrCode': qrCodeValue,
         });
@@ -224,10 +286,15 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
         _showWelcomeBanner();
         await Future.delayed(const Duration(milliseconds: 1000));
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (_) => const PlanningPage()),
-        );
+        // Navigate to health declaration first, then planning
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const HealthDeclarationPage(),
+            ),
+          );
+        }
       }
     } on FirebaseAuthException catch (e) {
       _showMessage(e.message ?? "An error occurred.");
@@ -242,6 +309,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
         _emailController.text.trim().isNotEmpty &&
         _passwordController.text.isNotEmpty &&
         _confirmPasswordController.text.isNotEmpty &&
+        _ageController.text.trim().isNotEmpty &&
+        _selectedGender != null &&
         _isCodeVerified;
   }
 
@@ -253,6 +322,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _codeController.dispose();
+    _ageController.dispose();
     super.dispose();
   }
 
@@ -415,6 +485,38 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                   ),
                 ),
               ],
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _ageController,
+                      keyboardType: TextInputType.number,
+                      cursorColor: Colors.blue,
+                      decoration: _inputDecoration(Icons.calendar_today, "Age"),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _selectedGender,
+                      decoration: _inputDecoration(Icons.person, "Gender"),
+                      items: ['Male', 'Female', 'Other'].map((String gender) {
+                        return DropdownMenuItem<String>(
+                          value: gender,
+                          child: Text(gender),
+                        );
+                      }).toList(),
+                      onChanged: (String? value) {
+                        setState(() {
+                          _selectedGender = value;
+                        });
+                      },
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 20),
               TextField(
                 controller: _passwordController,

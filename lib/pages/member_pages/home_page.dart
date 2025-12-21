@@ -1,4 +1,5 @@
 // ignore_for_file: use_build_context_synchronously, prefer_const_constructors, curly_braces_in_flow_control_structures, invalid_return_type_for_catch_error
+import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,7 +13,8 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:intl/intl.dart';
-import 'dart:async';
+import 'package:zeus/services/workout_config_service.dart';
+import 'package:zeus/services/notification_service.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -33,6 +35,9 @@ class HomePageState extends State<HomePage> {
   Map<String, dynamic> _userPlan = {};
   List<String> _suggestedWorkouts = [];
   Map<String, int> _workoutDurations = {};
+  List<String> _aiWarmUp = [];
+  List<String> _aiStretching = [];
+  Map<String, List<String>> _aiBodyFocus = {};
   bool _isAISuggestionFallback = false;
   late ScrollController _scrollController;
 
@@ -74,7 +79,6 @@ class HomePageState extends State<HomePage> {
           debugPrint('API key successfully loaded from Firestore');
           _model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
 
-          // Now initialize the rest of the data
           _initializeData();
           return;
         }
@@ -88,17 +92,15 @@ class HomePageState extends State<HomePage> {
 
   Future<void> reloadAISuggestions() async {
     debugPrint('Manually reloading AI suggestions...');
-    await _loadUserPlan(); // Reload the user plan first to get updated data
-    await _loadAISuggestions(); // Then reload AI suggestions
+    // First reload the user plan to get latest data
+    await _loadUserPlan();
+    // Then reload AI suggestions (will regenerate if hash changed)
+    await _loadAISuggestions();
   }
 
   void _showApiKeyError() {
     debugPrint('Failed to load API key - AI features will be disabled');
-
-    // Initialize with empty key (will fail gracefully when used)
     _model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: '');
-
-    // Still initialize the rest of the app
     _initializeData();
   }
 
@@ -126,14 +128,18 @@ class HomePageState extends State<HomePage> {
         tempEvents[key]!.add({...data, 'id': doc.id});
       }
     }
+
+    // Load user plan FIRST
     await _loadUserPlan();
+
     if (mounted) {
       setState(() {
         _events = tempEvents;
         _isLoading = false;
       });
     }
-    // Load AI suggestions (cached or fresh)
+
+    // Then load AI suggestions (will use cached if available)
     await _loadAISuggestions();
   }
 
@@ -171,6 +177,9 @@ class HomePageState extends State<HomePage> {
         'ai_durations': durations,
         'ai_input_hash': inputHash ?? '',
         'last_updated': FieldValue.serverTimestamp(),
+        'ai_warmUp': _aiWarmUp,
+        'ai_stretching': _aiStretching,
+        'ai_bodyFocus': _aiBodyFocus,
       };
 
       await FirebaseFirestore.instance
@@ -207,10 +216,17 @@ class HomePageState extends State<HomePage> {
       final durations = durationsData.map((key, value) => MapEntry(
           key, value is int ? value : int.tryParse(value.toString()) ?? 15));
       final savedHash = data['ai_input_hash']?.toString() ?? '';
+      final warmUp = List<String>.from(data['ai_warmUp'] ?? []);
+      final stretching = List<String>.from(data['ai_stretching'] ?? []);
+      final bodyFocus =
+          Map<String, List<String>>.from(data['ai_bodyFocus'] ?? {});
 
       return {
         'workouts': suggestions,
         'durations': durations,
+        'warmUp': warmUp,
+        'stretching': stretching,
+        'bodyFocus': bodyFocus,
         'hash': savedHash
       };
     } catch (e) {
@@ -241,6 +257,10 @@ class HomePageState extends State<HomePage> {
           setState(() {
             _suggestedWorkouts = List<String>.from(savedData['workouts']);
             _workoutDurations = Map<String, int>.from(savedData['durations']);
+            _aiWarmUp = List<String>.from(savedData['warmUp'] ?? []);
+            _aiStretching = List<String>.from(savedData['stretching'] ?? []);
+            _aiBodyFocus =
+                Map<String, List<String>>.from(savedData['bodyFocus'] ?? {});
             _isLoadingAISuggestions = false;
             _isAISuggestionFallback = false;
           });
@@ -257,8 +277,13 @@ class HomePageState extends State<HomePage> {
           setState(() {
             _suggestedWorkouts = aiData['workouts'] as List<String>;
             _workoutDurations = aiData['durations'] as Map<String, int>;
+            _aiWarmUp = List<String>.from(aiData['warmUp'] ?? []);
+            _aiStretching = List<String>.from(aiData['stretching'] ?? []);
+            _aiBodyFocus =
+                Map<String, List<String>>.from(aiData['bodyFocus'] ?? {});
             _isLoadingAISuggestions = false;
           });
+          // Save to cache with hash
           await _saveAISuggestionsToFirestore(
             _suggestedWorkouts,
             _workoutDurations,
@@ -274,9 +299,23 @@ class HomePageState extends State<HomePage> {
         setState(() {
           _suggestedWorkouts = ['Warm-up', 'Squats', 'Yoga', 'Plank'];
           _workoutDurations = _getDefaultDurations();
+          _aiWarmUp = ['Warm-up'];
+          _aiStretching = ['Yoga'];
+          _aiBodyFocus = {
+            'Abs': ['Plank', 'Crunches'],
+            'Arms': ['Bicep Curls'],
+            'Chest': ['Push-Ups'],
+            'Legs': ['Squats'],
+          };
           _isLoadingAISuggestions = false;
           _isAISuggestionFallback = true;
         });
+        // Save fallback to cache
+        await _saveAISuggestionsToFirestore(
+          _suggestedWorkouts,
+          _workoutDurations,
+          currentHash,
+        );
       }
     } catch (e) {
       debugPrint('Error loading AI suggestions: $e');
@@ -284,6 +323,14 @@ class HomePageState extends State<HomePage> {
         setState(() {
           _suggestedWorkouts = ['Warm-up', 'Squats', 'Yoga', 'Plank'];
           _workoutDurations = _getDefaultDurations();
+          _aiWarmUp = ['Warm-up'];
+          _aiStretching = ['Yoga'];
+          _aiBodyFocus = {
+            'Abs': ['Plank', 'Crunches'],
+            'Arms': ['Bicep Curls'],
+            'Chest': ['Push-Ups'],
+            'Legs': ['Squats'],
+          };
           _isLoadingAISuggestions = false;
           _isAISuggestionFallback = true;
         });
@@ -300,11 +347,9 @@ class HomePageState extends State<HomePage> {
     final activityLevel =
         _userPlan['Select your activity level']?.toString() ?? '';
 
-    // Get weight and height from userPlan
     final weightStr = _userPlan['Weight']?.toString() ?? '';
     final heightStr = _userPlan['Height']?.toString() ?? '';
 
-    // If weight or height is empty/missing, return empty hash
     if (weightStr.isEmpty || heightStr.isEmpty) {
       return '';
     }
@@ -312,12 +357,13 @@ class HomePageState extends State<HomePage> {
     final weight = int.tryParse(weightStr) ?? 0;
     final height = int.tryParse(heightStr) ?? 0;
 
-    // If we have invalid weight/height values, return empty hash
     if (weight <= 0 || height <= 0) {
       return '';
     }
 
-    // Calculate BMI and category
+    // Load health conditions from Firestore (if available)
+    // We need to load these synchronously or store them in userPlan
+    // For now, we'll use a simpler hash
     final heightInMeters = height / 100;
     final bmi = weight / (heightInMeters * heightInMeters);
 
@@ -332,14 +378,14 @@ class HomePageState extends State<HomePage> {
       bmiCategory = 'Obese';
     }
 
-    // Create a hash that only changes when BMI category or fitness goals change
-    // This prevents regeneration when minor weight/height changes don't affect BMI category
+    // Create a hash that changes only when key user data changes
     return json.encode({
       'goal': goal,
       'fitnessLevel': fitnessLevel,
       'activityLevel': activityLevel,
+      'weight': weight,
+      'height': height,
       'bmiCategory': bmiCategory,
-      // Include rounded BMI to detect significant changes
       'bmi': bmi.toStringAsFixed(1),
     });
   }
@@ -348,6 +394,15 @@ class HomePageState extends State<HomePage> {
     final defaultData = {
       'workouts': ['Warm-up', 'Squats', 'Yoga', 'Plank'],
       'durations': _getDefaultDurations(),
+      'warmUp': ['Warm-up'],
+      'bodyFocus': {
+        'Abs': ['Plank', 'Crunches'],
+        'Arms': ['Bicep Curls'],
+        'Chest': ['Push-Ups'],
+        'Legs': ['Squats'],
+      },
+      'stretching': ['Yoga'],
+      'workoutConfig': {},
     };
 
     final availableWorkoutsList = [
@@ -367,7 +422,6 @@ class HomePageState extends State<HomePage> {
       'Dumbbell Press',
     ];
 
-    // DEBUG: Print user data to see what's being used
     debugPrint('=== AI GENERATION DEBUG ===');
     debugPrint('User Plan: $_userPlan');
     debugPrint('Goal: ${_userPlan['What is your fitness goal?']}');
@@ -377,7 +431,6 @@ class HomePageState extends State<HomePage> {
     debugPrint('Height: ${_userPlan['Height']}');
     debugPrint('===========================');
 
-    // Check if we have sufficient user data
     if (_userPlan.isEmpty) {
       debugPrint('User plan is empty - using fallback');
       _isAISuggestionFallback = true;
@@ -390,7 +443,26 @@ class HomePageState extends State<HomePage> {
     final weightStr = _userPlan['Weight']?.toString();
     final heightStr = _userPlan['Height']?.toString();
 
-    // Check if we have all required data
+    final user = FirebaseAuth.instance.currentUser;
+    List<String> healthConditions = [];
+    List<String> activityRestrictions = [];
+    if (user != null) {
+      try {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (userDoc.exists) {
+          healthConditions =
+              List<String>.from(userDoc.data()?['healthConditions'] ?? []);
+          activityRestrictions =
+              List<String>.from(userDoc.data()?['activityRestrictions'] ?? []);
+        }
+      } catch (e) {
+        debugPrint('Error loading health conditions: $e');
+      }
+    }
+
     if (goal == null ||
         goal.isEmpty ||
         fitnessLevel == null ||
@@ -409,7 +481,6 @@ class HomePageState extends State<HomePage> {
     final weight = int.tryParse(weightStr) ?? 0;
     final height = int.tryParse(heightStr) ?? 0;
 
-    // Validate we have proper data
     if (weight <= 0 || height <= 0) {
       debugPrint('Invalid weight/height values - using fallback');
       _isAISuggestionFallback = true;
@@ -429,31 +500,72 @@ class HomePageState extends State<HomePage> {
       else
         bmiCategory = 'Obese';
 
-      final availableWorkouts = availableWorkoutsList.join(', ');
+      final filteredWorkouts = WorkoutConfigService.filterWorkoutsByHealth(
+        availableWorkoutsList,
+        healthConditions,
+        activityRestrictions,
+      );
+
+      final availableWorkouts = filteredWorkouts.join(', ');
+      final healthInfo = healthConditions.isNotEmpty
+          ? 'Health Conditions: ${healthConditions.join(', ')}. '
+          : '';
+      final restrictionsInfo = activityRestrictions.isNotEmpty
+          ? 'Activity Restrictions: ${activityRestrictions.join(', ')}. '
+          : '';
+
+      final fitnessLevelKey = fitnessLevel.split('\n').first;
+      final workoutConfig = WorkoutConfigService.getWorkoutConfig(
+        fitnessLevel: fitnessLevelKey,
+        bmi: bmi,
+        healthConditions: healthConditions,
+        activityRestrictions: activityRestrictions,
+      );
 
       final prompt = '''
 User Profile:
 - Fitness Goal: $goal
-- Fitness Level: $fitnessLevel  
+- Fitness Level: $fitnessLevelKey
 - Activity Level: $activityLevel
-- BMI Category: $bmiCategory (Weight: $weight kg, Height: $height cm)
+- BMI Category: $bmiCategory (BMI: ${bmi.toStringAsFixed(1)}, Weight: $weight kg, Height: $height cm)
+$healthInfo$restrictionsInfo
 
-Based on this profile, suggest exactly 4 personalized workout names from this list only: $availableWorkouts
+Generate a COMPLETE workout regimen including:
+1. Warm-up protocols (exactly 2 exercises, 30-60 seconds each)
+2. Primary exercises (3-4 exercises, 2-5 minutes each)
+3. Body focus routines categorized by muscle groups:
+   - Abs: exercises targeting abdominal muscles
+   - Arms: exercises targeting arms
+   - Chest: exercises targeting chest
+   - Legs: exercises targeting legs
+4. Stretching sequences (exactly 2 exercises, 30-60 seconds each)
 
-Consider:
-- For beginners: focus on foundational exercises like Squats, Push-Ups, Plank
-- For weight loss: include cardio like Jumping Jacks, Yoga
-- For muscle gain: include strength exercises like Bench Press, Bicep Curls
-- Match intensity to fitness level
+Available workouts: $availableWorkouts
 
-Return ONLY valid JSON in this exact format (no other text):
+Duration Guidelines:
+- Warm-up/Stretching: 30-60 seconds each
+- Regular Workouts: 2-5 minutes each (120-300 seconds)
+- Adjust durations based on BMI category, fitness level, and health conditions
+
+IMPORTANT: Each workout must have a duration specified. Warm-up/Stretching: 30-60s, Workouts: 120-300s.
+
+Return ONLY valid JSON in this exact format:
 {
-  "suggestions": ["Workout1", "Workout2", "Workout3", "Workout4"],
+  "warmUp": ["Warm-up", "Jumping Jacks"],
+  "primaryExercises": ["Exercise1", "Exercise2", "Exercise3", "Exercise4"],
+  "bodyFocus": {
+    "Abs": ["Plank", "Crunches"],
+    "Arms": ["Bicep Curls", "Dumbbell Curl"],
+    "Chest": ["Push-Ups", "Bench Press"],
+    "Legs": ["Squats", "Lunges"]
+  },
+  "stretching": ["Yoga", "Warm-up"],
+  "suggestions": ["Primary1", "Primary2", "Primary3", "Primary4"],
   "durations": {
-    "Plank": 30, "Crunches": 45, "Push-Ups": 20, "Incline Push-Ups": 20,
-    "Bench Press": 30, "Yoga": 30, "Jumping Jacks": 15, "Squats": 25,
-    "Lunges": 25, "Bicep Curls": 20, "Dumbbell Curl": 20, "Cable Flyes": 25,
-    "Warm-up": 10, "Dumbbell Press": 25
+    "Plank": 120, "Crunches": 150, "Push-Ups": 180, "Incline Push-Ups": 180,
+    "Bench Press": 240, "Yoga": 45, "Jumping Jacks": 50, "Squats": 180,
+    "Lunges": 180, "Bicep Curls": 150, "Dumbbell Curl": 150, "Cable Flyes": 200,
+    "Warm-up": 45, "Dumbbell Press": 200
   }
 }
 ''';
@@ -469,7 +581,6 @@ Return ONLY valid JSON in this exact format (no other text):
         throw Exception('Empty response from AI');
       }
 
-      // Clean the response
       final cleaned = response
           .trim()
           .replaceAll(RegExp(r'```(?:json)?'), '')
@@ -479,24 +590,70 @@ Return ONLY valid JSON in this exact format (no other text):
       debugPrint('Cleaned response: $cleaned');
 
       final Map<String, dynamic> jsonData = json.decode(cleaned);
-      final List<dynamic> suggestionsList = jsonData['suggestions'] ?? [];
 
-      debugPrint('Parsed suggestions: $suggestionsList');
+      final List<dynamic> warmUpList = jsonData['warmUp'] ?? ['Warm-up'];
+      final List<dynamic> primaryList =
+          jsonData['primaryExercises'] ?? jsonData['suggestions'] ?? [];
+      final Map<String, dynamic> bodyFocusMap = jsonData['bodyFocus'] ?? {};
+      final List<dynamic> stretchingList = jsonData['stretching'] ?? ['Yoga'];
 
-      // Validate suggestions
-      final List<String> suggestions = suggestionsList
+      debugPrint('Parsed workout regimen:');
+      debugPrint('Warm-up: $warmUpList');
+      debugPrint('Primary: $primaryList');
+      debugPrint('Body Focus: $bodyFocusMap');
+      debugPrint('Stretching: $stretchingList');
+
+      final List<String> warmUp = warmUpList
           .map((item) => item.toString().trim())
-          .where((w) => availableWorkoutsList.contains(w))
+          .where((w) => filteredWorkouts.contains(w))
+          .take(2)
+          .toList();
+
+      final List<String> primary = primaryList
+          .map((item) => item.toString().trim())
+          .where((w) => filteredWorkouts.contains(w))
           .take(4)
           .toList();
 
+      final Map<String, List<String>> bodyFocusByCategory = {
+        'Abs': [],
+        'Arms': [],
+        'Chest': [],
+        'Legs': [],
+      };
+
+      // ignore: unnecessary_type_check
+      if (bodyFocusMap is Map) {
+        for (var category in ['Abs', 'Arms', 'Chest', 'Legs']) {
+          final categoryList = bodyFocusMap[category] as List<dynamic>? ?? [];
+          bodyFocusByCategory[category] = categoryList
+              .map((item) => item.toString().trim())
+              .where((w) => filteredWorkouts.contains(w))
+              .toList();
+        }
+      }
+
+      final List<String> stretching = stretchingList
+          .map((item) => item.toString().trim())
+          .where((w) => filteredWorkouts.contains(w))
+          .take(2)
+          .toList();
+
+      if (warmUp.isEmpty) warmUp.add('Warm-up');
+      if (primary.isEmpty) {
+        primary.addAll(['Squats', 'Push-Ups', 'Plank', 'Crunches']
+            .where((w) => filteredWorkouts.contains(w))
+            .take(4));
+      }
+      if (stretching.isEmpty) stretching.add('Yoga');
+
+      final List<String> suggestions = primary.take(4).toList();
       if (suggestions.length < 4) {
-        debugPrint(
-            'AI returned only ${suggestions.length} valid suggestions, filling with defaults');
-        // Fill missing slots with appropriate defaults
         final defaultSuggestions = ['Warm-up', 'Squats', 'Push-Ups', 'Plank'];
         for (int i = suggestions.length; i < 4; i++) {
-          suggestions.add(defaultSuggestions[i]);
+          if (filteredWorkouts.contains(defaultSuggestions[i])) {
+            suggestions.add(defaultSuggestions[i]);
+          }
         }
       }
 
@@ -506,22 +663,49 @@ Return ONLY valid JSON in this exact format (no other text):
       for (var entry in durationsMap.entries) {
         final workout = entry.key.toString().trim();
         final duration = int.tryParse(entry.value.toString()) ?? 15;
-        if (availableWorkoutsList.contains(workout)) {
+        if (filteredWorkouts.contains(workout)) {
+          final bmiMultiplier =
+              WorkoutConfigService.getBMIIntensityMultiplier(bmi);
           durations[workout] =
-              duration.clamp(10, 60); // Limit to reasonable range
+              (duration * bmiMultiplier).round().clamp(30, 300);
         }
       }
 
-      // Fill in missing durations with defaults
-      for (var workout in availableWorkoutsList) {
+      final bmiMultiplier = WorkoutConfigService.getBMIIntensityMultiplier(bmi);
+      final isWarmupOrStretch = (String workout) =>
+          warmUp.contains(workout) || stretching.contains(workout);
+
+      for (var workout in filteredWorkouts) {
         if (!durations.containsKey(workout)) {
-          durations[workout] = _getDefaultDuration(workout);
+          if (isWarmupOrStretch(workout)) {
+            durations[workout] = (45 * bmiMultiplier).round().clamp(30, 60);
+          } else {
+            durations[workout] = (180 * bmiMultiplier).round().clamp(120, 300);
+          }
+        } else {
+          final aiDuration = durations[workout]!;
+          if (isWarmupOrStretch(workout)) {
+            durations[workout] =
+                (aiDuration * bmiMultiplier).round().clamp(30, 60);
+          } else {
+            durations[workout] =
+                (aiDuration * bmiMultiplier).round().clamp(120, 300);
+          }
         }
       }
 
-      debugPrint('Final suggestions: $suggestions');
+      debugPrint('Final workout regimen with config: $workoutConfig');
+      debugPrint('Body Focus by Category: $bodyFocusByCategory');
       _isAISuggestionFallback = false;
-      return {'workouts': suggestions, 'durations': durations};
+      return {
+        'workouts': suggestions,
+        'durations': durations,
+        'warmUp': warmUp,
+        'primaryExercises': primary,
+        'bodyFocus': bodyFocusByCategory,
+        'stretching': stretching,
+        'workoutConfig': workoutConfig,
+      };
     } catch (e) {
       debugPrint('AI Generation Error: $e');
       debugPrint('Stack trace: ${e.toString()}');
@@ -534,30 +718,40 @@ Return ONLY valid JSON in this exact format (no other text):
 
   Map<String, int> _getDefaultDurations() {
     return {
-      'Plank': 15,
-      'Crunches': 15,
-      'Push-Ups': 20,
-      'Incline Push-Ups': 20,
-      'Bench Press': 30,
-      'Yoga': 30,
-      'Jumping Jacks': 15,
-      'Squats': 20,
-      'Lunges': 20,
-      'Bicep Curls': 15,
-      'Dumbbell Curl': 15,
-      'Cable Flyes': 25,
-      'Warm-up': 10,
-      'Dumbbell Press': 25,
+      'Plank': 120,
+      'Crunches': 150,
+      'Push-Ups': 180,
+      'Incline Push-Ups': 180,
+      'Bench Press': 240,
+      'Yoga': 45,
+      'Jumping Jacks': 60,
+      'Squats': 180,
+      'Lunges': 180,
+      'Bicep Curls': 150,
+      'Dumbbell Curl': 150,
+      'Cable Flyes': 200,
+      'Warm-up': 45,
+      'Dumbbell Press': 200,
     };
   }
 
   int _getDefaultDuration(String workout) {
     final defaults = _getDefaultDurations();
-    return defaults[workout] ?? 15;
+    return defaults[workout] ?? 180;
   }
 
-  int _getWorkoutDuration(String workoutName) {
+  int _getWorkoutDurationInSeconds(String workoutName) {
     return _workoutDurations[workoutName] ?? _getDefaultDuration(workoutName);
+  }
+
+  String _getDurationDisplay(String workoutName) {
+    final seconds = _getWorkoutDurationInSeconds(workoutName);
+    if (seconds <= 60) {
+      return '$seconds secs';
+    } else {
+      final minutes = (seconds / 60).ceil();
+      return '$minutes mins';
+    }
   }
 
   List<Map<String, dynamic>> _getEventsForDay(DateTime day) {
@@ -567,14 +761,12 @@ Return ONLY valid JSON in this exact format (no other text):
   Future<void> _markAsDoneForEvent(
       String calendarId, String workoutName, Timestamp timestamp) async {
     final uid = user!.uid;
-    // Update calendar
     await FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
         .collection('calendar')
         .doc(calendarId)
         .update({'completed': true});
-    // Update training
     final trainingQuery = await FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
@@ -739,7 +931,10 @@ Return ONLY valid JSON in this exact format (no other text):
   void _showWorkoutDetails(String workoutName, bool isFromSuggested) {
     final now = DateTime.now();
     DateTime selectedDate = now;
-    final duration = _getWorkoutDuration(workoutName);
+    final durationDisplay = _getDurationDisplay(workoutName);
+    final durationSeconds = _getWorkoutDurationInSeconds(workoutName);
+    final isWarmupOrStretch = durationSeconds <= 60;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -777,7 +972,7 @@ Return ONLY valid JSON in this exact format (no other text):
               SizedBox(height: 12),
               TextButton(
                 onPressed: () {
-                  _showVideoModal(context, workoutName, isFromSuggested);
+                  _showVideoModal(context, workoutName, true);
                 },
                 child: Text(
                   "Show Demo",
@@ -797,14 +992,23 @@ Return ONLY valid JSON in this exact format (no other text):
                   color: Colors.black,
                 ),
               ),
+              SizedBox(height: 4),
+              Text(
+                durationDisplay,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                  color: Colors.grey.shade600,
+                ),
+              ),
               if (isFromSuggested) ...[
-                SizedBox(height: 8),
+                SizedBox(height: 4),
                 Text(
-                  "$duration mins per session",
+                  isWarmupOrStretch ? 'Warm-up/Stretching' : 'Regular Workout',
                   style: GoogleFonts.poppins(
-                    fontSize: 14,
+                    fontSize: 12,
                     fontWeight: FontWeight.w400,
-                    color: Colors.grey.shade600,
+                    color: Colors.blue.shade300,
                   ),
                 ),
               ],
@@ -919,12 +1123,62 @@ Return ONLY valid JSON in this exact format (no other text):
                   ),
                   onPressed: () async {
                     final image = _getWorkoutImage(workoutName);
+
+                    final fitnessLevel =
+                        _userPlan['Select Your Fitness Level']?.toString() ??
+                            'Beginner';
+                    final fitnessLevelKey = fitnessLevel.split('\n').first;
+                    final weightStr = _userPlan['Weight']?.toString() ?? '70';
+                    final heightStr = _userPlan['Height']?.toString() ?? '170';
+                    final weight = int.tryParse(weightStr) ?? 70;
+                    final height = int.tryParse(heightStr) ?? 170;
+                    final bmi = weight / ((height / 100) * (height / 100));
+
+                    List<String> healthConditions = [];
+                    List<String> activityRestrictions = [];
+                    try {
+                      final userDoc = await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(user!.uid)
+                          .get();
+                      if (userDoc.exists) {
+                        healthConditions = List<String>.from(
+                            userDoc.data()?['healthConditions'] ?? []);
+                        activityRestrictions = List<String>.from(
+                            userDoc.data()?['activityRestrictions'] ?? []);
+                      }
+                    } catch (e) {
+                      debugPrint('Error loading health: $e');
+                    }
+
+                    final workoutConfig = WorkoutConfigService.getWorkoutConfig(
+                      fitnessLevel: fitnessLevelKey,
+                      bmi: bmi,
+                      healthConditions: healthConditions,
+                      activityRestrictions: activityRestrictions,
+                    );
+
+                    final durationSeconds =
+                        _getWorkoutDurationInSeconds(workoutName);
+                    final isWarmupOrStretch = durationSeconds <= 60;
+                    final durationMinutes = (durationSeconds / 60).ceil();
+
                     final data = {
                       'workout': workoutName,
                       'timestamp': Timestamp.fromDate(selectedDate),
                       'image': image,
                       'completed': false,
-                      'duration': duration,
+                      'duration': durationMinutes,
+                      'durationSeconds': durationSeconds,
+                      'isWarmupOrStretch': isWarmupOrStretch,
+                      // FIX: Warm-up/Stretching should always have 1 set, regular workouts use config
+                      'sets': isWarmupOrStretch ? 1 : workoutConfig['sets'],
+                      'reps': isWarmupOrStretch ? 1 : workoutConfig['reps'],
+                      'restSeconds':
+                          isWarmupOrStretch ? 0 : workoutConfig['restSeconds'],
+                      'setsCompleted': 0,
+                      'completedSets': [],
+                      'restIntervalsObserved': false,
                     };
                     final uid = user!.uid;
                     final calendarRef = FirebaseFirestore.instance
@@ -935,8 +1189,15 @@ Return ONLY valid JSON in this exact format (no other text):
                         .collection('users')
                         .doc(uid)
                         .collection('training');
-                    await calendarRef.add(data);
+                    final calendarDoc = await calendarRef.add(data);
                     await trainingRef.add(data);
+
+                    await NotificationService().scheduleWorkoutReminder(
+                      id: calendarDoc.id.hashCode % 1000,
+                      scheduledTime: selectedDate,
+                      workoutName: workoutName,
+                    );
+
                     Navigator.pop(context);
                     _initializeData();
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -1001,6 +1262,7 @@ Return ONLY valid JSON in this exact format (no other text):
                 itemCount: workouts.length,
                 itemBuilder: (context, index) {
                   final workout = workouts[index];
+                  final durationDisplay = _getDurationDisplay(workout);
                   return Padding(
                     padding: EdgeInsets.symmetric(vertical: 8),
                     child: Row(
@@ -1021,13 +1283,25 @@ Return ONLY valid JSON in this exact format (no other text):
                         ),
                         SizedBox(width: 16),
                         Expanded(
-                          child: Text(
-                            workout,
-                            style: GoogleFonts.poppins(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.black,
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                workout,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.black,
+                                ),
+                              ),
+                              Text(
+                                durationDisplay,
+                                style: GoogleFonts.poppins(
+                                  fontSize: 12,
+                                  color: Colors.grey.shade600,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         Row(
@@ -1073,7 +1347,10 @@ Return ONLY valid JSON in this exact format (no other text):
   void _showAddToCalendarModal(String workoutName) {
     final now = DateTime.now();
     DateTime selectedDate = now;
-    final duration = _getWorkoutDuration(workoutName);
+    final durationDisplay = _getDurationDisplay(workoutName);
+    final durationSeconds = _getWorkoutDurationInSeconds(workoutName);
+    final isWarmupOrStretch = durationSeconds <= 60;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1094,6 +1371,22 @@ Return ONLY valid JSON in this exact format (no other text):
                   fontSize: 24,
                   fontWeight: FontWeight.w600,
                   color: Colors.black,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                durationDisplay,
+                style: GoogleFonts.poppins(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              SizedBox(height: 4),
+              Text(
+                isWarmupOrStretch ? 'Warm-up/Stretching' : 'Regular Workout',
+                style: GoogleFonts.poppins(
+                  fontSize: 12,
+                  color: Colors.blue.shade300,
                 ),
               ),
               SizedBox(height: 12),
@@ -1207,12 +1500,62 @@ Return ONLY valid JSON in this exact format (no other text):
                   ),
                   onPressed: () async {
                     final image = _getWorkoutImage(workoutName);
+
+                    final fitnessLevel =
+                        _userPlan['Select Your Fitness Level']?.toString() ??
+                            'Beginner';
+                    final fitnessLevelKey = fitnessLevel.split('\n').first;
+                    final weightStr = _userPlan['Weight']?.toString() ?? '70';
+                    final heightStr = _userPlan['Height']?.toString() ?? '170';
+                    final weight = int.tryParse(weightStr) ?? 70;
+                    final height = int.tryParse(heightStr) ?? 170;
+                    final bmi = weight / ((height / 100) * (height / 100));
+
+                    List<String> healthConditions = [];
+                    List<String> activityRestrictions = [];
+                    try {
+                      final userDoc = await FirebaseFirestore.instance
+                          .collection('users')
+                          .doc(user!.uid)
+                          .get();
+                      if (userDoc.exists) {
+                        healthConditions = List<String>.from(
+                            userDoc.data()?['healthConditions'] ?? []);
+                        activityRestrictions = List<String>.from(
+                            userDoc.data()?['activityRestrictions'] ?? []);
+                      }
+                    } catch (e) {
+                      debugPrint('Error loading health: $e');
+                    }
+
+                    final workoutConfig = WorkoutConfigService.getWorkoutConfig(
+                      fitnessLevel: fitnessLevelKey,
+                      bmi: bmi,
+                      healthConditions: healthConditions,
+                      activityRestrictions: activityRestrictions,
+                    );
+
+                    final durationSeconds =
+                        _getWorkoutDurationInSeconds(workoutName);
+                    final isWarmupOrStretch = durationSeconds <= 60;
+                    final durationMinutes = (durationSeconds / 60).ceil();
+
                     final data = {
                       'workout': workoutName,
                       'timestamp': Timestamp.fromDate(selectedDate),
                       'image': image,
                       'completed': false,
-                      'duration': duration,
+                      'duration': durationMinutes,
+                      'durationSeconds': durationSeconds,
+                      'isWarmupOrStretch': isWarmupOrStretch,
+                      // FIX: Warm-up/Stretching should always have 1 set, regular workouts use config
+                      'sets': isWarmupOrStretch ? 1 : workoutConfig['sets'],
+                      'reps': isWarmupOrStretch ? 1 : workoutConfig['reps'],
+                      'restSeconds':
+                          isWarmupOrStretch ? 0 : workoutConfig['restSeconds'],
+                      'setsCompleted': 0,
+                      'completedSets': [],
+                      'restIntervalsObserved': false,
                     };
                     final uid = user!.uid;
                     final calendarRef = FirebaseFirestore.instance
@@ -1223,8 +1566,15 @@ Return ONLY valid JSON in this exact format (no other text):
                         .collection('users')
                         .doc(uid)
                         .collection('training');
-                    await calendarRef.add(data);
+                    final calendarDoc = await calendarRef.add(data);
                     await trainingRef.add(data);
+
+                    await NotificationService().scheduleWorkoutReminder(
+                      id: calendarDoc.id.hashCode % 1000,
+                      scheduledTime: selectedDate,
+                      workoutName: workoutName,
+                    );
+
                     Navigator.pop(context);
                     _initializeData();
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -1265,7 +1615,7 @@ Return ONLY valid JSON in this exact format (no other text):
   void _showVideoModal(
       BuildContext context, String workoutName, bool showDuration) {
     final String videoPath = _getWorkoutVideo(workoutName);
-    final int duration = _getWorkoutDuration(workoutName);
+    final durationDisplay = _getDurationDisplay(workoutName);
     showDialog(
       context: context,
       barrierDismissible: true,
@@ -1273,7 +1623,7 @@ Return ONLY valid JSON in this exact format (no other text):
         videoPath: videoPath,
         workoutName: workoutName,
         showDuration: showDuration,
-        duration: duration,
+        duration: durationDisplay,
       ),
     );
   }
@@ -1326,7 +1676,10 @@ Return ONLY valid JSON in this exact format (no other text):
   }
 
   Widget buildWorkoutChip(String title, bool isFromSuggested) {
-    final duration = _getWorkoutDuration(title);
+    final durationDisplay = _getDurationDisplay(title);
+    final durationSeconds = _getWorkoutDurationInSeconds(title);
+    final isWarmupOrStretch = durationSeconds <= 60;
+
     return GestureDetector(
       onTap: () => _showWorkoutDetails(title, isFromSuggested),
       child: Container(
@@ -1335,22 +1688,52 @@ Return ONLY valid JSON in this exact format (no other text):
         decoration: BoxDecoration(
           color: Colors.blue.shade50,
           borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isWarmupOrStretch
+                ? Colors.orange.shade300
+                : Colors.blue.shade300,
+            width: 2,
+          ),
         ),
         child: Row(
           children: [
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12),
-              child: Image.asset(
-                _getWorkoutImage(title),
-                width: 48,
-                height: 48,
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Icon(
-                  IconlyLight.activity,
-                  size: 48,
-                  color: Colors.black,
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.asset(
+                    _getWorkoutImage(title),
+                    width: 48,
+                    height: 48,
+                    fit: BoxFit.cover,
+                    errorBuilder: (context, error, stackTrace) => Icon(
+                      IconlyLight.activity,
+                      size: 48,
+                      color: Colors.black,
+                    ),
+                  ),
                 ),
-              ),
+                if (isWarmupOrStretch)
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: Container(
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        'Warm-up',
+                        style: GoogleFonts.poppins(
+                          fontSize: 8,
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
             SizedBox(width: 16),
             Expanded(
@@ -1365,13 +1748,25 @@ Return ONLY valid JSON in this exact format (no other text):
                       color: Colors.black,
                     ),
                   ),
+                  Text(
+                    durationDisplay,
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
                   if (isFromSuggested)
                     Text(
-                      "$duration mins per session",
+                      isWarmupOrStretch
+                          ? 'Stretch & Warm-up'
+                          : 'Suggested Workout',
                       style: GoogleFonts.poppins(
-                        fontSize: 12,
+                        fontSize: 10,
                         fontWeight: FontWeight.w400,
-                        color: Colors.grey.shade600,
+                        color: isWarmupOrStretch
+                            ? Colors.orange
+                            : Colors.blue.shade300,
                       ),
                     ),
                 ],
@@ -1385,18 +1780,15 @@ Return ONLY valid JSON in this exact format (no other text):
   }
 
   Widget buildBodyFocusSection() {
-    final workoutsByBody = {
-      'Abs': ['Plank', 'Crunches'],
-      'Arms': ['Dumbbell Curl', 'Bicep Curls'],
-      'Chest': [
-        'Push-Ups',
-        'Bench Press',
-        'Incline Push-Ups',
-        'Cable Flyes',
-        'Dumbbell Press'
-      ],
-      'Legs': ['Squats', 'Lunges'],
-    };
+    final workoutsByBody = _aiBodyFocus.isNotEmpty
+        ? _aiBodyFocus
+        : {
+            'Abs': ['Plank', 'Crunches'],
+            'Arms': ['Dumbbell Curl', 'Bicep Curls'],
+            'Chest': ['Push-Ups', 'Bench Press'],
+            'Legs': ['Squats', 'Lunges'],
+          };
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1412,7 +1804,7 @@ Return ONLY valid JSON in this exact format (no other text):
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: workoutsByBody.keys.map((category) {
+          children: ['Abs', 'Arms', 'Chest', 'Legs'].map((category) {
             final selected = _selectedBodyPart == category;
             return ChoiceChip(
               label: Text(
@@ -1435,16 +1827,22 @@ Return ONLY valid JSON in this exact format (no other text):
           }).toList(),
         ),
         SizedBox(height: 16),
-        ...workoutsByBody[_selectedBodyPart]!
-            .where((w) => w.toLowerCase().contains(_searchQuery))
-            .map((w) => buildWorkoutChip(w, false))
-            .toList(),
+        Column(
+          children: (workoutsByBody[_selectedBodyPart] ?? [])
+              .where((w) => w.toLowerCase().contains(_searchQuery))
+              .map((w) => buildWorkoutChip(w, false))
+              .toList(),
+        ),
       ],
     );
   }
 
   Widget buildStretchSection() {
-    final stretches = ['Warm-up', 'Jumping Jacks', 'Dumbbell Curl'];
+    final allStretches = [
+      ...(_aiWarmUp.isNotEmpty ? _aiWarmUp : ['Warm-up']),
+      ...(_aiStretching.isNotEmpty ? _aiStretching : ['Yoga']),
+    ].toSet().toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1457,10 +1855,26 @@ Return ONLY valid JSON in this exact format (no other text):
           ),
         ),
         SizedBox(height: 16),
-        ...stretches
-            .where((s) => s.toLowerCase().contains(_searchQuery))
-            .map((s) => buildWorkoutChip(s, false))
-            .toList(),
+        if (allStretches.isNotEmpty)
+          Column(
+            children: allStretches
+                .where((s) => s.toLowerCase().contains(_searchQuery))
+                .take(2)
+                .map((s) => buildWorkoutChip(s, false))
+                .toList(),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Text(
+              'No recommended warm-up or stretching exercises.',
+              style: GoogleFonts.poppins(
+                fontSize: 14,
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -1498,81 +1912,85 @@ Return ONLY valid JSON in this exact format (no other text):
           ),
         ),
         SizedBox(height: 16),
-        ...programs.map((program) {
-          if (!program['title'].toLowerCase().contains(_searchQuery))
-            return SizedBox.shrink();
-          return Container(
-            width: double.infinity,
-            margin: EdgeInsets.symmetric(vertical: 10),
-            padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-            decoration: BoxDecoration(
-              color: Colors.blue.shade50,
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        program['title'],
-                        style: GoogleFonts.poppins(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.black,
-                        ),
-                      ),
-                      SizedBox(height: 6),
-                      Text(
-                        program['desc'],
-                        style: GoogleFonts.poppins(
-                          fontSize: 14,
-                          color: Colors.black,
-                        ),
-                      ),
-                      SizedBox(height: 10),
-                      ElevatedButton(
-                        onPressed: () => _showProgramModal(
+        Column(
+          children: programs
+              .where((program) =>
+                  program['title'].toLowerCase().contains(_searchQuery))
+              .map((program) {
+            return Container(
+              width: double.infinity,
+              margin: EdgeInsets.symmetric(vertical: 10),
+              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade50,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: Colors.blue.shade200, width: 2),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
                           program['title'],
-                          program['workouts'],
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 10,
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.black,
                           ),
                         ),
-                        child: Text(
-                          "View more",
+                        SizedBox(height: 6),
+                        Text(
+                          program['desc'],
                           style: GoogleFonts.poppins(
                             fontSize: 14,
-                            color: Colors.blue,
+                            color: Colors.black,
                           ),
                         ),
-                      ),
-                    ],
+                        SizedBox(height: 10),
+                        ElevatedButton(
+                          onPressed: () => _showProgramModal(
+                            program['title'],
+                            program['workouts'],
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.white,
+                            elevation: 0,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
+                          ),
+                          child: Text(
+                            "View more",
+                            style: GoogleFonts.poppins(
+                              fontSize: 14,
+                              color: Colors.blue,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                SizedBox(width: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    program['image'],
-                    width: 100,
-                    height: 100,
-                    fit: BoxFit.contain,
+                  SizedBox(width: 10),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.asset(
+                      program['image'],
+                      width: 100,
+                      height: 100,
+                      fit: BoxFit.contain,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0);
-        }).toList(),
+                ],
+              ),
+            ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0);
+          }).toList(),
+        ),
       ],
     );
   }
@@ -1671,9 +2089,12 @@ Return ONLY valid JSON in this exact format (no other text):
             ),
           ).animate().fadeIn(duration: 300.ms)
         else
-          ..._suggestedWorkouts
-              .where((w) => w.toLowerCase().contains(_searchQuery))
-              .map((w) => buildWorkoutChip(w, true)),
+          Column(
+            children: _suggestedWorkouts
+                .where((w) => w.toLowerCase().contains(_searchQuery))
+                .map((w) => buildWorkoutChip(w, true))
+                .toList(),
+          ),
       ],
     );
   }
@@ -1942,7 +2363,7 @@ class VideoPlayerDialog extends StatefulWidget {
   final String videoPath;
   final String workoutName;
   final bool showDuration;
-  final int duration;
+  final String duration;
   const VideoPlayerDialog({
     super.key,
     required this.videoPath,
@@ -2148,7 +2569,7 @@ class _VideoPlayerDialogState extends State<VideoPlayerDialog> {
                               if (widget.showDuration) ...[
                                 const SizedBox(width: 8),
                                 Text(
-                                  "${widget.duration} mins per session",
+                                  widget.duration,
                                   style: GoogleFonts.poppins(
                                     fontSize: 14,
                                     fontWeight: FontWeight.w400,

@@ -40,13 +40,26 @@ class _ReportPageState extends State<ReportPage> {
       final ts = (data['timestamp'] as Timestamp).toDate();
       final day = DateTime(ts.year, ts.month, ts.day);
       map.putIfAbsent(day, () => []);
+      final completed = data['completed'] ?? false;
+      final setsCompleted = data['setsCompleted'] as int? ?? 0;
+      final totalSets = data['sets'] as int? ?? 3;
+      final restObserved = data['restIntervalsObserved'] as bool? ?? false;
+      
+      // Only count as truly completed if all sets done and rest intervals observed
+      final isFullyCompleted = completed && 
+          setsCompleted >= totalSets && 
+          restObserved;
+      
       map[day]!.add({
         'id': d.id,
         'title': data['workout'],
         'image': data['image'] ?? 'assets/images/workout.jpg',
         'timestamp': ts,
         'minutes': data['minutes'] ?? 0,
-        'completed': data['completed'] ?? false,
+        'completed': isFullyCompleted,
+        'setsCompleted': setsCompleted,
+        'totalSets': totalSets,
+        'restIntervalsObserved': restObserved,
       });
     }
     setState(() {
@@ -100,8 +113,14 @@ class _ReportPageState extends State<ReportPage> {
       final day = weekDays[i];
       final key = DateTime(day.year, day.month, day.day);
       final todaysWorkouts = _allWorkouts[key] ?? [];
-      final completed =
-          todaysWorkouts.where((w) => w['completed'] == true).length;
+      // Only count fully completed workouts (all sets + rest intervals)
+      final completed = todaysWorkouts.where((w) {
+        final isCompleted = w['completed'] == true;
+        final setsCompleted = w['setsCompleted'] as int? ?? 0;
+        final totalSets = w['totalSets'] as int? ?? 3;
+        final restObserved = w['restIntervalsObserved'] as bool? ?? false;
+        return isCompleted && setsCompleted >= totalSets && restObserved;
+      }).length;
       spots.add(FlSpot(i.toDouble(), completed.toDouble()));
     }
     // ======================================================
@@ -233,7 +252,13 @@ class _ReportPageState extends State<ReportPage> {
                     day = DateTime.now();
                   }
                   final workouts = _allWorkouts[day]
-                          ?.where((w) => w['completed'] == true)
+                          ?.where((w) {
+                            final isCompleted = w['completed'] == true;
+                            final setsCompleted = w['setsCompleted'] as int? ?? 0;
+                            final totalSets = w['totalSets'] as int? ?? 3;
+                            final restObserved = w['restIntervalsObserved'] as bool? ?? false;
+                            return isCompleted && setsCompleted >= totalSets && restObserved;
+                          })
                           .toList() ??
                       [];
                   final titles = workouts.map((w) => w['title']).join(', ');
@@ -486,9 +511,17 @@ class _ReportPageState extends State<ReportPage> {
   }
 
   Widget _buildExercises() {
-    final workouts = _allWorkouts[DateTime(_selectedWeekday.year,
+    final allWorkouts = _allWorkouts[DateTime(_selectedWeekday.year,
             _selectedWeekday.month, _selectedWeekday.day)] ??
         [];
+    // Filter to only fully completed workouts
+    final workouts = allWorkouts.where((w) {
+      final isCompleted = w['completed'] == true;
+      final setsCompleted = w['setsCompleted'] as int? ?? 0;
+      final totalSets = w['totalSets'] as int? ?? 3;
+      final restObserved = w['restIntervalsObserved'] as bool? ?? false;
+      return isCompleted && setsCompleted >= totalSets && restObserved;
+    }).toList();
     if (workouts.isEmpty) {
       return Center(
         child: Padding(
