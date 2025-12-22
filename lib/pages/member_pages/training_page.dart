@@ -162,226 +162,236 @@ class _TrainingPageState extends State<TrainingPage> {
           backgroundColor: Colors.white,
           elevation: 0,
           insetPadding:
-              const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
           shape:
               RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        workout['title'],
-                        style: GoogleFonts.poppins(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          workout['title'],
+                          style: GoogleFonts.poppins(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        timerCompleted = false;
-                        timerStarted = false;
-                        Navigator.pop(context);
-                      },
-                      child: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Icon(
-                      isToday ? Icons.today : Icons.calendar_today,
-                      color: isToday ? Colors.green : Colors.grey,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      isToday
-                          ? "Today"
-                          : "${workoutDate.day}/${workoutDate.month}/${workoutDate.year}",
-                      style: GoogleFonts.poppins(
-                        color: isToday ? Colors.green : Colors.grey.shade600,
-                        fontSize: 14,
-                        fontWeight:
-                            isToday ? FontWeight.w600 : FontWeight.normal,
+                      GestureDetector(
+                        onTap: () {
+                          timerCompleted = false;
+                          timerStarted = false;
+                          Navigator.pop(context);
+                        },
+                        child: const Icon(Icons.close),
                       ),
-                    ),
-                    const SizedBox(width: 16),
-                    const Icon(Icons.access_time, color: Colors.grey, size: 16),
-                    const SizedBox(width: 8),
-                    Text(
-                      isWarmupOrStretch
-                          ? "${(durationSeconds / 60).toStringAsFixed(1)} mins"
-                          : "$duration mins total",
-                      style: GoogleFonts.poppins(
-                        color: Colors.grey.shade600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-                // Display sets/reps info
-                if (!isWarmupOrStretch)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: Row(
-                      children: [
-                        _buildSetInfoItem(
-                          icon: Icons.repeat,
-                          text: "${workout['sets']} sets",
-                          color: Colors.blue.shade700,
-                        ),
-                        const SizedBox(width: 16),
-                        _buildSetInfoItem(
-                          icon: Icons.fitness_center,
-                          text: "${workout['reps']} reps",
-                          color: Colors.green.shade700,
-                        ),
-                        const SizedBox(width: 16),
-                        _buildSetInfoItem(
-                          icon: Icons.timer,
-                          text: "${workout['restSeconds']}s rest",
-                          color: Colors.orange.shade700,
-                        ),
-                      ],
-                    ),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: _buildSetInfoItem(
-                      icon: Icons.whatshot,
-                      text: "Warm-up/Stretching",
-                      color: Colors.orange.shade700,
-                      isWarmup: true,
-                    ),
+                    ],
                   ),
-                if (!isToday && !isCompleted)
-                  Container(
-                    margin: const EdgeInsets.only(top: 16),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: isPastDate
-                          ? Colors.red.shade50
-                          : Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: isPastDate
-                            ? Colors.red.shade200
-                            : Colors.orange.shade200,
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Icon(
+                        isToday ? Icons.today : Icons.calendar_today,
+                        color: isToday ? Colors.green : Colors.grey,
+                        size: 16,
                       ),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          isPastDate ? Icons.error_outline : Icons.info_outline,
-                          color: isPastDate
-                              ? Colors.red.shade700
-                              : Colors.orange.shade700,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            isPastDate
-                                ? 'This workout is from a past date and cannot be marked as done.'
-                                : 'This workout is scheduled for another day. You can only start workouts scheduled for today.',
-                            style: GoogleFonts.poppins(
-                              fontSize: 12,
-                              color: isPastDate
-                                  ? Colors.red.shade700
-                                  : Colors.orange.shade700,
-                            ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          isToday
+                              ? "Today"
+                              : "${workoutDate.day}/${workoutDate.month}/${workoutDate.year}",
+                          style: GoogleFonts.poppins(
+                            color:
+                                isToday ? Colors.green : Colors.grey.shade600,
+                            fontSize: 14,
+                            fontWeight:
+                                isToday ? FontWeight.w600 : FontWeight.normal,
                           ),
                         ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 24),
-                if (isToday && !isCompleted)
-                  _WorkoutTimerSection(
-                    workout: workout,
-                    onTimerComplete: () {
-                      setModalState(() {
-                        timerCompleted = true;
-                      });
-                    },
-                    onTimerStart: () {
-                      setModalState(() {
-                        timerStarted = true;
-                      });
-                    },
-                  )
-                else if (isCompleted)
-                  Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.green.shade300),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.check_circle,
-                            color: Colors.green.shade700, size: 24),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Workout Completed',
+                      ),
+                      const SizedBox(width: 16),
+                      const Icon(Icons.access_time,
+                          color: Colors.grey, size: 16),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          isWarmupOrStretch
+                              ? "${(durationSeconds / 60).toStringAsFixed(1)} mins"
+                              : "$duration mins total",
                           style: GoogleFonts.poppins(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                            color: Colors.grey.shade600,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Display sets/reps info
+                  if (!isWarmupOrStretch)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _buildSetInfoItem(
+                            icon: Icons.repeat,
+                            text: "${workout['sets']} sets",
+                            color: Colors.blue.shade700,
+                          ),
+                          _buildSetInfoItem(
+                            icon: Icons.fitness_center,
+                            text: "${workout['reps']} reps",
                             color: Colors.green.shade700,
                           ),
-                        ),
-                      ],
-                    ),
-                  ),
-                const SizedBox(height: 24),
-                if (isToday && !isCompleted)
-                  _WorkoutActionButtons(
-                    workout: workout,
-                    isPastDate: isPastDate,
-                    timerCompleted: timerCompleted,
-                    timerStarted: timerStarted,
-                    onMarkAsDone: () async {
-                      Navigator.pop(context);
-                      await _markAsDone(workout);
-                      _fetchAllWorkouts();
-                    },
-                  )
-                else if (!isToday)
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.grey.shade300,
-                        foregroundColor: Colors.grey.shade700,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
+                          _buildSetInfoItem(
+                            icon: Icons.timer,
+                            text: "${workout['restSeconds']}s rest",
+                            color: Colors.orange.shade700,
+                          ),
+                        ],
                       ),
-                      child: Text(
-                        'Not Available Today',
-                        style: GoogleFonts.poppins(
-                          fontWeight: FontWeight.w600,
-                        ),
+                    )
+                  else
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: _buildSetInfoItem(
+                        icon: Icons.whatshot,
+                        text: "Warm-up/Stretching",
+                        color: Colors.orange.shade700,
+                        isWarmup: true,
                       ),
                     ),
-                  ),
-              ],
+                  if (!isToday && !isCompleted)
+                    Container(
+                      margin: const EdgeInsets.only(top: 16),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isPastDate
+                            ? Colors.red.shade50
+                            : Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: isPastDate
+                              ? Colors.red.shade200
+                              : Colors.orange.shade200,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            isPastDate
+                                ? Icons.error_outline
+                                : Icons.info_outline,
+                            color: isPastDate
+                                ? Colors.red.shade700
+                                : Colors.orange.shade700,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              isPastDate
+                                  ? 'This workout is from a past date and cannot be marked as done.'
+                                  : 'This workout is scheduled for another day. You can only start workouts scheduled for today.',
+                              style: GoogleFonts.poppins(
+                                fontSize: 12,
+                                color: isPastDate
+                                    ? Colors.red.shade700
+                                    : Colors.orange.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                  if (isToday && !isCompleted)
+                    _WorkoutTimerSection(
+                      workout: workout,
+                      onTimerComplete: () {
+                        setModalState(() {
+                          timerCompleted = true;
+                        });
+                      },
+                      onTimerStart: () {
+                        setModalState(() {
+                          timerStarted = true;
+                        });
+                      },
+                    )
+                  else if (isCompleted)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.green.shade300),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.check_circle,
+                              color: Colors.green.shade700, size: 24),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Workout Completed',
+                            style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.green.shade700,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                  if (isToday && !isCompleted)
+                    _WorkoutActionButtons(
+                      workout: workout,
+                      isPastDate: isPastDate,
+                      timerCompleted: timerCompleted,
+                      timerStarted: timerStarted,
+                      onMarkAsDone: () async {
+                        Navigator.pop(context);
+                        await _markAsDone(workout);
+                        _fetchAllWorkouts();
+                      },
+                    )
+                  else if (!isToday)
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: null,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.shade300,
+                          foregroundColor: Colors.grey.shade700,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Text(
+                          'Not Available Today',
+                          style: GoogleFonts.poppins(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
         ),
@@ -407,12 +417,14 @@ class _TrainingPageState extends State<TrainingPage> {
         children: [
           Icon(icon, size: 16, color: color),
           const SizedBox(width: 6),
-          Text(
-            text,
-            style: GoogleFonts.poppins(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: color,
+          Flexible(
+            child: Text(
+              text,
+              style: GoogleFonts.poppins(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: color,
+              ),
             ),
           ),
         ],
@@ -428,20 +440,24 @@ class _TrainingPageState extends State<TrainingPage> {
         top: true,
         bottom: false,
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                "Workout Schedule",
-                style: GoogleFonts.poppins(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Text(
+                  "Workout Schedule",
+                  style: GoogleFonts.poppins(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.black,
+                  ),
                 ),
               ),
               const SizedBox(height: 16),
               Container(
+                margin: const EdgeInsets.symmetric(horizontal: 8),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(16),
@@ -449,13 +465,13 @@ class _TrainingPageState extends State<TrainingPage> {
                     BoxShadow(
                       color: Colors.grey.withOpacity(0.2),
                       blurRadius: 8,
-                      offset: Offset(0, 4),
+                      offset: const Offset(0, 4),
                     ),
                   ],
                 ),
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(context).size.height * 0.5,
+                    maxHeight: MediaQuery.of(context).size.height * 0.45,
                   ),
                   child: TableCalendar(
                     firstDay: DateTime.utc(2020, 1, 1),
@@ -483,7 +499,7 @@ class _TrainingPageState extends State<TrainingPage> {
                         color: Colors.blue.shade200,
                         shape: BoxShape.circle,
                         boxShadow: [
-                          BoxShadow(
+                          const BoxShadow(
                             color: Colors.black12,
                             blurRadius: 4,
                             offset: Offset(0, 2),
@@ -494,22 +510,22 @@ class _TrainingPageState extends State<TrainingPage> {
                         color: Colors.blue.shade300,
                         shape: BoxShape.circle,
                         boxShadow: [
-                          BoxShadow(
+                          const BoxShadow(
                             color: Colors.black12,
                             blurRadius: 4,
                             offset: Offset(0, 2),
                           ),
                         ],
                       ),
-                      defaultDecoration: BoxDecoration(
+                      defaultDecoration: const BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.white,
                       ),
-                      weekendDecoration: BoxDecoration(
+                      weekendDecoration: const BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.white,
                       ),
-                      outsideDecoration: BoxDecoration(
+                      outsideDecoration: const BoxDecoration(
                         shape: BoxShape.circle,
                         color: Colors.white,
                       ),
@@ -518,47 +534,47 @@ class _TrainingPageState extends State<TrainingPage> {
                         shape: BoxShape.circle,
                       ),
                       markersMaxCount: 3,
-                      cellMargin: EdgeInsets.all(6),
+                      cellMargin: const EdgeInsets.all(6),
                       defaultTextStyle: GoogleFonts.poppins(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w500,
                         color: Colors.black87,
                       ),
                       weekendTextStyle: GoogleFonts.poppins(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w500,
                         color: Colors.black87,
                       ),
                       outsideTextStyle: GoogleFonts.poppins(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w500,
                         color: Colors.grey.shade400,
                       ),
                       todayTextStyle: GoogleFonts.poppins(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
                       selectedTextStyle: GoogleFonts.poppins(
-                        fontSize: 14,
+                        fontSize: 13,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
                     ),
                     headerStyle: HeaderStyle(
                       titleTextStyle: GoogleFonts.poppins(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.w700,
                         color: Colors.white,
                       ),
                       formatButtonVisible: true,
                       formatButtonDecoration: BoxDecoration(
-                        gradient: LinearGradient(
+                        gradient: const LinearGradient(
                           colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
                         ),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
-                          BoxShadow(
+                          const BoxShadow(
                             color: Colors.black12,
                             blurRadius: 4,
                             offset: Offset(0, 2),
@@ -566,21 +582,21 @@ class _TrainingPageState extends State<TrainingPage> {
                         ],
                       ),
                       formatButtonTextStyle: GoogleFonts.poppins(
-                        fontSize: 14,
+                        fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: Colors.white,
                       ),
-                      leftChevronIcon: Icon(
+                      leftChevronIcon: const Icon(
                         Icons.chevron_left,
                         color: Colors.white,
-                        size: 28,
+                        size: 24,
                       ),
-                      rightChevronIcon: Icon(
+                      rightChevronIcon: const Icon(
                         Icons.chevron_right,
                         color: Colors.white,
-                        size: 28,
+                        size: 24,
                       ),
-                      decoration: BoxDecoration(
+                      decoration: const BoxDecoration(
                         gradient: LinearGradient(
                           colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
                         ),
@@ -588,6 +604,8 @@ class _TrainingPageState extends State<TrainingPage> {
                           top: Radius.circular(16),
                         ),
                       ),
+                      leftChevronPadding: const EdgeInsets.only(left: 8),
+                      rightChevronPadding: const EdgeInsets.only(right: 8),
                     ),
                     calendarBuilders: CalendarBuilders(
                       dowBuilder: (context, day) {
@@ -604,7 +622,7 @@ class _TrainingPageState extends State<TrainingPage> {
                           child: Text(
                             text,
                             style: GoogleFonts.poppins(
-                              fontSize: 12,
+                              fontSize: 11,
                               fontWeight: FontWeight.w600,
                               color: Colors.black54,
                             ),
@@ -619,9 +637,10 @@ class _TrainingPageState extends State<TrainingPage> {
                               children: List.generate(
                                 events.length > 3 ? 3 : events.length,
                                 (index) => Container(
-                                  margin: EdgeInsets.symmetric(horizontal: 1),
-                                  width: 6,
-                                  height: 6,
+                                  margin:
+                                      const EdgeInsets.symmetric(horizontal: 1),
+                                  width: 5,
+                                  height: 5,
                                   decoration: BoxDecoration(
                                     color: Colors.amber.shade600,
                                     shape: BoxShape.circle,
@@ -637,27 +656,35 @@ class _TrainingPageState extends State<TrainingPage> {
                   ),
                 ),
               ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.1, end: 0),
-              const SizedBox(height: 24),
-              Text(
-                _selectedDay.isBefore(DateTime(DateTime.now().year,
-                        DateTime.now().month, DateTime.now().day))
-                    ? "Past Workout"
-                    : DateUtils.isSameDay(_selectedDay, DateTime.now())
-                        ? "Today's Workout"
-                        : "Upcoming Workout",
-                style: GoogleFonts.poppins(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                DateFormat('EEEE, MMMM d, yyyy').format(_selectedDay),
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                  color: Colors.grey.shade800,
+              const SizedBox(height: 20),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _selectedDay.isBefore(DateTime(DateTime.now().year,
+                              DateTime.now().month, DateTime.now().day))
+                          ? "Past Workout"
+                          : DateUtils.isSameDay(_selectedDay, DateTime.now())
+                              ? "Today's Workout"
+                              : "Upcoming Workout",
+                      style: GoogleFonts.poppins(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      DateFormat('EEEE, MMMM d, yyyy').format(_selectedDay),
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.grey.shade800,
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 16),
@@ -680,8 +707,13 @@ class _TrainingPageState extends State<TrainingPage> {
                       ),
                     );
                   }
-                  return Column(
-                    children: workouts.map((workout) {
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    itemCount: workouts.length,
+                    itemBuilder: (context, index) {
+                      final workout = workouts[index];
                       final duration = workout['duration'] as int? ?? 3;
                       final isToday =
                           _isToday(workout['timestamp'] as DateTime);
@@ -695,7 +727,7 @@ class _TrainingPageState extends State<TrainingPage> {
                         onTap: () => _showWorkoutModal(workout),
                         child: Container(
                           margin: const EdgeInsets.symmetric(vertical: 8),
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
                             color: const Color(0xFFF7F8F8),
                             borderRadius: BorderRadius.circular(16),
@@ -709,6 +741,7 @@ class _TrainingPageState extends State<TrainingPage> {
                             ),
                           ),
                           child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Stack(
                                 children: [
@@ -716,13 +749,13 @@ class _TrainingPageState extends State<TrainingPage> {
                                     borderRadius: BorderRadius.circular(12),
                                     child: Image.asset(
                                       workout['image'],
-                                      width: 60,
-                                      height: 60,
+                                      width: 50,
+                                      height: 50,
                                       fit: BoxFit.cover,
                                       errorBuilder:
                                           (context, error, stackTrace) => Icon(
                                               Icons.fitness_center,
-                                              size: 60,
+                                              size: 50,
                                               color: Colors.grey.shade400),
                                     ),
                                   ),
@@ -750,7 +783,7 @@ class _TrainingPageState extends State<TrainingPage> {
                                     ),
                                 ],
                               ),
-                              const SizedBox(width: 16),
+                              const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -759,8 +792,10 @@ class _TrainingPageState extends State<TrainingPage> {
                                       workout['title'],
                                       style: GoogleFonts.poppins(
                                         fontWeight: FontWeight.bold,
-                                        fontSize: 16,
+                                        fontSize: 15,
                                       ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
@@ -769,38 +804,44 @@ class _TrainingPageState extends State<TrainingPage> {
                                           : "$duration mins total",
                                       style: GoogleFonts.poppins(
                                         color: Colors.grey,
-                                        fontSize: 14,
+                                        fontSize: 13,
                                       ),
                                     ),
                                     if (workout['sets'] != null &&
                                         !isWarmupOrStretch)
-                                      Row(
-                                        children: [
-                                          _buildMiniSetInfo(
-                                            icon: Icons.repeat,
-                                            text: "$sets sets",
-                                            color: Colors.blue.shade700,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          _buildMiniSetInfo(
-                                            icon: Icons.fitness_center,
-                                            text: "$reps reps",
-                                            color: Colors.green.shade700,
-                                          ),
-                                          const SizedBox(width: 8),
-                                          _buildMiniSetInfo(
-                                            icon: Icons.timer,
-                                            text:
-                                                "${workout['restSeconds']}s rest",
-                                            color: Colors.orange.shade700,
-                                          ),
-                                        ],
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Wrap(
+                                          spacing: 6,
+                                          runSpacing: 4,
+                                          children: [
+                                            _buildMiniSetInfo(
+                                              icon: Icons.repeat,
+                                              text: "$sets sets",
+                                              color: Colors.blue.shade700,
+                                            ),
+                                            _buildMiniSetInfo(
+                                              icon: Icons.fitness_center,
+                                              text: "$reps reps",
+                                              color: Colors.green.shade700,
+                                            ),
+                                            _buildMiniSetInfo(
+                                              icon: Icons.timer,
+                                              text:
+                                                  "${workout['restSeconds']}s rest",
+                                              color: Colors.orange.shade700,
+                                            ),
+                                          ],
+                                        ),
                                       )
                                     else if (isWarmupOrStretch)
-                                      _buildMiniSetInfo(
-                                        icon: Icons.whatshot,
-                                        text: "Warm-up/Stretching",
-                                        color: Colors.orange.shade700,
+                                      Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: _buildMiniSetInfo(
+                                          icon: Icons.whatshot,
+                                          text: "Warm-up/Stretching",
+                                          color: Colors.orange.shade700,
+                                        ),
                                       ),
                                   ],
                                 ),
@@ -811,22 +852,23 @@ class _TrainingPageState extends State<TrainingPage> {
                               else if (isToday)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 6),
+                                      horizontal: 10, vertical: 6),
                                   decoration: BoxDecoration(
                                     color: Colors.blue.shade100,
                                     borderRadius: BorderRadius.circular(20),
                                   ),
                                   child: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Icon(Icons.play_arrow,
                                           color: Colors.blue.shade800,
-                                          size: 16),
+                                          size: 14),
                                       const SizedBox(width: 4),
                                       Text(
                                         'Start',
                                         style: GoogleFonts.poppins(
                                           color: Colors.blue.shade800,
-                                          fontSize: 12,
+                                          fontSize: 11,
                                           fontWeight: FontWeight.w600,
                                         ),
                                       ),
@@ -840,10 +882,11 @@ class _TrainingPageState extends State<TrainingPage> {
                             .fadeIn(duration: 300.ms)
                             .slideX(begin: 0.1, end: 0),
                       );
-                    }).toList(),
+                    },
                   );
                 },
               ),
+              const SizedBox(height: 20),
             ],
           ),
         ),
@@ -857,7 +900,7 @@ class _TrainingPageState extends State<TrainingPage> {
     required Color color,
   }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
@@ -866,13 +909,17 @@ class _TrainingPageState extends State<TrainingPage> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 10, color: color),
-          const SizedBox(width: 2),
-          Text(
-            text,
-            style: GoogleFonts.poppins(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: color,
+          const SizedBox(width: 3),
+          Flexible(
+            child: Text(
+              text,
+              style: GoogleFonts.poppins(
+                fontSize: 9,
+                fontWeight: FontWeight.w500,
+                color: color,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],
@@ -906,12 +953,11 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
   int _restDuration = 15;
   late AnimationController _animationController;
   late Animation<double> _animation;
-  late final bool _isWarmupOrStretch; // Changed from final to late final
+  late final bool _isWarmupOrStretch;
 
   @override
   void initState() {
     super.initState();
-    // Initialize _isWarmupOrStretch in initState instead of constructor
     _isWarmupOrStretch = widget.workout['isWarmupOrStretch'] as bool? ?? false;
 
     _animationController = AnimationController(
@@ -931,7 +977,6 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
     final totalDuration = widget.workout['durationSeconds'] as int? ?? 180;
 
     if (_isWarmupOrStretch) {
-      // Warm-up/Stretching has only 1 segment (no rest)
       _workoutPartDuration = totalDuration;
     } else {
       _workoutPartDuration =
@@ -956,7 +1001,6 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
         _timer?.cancel();
 
         if (_isWarmupOrStretch) {
-          // Warm-up/Stretching has only 1 segment
           setState(() {
             _timerState = TimerState.completed;
           });
@@ -1018,9 +1062,9 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
     if (_currentSegment >= 5) return '🏁';
 
     if (_currentSegment % 2 == 0) {
-      return '💪'; // Work icon
+      return '💪';
     } else {
-      return '⏱️'; // Rest icon
+      return '⏱️';
     }
   }
 
@@ -1048,9 +1092,9 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
     if (_isWarmupOrStretch) return Colors.orange.shade700;
 
     if (_currentSegment % 2 == 0) {
-      return Colors.blue.shade700; // Set color
+      return Colors.blue.shade700;
     } else {
-      return Colors.orange.shade700; // Rest color
+      return Colors.orange.shade700;
     }
   }
 
@@ -1082,12 +1126,12 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
                 ? Colors.green
                 : _getSegmentColor(),
           ),
-          minHeight: 8,
+          minHeight: 6,
           borderRadius: BorderRadius.circular(4),
         ),
         const SizedBox(height: 12),
         Container(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: _timerState == TimerState.completed
                 ? Colors.green.shade50
@@ -1108,17 +1152,21 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
                   if (_timerState == TimerState.running)
                     Text(
                       _getSegmentIcon(),
-                      style: const TextStyle(fontSize: 24),
+                      style: const TextStyle(fontSize: 20),
                     ),
                   const SizedBox(width: 8),
-                  Text(
-                    _getSegmentName(),
-                    style: GoogleFonts.poppins(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w600,
-                      color: _timerState == TimerState.completed
-                          ? Colors.green.shade700
-                          : _getSegmentColor(),
+                  Flexible(
+                    child: Text(
+                      _getSegmentName(),
+                      style: GoogleFonts.poppins(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: _timerState == TimerState.completed
+                            ? Colors.green.shade700
+                            : _getSegmentColor(),
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 2,
                     ),
                   ),
                 ],
@@ -1130,16 +1178,17 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
                     Icon(
                       Icons.check_circle,
                       color: Colors.green.shade700,
-                      size: 64,
+                      size: 50,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Timer Complete!',
                       style: GoogleFonts.poppins(
-                        fontSize: 20,
+                        fontSize: 18,
                         fontWeight: FontWeight.bold,
                         color: Colors.green.shade700,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                   ],
                 )
@@ -1159,7 +1208,7 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
                       Text(
                         _formatTime(_timeRemaining),
                         style: GoogleFonts.poppins(
-                          fontSize: 48,
+                          fontSize: 40,
                           fontWeight: FontWeight.bold,
                           color: _timerState == TimerState.running
                               ? _getSegmentColor()
@@ -1176,7 +1225,7 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
                               if (_currentSegment % 2 == 0)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 4),
+                                      horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: Colors.blue.shade50,
                                     borderRadius: BorderRadius.circular(20),
@@ -1186,7 +1235,7 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
                                   child: Text(
                                     'WORK',
                                     style: GoogleFonts.poppins(
-                                      fontSize: 12,
+                                      fontSize: 11,
                                       fontWeight: FontWeight.bold,
                                       color: Colors.blue.shade700,
                                     ),
@@ -1195,7 +1244,7 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
                               else
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 4),
+                                      horizontal: 10, vertical: 4),
                                   decoration: BoxDecoration(
                                     color: Colors.orange.shade50,
                                     borderRadius: BorderRadius.circular(20),
@@ -1205,13 +1254,13 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
                                   child: Row(
                                     children: [
                                       Icon(Icons.timer,
-                                          size: 12,
+                                          size: 11,
                                           color: Colors.orange.shade700),
                                       const SizedBox(width: 4),
                                       Text(
                                         'REST',
                                         style: GoogleFonts.poppins(
-                                          fontSize: 12,
+                                          fontSize: 11,
                                           fontWeight: FontWeight.bold,
                                           color: Colors.orange.shade700,
                                         ),
@@ -1230,52 +1279,64 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   if (_timerState == TimerState.notStarted)
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 300),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 32, vertical: 12),
-                      decoration: BoxDecoration(
-                        gradient: const LinearGradient(
-                          colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
-                        ),
-                        borderRadius: BorderRadius.circular(30),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.blue.shade300.withOpacity(0.4),
-                            blurRadius: 8,
-                            offset: const Offset(0, 4),
-                          ),
-                        ],
+                    Container(
+                      constraints: const BoxConstraints(
+                        maxWidth: 200,
                       ),
-                      child: GestureDetector(
-                        onTap: _startTimer,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.play_arrow,
-                              color: Colors.white,
-                              size: 24,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'Start Timer',
-                              style: GoogleFonts.poppins(
-                                color: Colors.white,
-                                fontSize: 16,
-                                fontWeight: FontWeight.w600,
-                              ),
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 24, vertical: 12),
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF9DCEFF), Color(0xFF92A3FD)],
+                          ),
+                          borderRadius: BorderRadius.circular(30),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.blue.shade300.withOpacity(0.4),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
                             ),
                           ],
+                        ),
+                        child: GestureDetector(
+                          onTap: _startTimer,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                Icons.play_arrow,
+                                color: Colors.white,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Flexible(
+                                child: Text(
+                                  'Start Timer',
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.white,
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     )
                   else if (_timerState == TimerState.running)
-                    Row(
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 8,
+                      runSpacing: 8,
                       children: [
                         Container(
+                          constraints: const BoxConstraints(maxWidth: 180),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 24, vertical: 12),
+                              horizontal: 16, vertical: 10),
                           decoration: BoxDecoration(
                             color: _getSegmentColor().withOpacity(0.1),
                             borderRadius: BorderRadius.circular(30),
@@ -1283,28 +1344,32 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
                                 CupertinoIcons.time,
                                 color: _getSegmentColor(),
-                                size: 20,
+                                size: 18,
                               ),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Timer Running...',
-                                style: GoogleFonts.poppins(
-                                  color: _getSegmentColor(),
-                                  fontWeight: FontWeight.w600,
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  'Timer Running...',
+                                  style: GoogleFonts.poppins(
+                                    color: _getSegmentColor(),
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 13,
+                                  ),
+                                  maxLines: 1,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                        const SizedBox(width: 12),
                         GestureDetector(
                           onTap: _resetTimer,
                           child: Container(
-                            padding: const EdgeInsets.all(12),
+                            padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: Colors.red.shade50,
                               borderRadius: BorderRadius.circular(30),
@@ -1313,7 +1378,7 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
                             child: Icon(
                               Icons.replay,
                               color: Colors.red.shade700,
-                              size: 20,
+                              size: 18,
                             ),
                           ),
                         ),
@@ -1321,23 +1386,29 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
                     )
                   else if (_timerState == TimerState.completed)
                     Container(
+                      constraints: const BoxConstraints(maxWidth: 200),
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 24, vertical: 12),
+                          horizontal: 20, vertical: 10),
                       decoration: BoxDecoration(
                         color: Colors.green.shade100,
                         borderRadius: BorderRadius.circular(30),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.check_circle,
-                              color: Colors.green.shade700, size: 20),
+                              color: Colors.green.shade700, size: 18),
                           const SizedBox(width: 8),
-                          Text(
-                            'Timer Complete!',
-                            style: GoogleFonts.poppins(
-                              color: Colors.green.shade700,
-                              fontWeight: FontWeight.w600,
+                          Flexible(
+                            child: Text(
+                              'Timer Complete!',
+                              style: GoogleFonts.poppins(
+                                color: Colors.green.shade700,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
+                              maxLines: 1,
                             ),
                           ),
                         ],
@@ -1381,7 +1452,7 @@ class _WorkoutActionButtons extends StatelessWidget {
                   isPastDate || !timerCompleted ? Colors.grey.shade300 : null,
               foregroundColor: Colors.white,
               elevation: 0,
-              padding: const EdgeInsets.symmetric(vertical: 16),
+              padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(14),
               ),
@@ -1391,6 +1462,7 @@ class _WorkoutActionButtons extends StatelessWidget {
                     'Past Date - Cannot Complete',
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.w600,
+                      fontSize: 14,
                     ),
                   )
                 : !timerStarted
@@ -1399,6 +1471,7 @@ class _WorkoutActionButtons extends StatelessWidget {
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w600,
                           color: Colors.grey.shade700,
+                          fontSize: 14,
                         ),
                       )
                     : !timerCompleted
@@ -1407,6 +1480,7 @@ class _WorkoutActionButtons extends StatelessWidget {
                             style: GoogleFonts.poppins(
                               fontWeight: FontWeight.w600,
                               color: Colors.grey.shade700,
+                              fontSize: 14,
                             ),
                           )
                         : Ink(
@@ -1419,12 +1493,13 @@ class _WorkoutActionButtons extends StatelessWidget {
                             ),
                             child: Container(
                               alignment: Alignment.center,
-                              constraints: const BoxConstraints(minHeight: 50),
+                              constraints: const BoxConstraints(minHeight: 45),
                               child: Text(
                                 'Mark as Done',
                                 style: GoogleFonts.poppins(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,
+                                  fontSize: 14,
                                 ),
                               ),
                             ),
@@ -1439,7 +1514,7 @@ class _WorkoutActionButtons extends StatelessWidget {
                   ? 'Complete the timer first, then mark as done'
                   : 'Click "Start Timer" to begin',
               style: GoogleFonts.poppins(
-                fontSize: 12,
+                fontSize: 11,
                 color: timerStarted
                     ? Colors.orange.shade600
                     : Colors.blue.shade600,
