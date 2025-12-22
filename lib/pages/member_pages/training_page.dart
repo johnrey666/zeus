@@ -251,16 +251,6 @@ class _TrainingPageState extends State<TrainingPage>
                             text: "${workout['sets']} sets",
                             color: Colors.blue.shade700,
                           ),
-                          _buildSetInfoItem(
-                            icon: Icons.fitness_center,
-                            text: "${workout['reps']} reps",
-                            color: Colors.green.shade700,
-                          ),
-                          _buildSetInfoItem(
-                            icon: Icons.timer,
-                            text: "${workout['restSeconds']}s rest",
-                            color: Colors.orange.shade700,
-                          ),
                         ],
                       ),
                     )
@@ -723,6 +713,7 @@ class _TrainingPageState extends State<TrainingPage>
                       final isWarmupOrStretch =
                           workout['isWarmupOrStretch'] == true;
                       final sets = workout['sets'] as int? ?? 3;
+                      // ignore: unused_local_variable
                       final reps = workout['reps'] as int? ?? 10;
 
                       return GestureDetector(
@@ -822,17 +813,7 @@ class _TrainingPageState extends State<TrainingPage>
                                               text: "$sets sets",
                                               color: Colors.blue.shade700,
                                             ),
-                                            _buildMiniSetInfo(
-                                              icon: Icons.fitness_center,
-                                              text: "$reps reps",
-                                              color: Colors.green.shade700,
-                                            ),
-                                            _buildMiniSetInfo(
-                                              icon: Icons.timer,
-                                              text:
-                                                  "${workout['restSeconds']}s rest",
-                                              color: Colors.orange.shade700,
-                                            ),
+                              
                                           ],
                                         ),
                                       )

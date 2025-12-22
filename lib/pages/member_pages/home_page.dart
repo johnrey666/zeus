@@ -121,13 +121,78 @@ class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
     return hasChanged;
   }
 
-  Future<void> reloadAISuggestions() async {
-    debugPrint('Manually reloading AI suggestions...');
-    // First reload the user plan to get latest data
-    await _loadUserPlan();
+  Future<void> reloadAISuggestions({bool forceRegenerate = false}) async {
+    debugPrint('Checking if AI suggestions need reload...');
 
-    // Always regenerate when manually reloading
-    await _loadAISuggestions(forceRegenerate: true);
+    // Check if user data has actually changed
+    if (!forceRegenerate && !_hasUserDataChanged()) {
+      debugPrint('User data unchanged, skipping reload');
+
+      // If the user is manually reloading but data hasn't changed,
+      // show a message that it's up to date
+      if (forceRegenerate) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'Workouts are already up to date with your current profile!'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+      return;
+    }
+
+    debugPrint('User data changed, regenerating AI suggestions...');
+
+    if (mounted) {
+      setState(() {
+        _isLoadingAISuggestions = true;
+      });
+    }
+
+    try {
+      // First reload the user plan to get latest data
+      await _loadUserPlan();
+
+      // Generate new AI suggestions
+      final aiData = await _generateAIDataCombined();
+
+      if (mounted) {
+        setState(() {
+          _suggestedWorkouts = aiData['workouts'] as List<String>;
+          _workoutDurations = aiData['durations'] as Map<String, int>;
+          _aiWarmUp = List<String>.from(aiData['warmUp'] ?? []);
+          _aiStretching = List<String>.from(aiData['stretching'] ?? []);
+          _aiBodyFocus =
+              Map<String, List<String>>.from(aiData['bodyFocus'] ?? {});
+          _isLoadingAISuggestions = false;
+          _hasLoadedInitialAISuggestions = true;
+        });
+
+        // Save to cache with hash
+        final currentHash = _computeInputHash();
+        _cachedInputHash = currentHash; // Update cached hash
+        await _saveAISuggestionsToFirestore(
+          _suggestedWorkouts,
+          _workoutDurations,
+          currentHash,
+        );
+
+        // Show success message
+        if (mounted) {
+          _showWorkoutUpdatedMessage();
+        }
+      }
+    } catch (e) {
+      debugPrint('Error reloading AI suggestions: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingAISuggestions = false;
+        });
+      }
+    }
   }
 
   void _showApiKeyError() {
@@ -593,14 +658,20 @@ User Profile:
 - BMI Category: $bmiCategory (BMI: ${bmi.toStringAsFixed(1)}, Weight: $weight kg, Height: $height cm)
 $healthInfo$restrictionsInfo
 
+IMPORTANT: The body focus exercises should be adjusted based on the BMI category:
+- Underweight (BMI < 18.5): Focus on strength-building exercises for all muscle groups
+- Normal (BMI 18.5-24.9): Balanced workout with cardio and strength for all muscle groups
+- Overweight (BMI 25-29.9): Higher cardio focus, lower-impact strength exercises, focus on full-body movements
+- Obese (BMI ≥ 30): Low-impact exercises, focus on mobility and core strength, avoid high-impact exercises
+
 Generate a COMPLETE workout regimen including:
 1. Warm-up protocols (exactly 2 exercises, 30-60 seconds each)
 2. Primary exercises (3-4 exercises, 2-5 minutes each)
 3. Body focus routines categorized by muscle groups:
-   - Abs: exercises targeting abdominal muscles
-   - Arms: exercises targeting arms
-   - Chest: exercises targeting chest
-   - Legs: exercises targeting legs
+   - Abs: exercises targeting abdominal muscles (adjusted for BMI category)
+   - Arms: exercises targeting arms (adjusted for BMI category)
+   - Chest: exercises targeting chest (adjusted for BMI category)
+   - Legs: exercises targeting legs (adjusted for BMI category)
 4. Stretching sequences (exactly 2 exercises, 30-60 seconds each)
 
 Available workouts: $availableWorkouts
@@ -759,6 +830,7 @@ Return ONLY valid JSON in this exact format:
 
       debugPrint('Final workout regimen with config: $workoutConfig');
       debugPrint('Body Focus by Category: $bodyFocusByCategory');
+      debugPrint('BMI Category: $bmiCategory');
       _isAISuggestionFallback = false;
       return {
         'workouts': suggestions,
@@ -840,6 +912,27 @@ Return ONLY valid JSON in this exact format:
     for (var doc in trainingQuery.docs) {
       await doc.reference.update({'completed': true});
     }
+  }
+
+  void _showWorkoutUpdatedMessage() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white),
+            SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Workout suggestions updated based on your new BMI!',
+                style: GoogleFonts.poppins(),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 3),
+      ),
+    );
   }
 
   void _showScheduledWorkoutsModal(
@@ -1890,12 +1983,35 @@ Return ONLY valid JSON in this exact format:
           }).toList(),
         ),
         SizedBox(height: 16),
-        Column(
-          children: (workoutsByBody[_selectedBodyPart] ?? [])
-              .where((w) => w.toLowerCase().contains(_searchQuery))
-              .map((w) => buildWorkoutChip(w, false))
-              .toList(),
-        ),
+        // Show loader for Body Focus section when AI is loading
+        if (_isLoadingAISuggestions && _aiBodyFocus.isEmpty)
+          Center(
+            child: Container(
+              padding: EdgeInsets.all(40),
+              child: Column(
+                children: [
+                  CircularProgressIndicator(
+                    color: Colors.blue.shade300,
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    "Updating body focus exercises...",
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ).animate().fadeIn(duration: 300.ms)
+        else
+          Column(
+            children: (workoutsByBody[_selectedBodyPart] ?? [])
+                .where((w) => w.toLowerCase().contains(_searchQuery))
+                .map((w) => buildWorkoutChip(w, false))
+                .toList(),
+          ),
       ],
     );
   }
@@ -1918,7 +2034,30 @@ Return ONLY valid JSON in this exact format:
           ),
         ),
         SizedBox(height: 16),
-        if (allStretches.isNotEmpty)
+        if (_isLoadingAISuggestions &&
+            _aiWarmUp.isEmpty &&
+            _aiStretching.isEmpty)
+          Center(
+            child: Container(
+              padding: EdgeInsets.all(40),
+              child: Column(
+                children: [
+                  CircularProgressIndicator(
+                    color: Colors.blue.shade300,
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    "Updating warm-up exercises...",
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.grey.shade600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ).animate().fadeIn(duration: 300.ms)
+        else if (allStretches.isNotEmpty)
           Column(
             children: allStretches
                 .where((s) => s.toLowerCase().contains(_searchQuery))
@@ -2121,34 +2260,16 @@ Return ONLY valid JSON in this exact format:
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                "Suggested Workout",
-                style: GoogleFonts.poppins(
-                  fontSize: 22,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.black,
-                ),
-              ),
-            ),
-            IconButton(
-              icon: Icon(Icons.refresh, color: Colors.blue),
-              onPressed: () async {
-                await reloadAISuggestions();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('Refreshing AI suggestions...'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
-            ),
-          ],
+        Text(
+          "Suggested Workout",
+          style: GoogleFonts.poppins(
+            fontSize: 22,
+            fontWeight: FontWeight.w600,
+            color: Colors.black,
+          ),
         ),
         SizedBox(height: 16),
-        if (_isLoadingAISuggestions && _suggestedWorkouts.isEmpty)
+        if (_isLoadingAISuggestions)
           Center(
             child: Container(
               padding: EdgeInsets.all(40),
@@ -2159,10 +2280,19 @@ Return ONLY valid JSON in this exact format:
                   ),
                   SizedBox(height: 16),
                   Text(
-                    "Loading personalized workouts...",
+                    "Updating personalized workouts...",
                     style: GoogleFonts.poppins(
                       fontSize: 14,
                       color: Colors.grey.shade600,
+                    ),
+                  ),
+                  SizedBox(height: 8),
+                  Text(
+                    "Adjusting for your new BMI...",
+                    style: GoogleFonts.poppins(
+                      fontSize: 12,
+                      color: Colors.blue.shade300,
+                      fontStyle: FontStyle.italic,
                     ),
                   ),
                 ],

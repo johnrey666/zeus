@@ -11,8 +11,9 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.6
   firebase_core: ^2.27.0
-  firebase_auth: ^4.17.3
-  cloud_firestore: ^4.17.5
+  firebase_auth: ^4.10.1  # Downgraded; compatible with core ^2.24.0–^2.27.x
+  firebase_messaging: ^14.7.10  # Compatible; pub suggested ~14.9.x but 14.7.10 is stable for your core
+  cloud_firestore: ^4.8.1  # Downgraded; compatible with core ^2.24.0–^2.27.x
   image_picker: ^1.0.4
   fl_chart: ^0.63.0
   table_calendar: ^3.0.10
@@ -35,6 +36,7 @@ dependencies:
   timezone: ^0.9.4
   permission_handler: ^11.3.1
   lottie: ^2.7.0
+
 
 dev_dependencies:
   flutter_test:

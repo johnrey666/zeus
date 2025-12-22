@@ -1,4 +1,5 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; // Add this import
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:permission_handler/permission_handler.dart';
@@ -11,6 +12,7 @@ class NotificationService {
 
   final FlutterLocalNotificationsPlugin _notifications =
       FlutterLocalNotificationsPlugin();
+  final FirebaseMessaging _messaging = FirebaseMessaging.instance; // Add this
   bool _initialized = false;
 
   // Stream for notification clicks
@@ -42,7 +44,8 @@ class NotificationService {
 
     await _notifications.initialize(
       initSettings,
-      onDidReceiveNotificationResponse: _onNotificationTapped,
+      onDidReceiveNotificationResponse:
+          _onLocalNotificationTapped, // Updated name for clarity
     );
 
     // Request permissions
@@ -51,8 +54,73 @@ class NotificationService {
     // Create notification channels
     await _createNotificationChannels();
 
+    // FCM setup
+    await _setupFCM(); // Add this
+
     _initialized = true;
     print('Notification service initialized successfully');
+  }
+
+  Future<void> _setupFCM() async {
+    // Handle foreground messages
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      print('FCM foreground message: ${message.notification?.title}');
+      _showLocalFromFCM(message);
+    });
+
+    // Handle background/terminated messages
+    FirebaseMessaging.onMessageOpenedApp.listen((RemoteMessage message) {
+      print('FCM opened app: ${message.data}');
+      _handleNotificationTap(message.data['payload'] ?? '');
+    });
+
+    // Handle tap when app is terminated (iOS/Android)
+    RemoteMessage? initialMessage = await _messaging.getInitialMessage();
+    if (initialMessage != null) {
+      _handleNotificationTap(initialMessage.data['payload'] ?? '');
+    }
+  }
+
+  // Show FCM payload as local notification (foreground)
+  Future<void> _showLocalFromFCM(RemoteMessage message) async {
+    const androidDetails = AndroidNotificationDetails(
+      'fcm_channel', // New channel for FCM
+      'FCM Notifications',
+      channelDescription: 'Push notifications from server',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    final details = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _notifications.show(
+      message.hashCode, // Unique ID
+      message.notification?.title ?? 'Notification',
+      message.notification?.body ?? '',
+      details,
+      payload: message.data['payload'] ?? '',
+    );
+  }
+
+  void _handleNotificationTap(String payload) {
+    if (payload.isNotEmpty) {
+      _notificationClickStream.add(payload);
+    }
+  }
+
+  void _onLocalNotificationTapped(NotificationResponse response) {
+    print('Local notification tapped: ${response.payload}');
+    _handleNotificationTap(response.payload ?? ''); // Shared handler
   }
 
   Future<void> _requestPermissions() async {
@@ -60,9 +128,24 @@ class NotificationService {
     if (await Permission.notification.isDenied) {
       await Permission.notification.request();
     }
+    // FCM permissions already requested in main.dart
   }
 
   Future<void> _createNotificationChannels() async {
+    // FCM channel
+    const AndroidNotificationChannel fcmChannel = AndroidNotificationChannel(
+      'fcm_channel',
+      'FCM Notifications',
+      description: 'Push notifications from server',
+      importance: Importance.high,
+      playSound: true,
+    );
+
+    await _notifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(fcmChannel);
+
     // Create notification channels for Android
     const AndroidNotificationChannel workoutChannel =
         AndroidNotificationChannel(
@@ -103,13 +186,6 @@ class NotificationService {
         .resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(stepsChannel);
-  }
-
-  void _onNotificationTapped(NotificationResponse response) {
-    print('Notification tapped: ${response.payload}');
-    if (response.payload != null) {
-      _notificationClickStream.add(response.payload!);
-    }
   }
 
   // Show immediate notification
@@ -357,6 +433,18 @@ class NotificationService {
   // Cancel steps reminder
   Future<void> cancelStepsReminder() async {
     await _notifications.cancel(2000);
+  }
+
+  // New: Subscribe to a topic (e.g., for group pushes like "daily_reminders")
+  Future<void> subscribeToTopic(String topic) async {
+    await _messaging.subscribeToTopic(topic);
+    print('Subscribed to topic: $topic');
+  }
+
+  // New: Unsubscribe
+  Future<void> unsubscribeFromTopic(String topic) async {
+    await _messaging.unsubscribeFromTopic(topic);
+    print('Unsubscribed from topic: $topic');
   }
 
   // Clean up

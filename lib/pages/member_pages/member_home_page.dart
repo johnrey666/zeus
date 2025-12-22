@@ -63,7 +63,8 @@ class _MemberHomePageState extends State<MemberHomePage>
 
         // Force reload AI suggestions in the current HomePage
         if (_homeKey.currentState != null && mounted) {
-          await _homeKey.currentState!.reloadAISuggestions();
+          await _homeKey.currentState!
+              .reloadAISuggestions(forceRegenerate: true);
         }
       }
     } else if (v == 'logout') {
@@ -167,55 +168,75 @@ class _MemberHomePageState extends State<MemberHomePage>
                             fontWeight: FontWeight.w600,
                             color: Colors.black87)),
                     Row(children: [
-                      Stack(children: [
-                        IconButton(
-                          icon: const Icon(Icons.notifications_none_rounded,
-                              color: Colors.black87),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => MemberNotificationPage(
-                                    userId: user?.uid ?? ""),
-                              ),
+                      StreamBuilder<QuerySnapshot>(
+                        stream: FirebaseFirestore.instance
+                            .collection('announcements')
+                            .snapshots(),
+                        builder: (context, snapshot) {
+                          if (!snapshot.hasData || user == null) {
+                            return IconButton(
+                              icon: const Icon(Icons.notifications_none_rounded,
+                                  color: Colors.black87),
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => MemberNotificationPage(
+                                        userId: user?.uid ?? ""),
+                                  ),
+                                );
+                              },
                             );
-                          },
-                        ),
-                        Positioned(
-                          right: 8,
-                          top: 8,
-                          child: StreamBuilder<QuerySnapshot>(
-                            stream: FirebaseFirestore.instance
-                                .collection('announcements')
-                                .snapshots(),
-                            builder: (context, snapshot) {
-                              if (!snapshot.hasData || user == null) {
-                                return const SizedBox();
-                              }
+                          }
 
-                              final newNotifications =
-                                  snapshot.data!.docs.where((doc) {
-                                final data = doc.data() as Map<String, dynamic>;
-                                final seenBy = Map<String, dynamic>.from(
-                                    data['seenBy'] ?? {});
-                                final seenCount = seenBy[user!.uid] ?? 0;
-                                return seenCount < 2;
-                              });
+                          final newNotifications =
+                              snapshot.data!.docs.where((doc) {
+                            final data = doc.data() as Map<String, dynamic>;
+                            final seenBy =
+                                Map<String, dynamic>.from(data['seenBy'] ?? {});
+                            final seenCount = seenBy[user!.uid] ?? 0;
+                            return seenCount < 2;
+                          });
 
-                              return newNotifications.isNotEmpty
-                                  ? Container(
-                                      width: 10,
-                                      height: 10,
-                                      decoration: const BoxDecoration(
-                                        color: Colors.red,
-                                        shape: BoxShape.circle,
-                                      ),
-                                    )
-                                  : const SizedBox();
-                            },
-                          ),
-                        ),
-                      ]),
+                          final hasNewNotifications =
+                              newNotifications.isNotEmpty;
+
+                          return Stack(
+                            children: [
+                              IconButton(
+                                icon: Icon(
+                                  hasNewNotifications
+                                      ? Icons.notifications
+                                      : Icons.notifications_none_rounded,
+                                  color: Colors.black87,
+                                ),
+                                onPressed: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => MemberNotificationPage(
+                                          userId: user?.uid ?? ""),
+                                    ),
+                                  );
+                                },
+                              ),
+                              if (hasNewNotifications)
+                                Positioned(
+                                  right: 8,
+                                  top: 8,
+                                  child: Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.red,
+                                      shape: BoxShape.circle,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          );
+                        },
+                      ),
                       const SizedBox(width: 12),
                       PopupMenuButton<String>(
                         onSelected: _handleMenu,

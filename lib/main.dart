@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 // ignore: unused_import
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_messaging/firebase_messaging.dart'; // Add this import
 import 'package:zeus/pages/admin_pages/attendance_page.dart';
 import 'firebase_options.dart';
 import 'package:zeus/pages/select_profile_page.dart';
@@ -16,6 +17,19 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
+  // FCM init
+  FirebaseMessaging messaging = FirebaseMessaging.instance;
+  NotificationSettings settings = await messaging.requestPermission(
+    alert: true,
+    badge: true,
+    sound: true,
+    provisional: false,
+  );
+  print('User granted permission: ${settings.authorizationStatus}');
+
+  String? token = await messaging.getToken();
+  print('FCM Token: $token');
 
   // Initialize notification service
   try {
