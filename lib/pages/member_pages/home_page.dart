@@ -22,10 +22,14 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => HomePageState();
 }
 
-class HomePageState extends State<HomePage> {
+class HomePageState extends State<HomePage> with AutomaticKeepAliveClientMixin {
+  // Add this to preserve state
+  @override
+  bool get wantKeepAlive => true;
+
   final user = FirebaseAuth.instance.currentUser;
   bool _isLoading = true;
-  bool _isLoadingAISuggestions = true;
+  bool _isLoadingAISuggestions = false;
   Map<DateTime, List<Map<String, dynamic>>> _events = {};
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
@@ -41,7 +45,12 @@ class HomePageState extends State<HomePage> {
   bool _isAISuggestionFallback = false;
   late ScrollController _scrollController;
 
+  // Caching variables
   late final GenerativeModel _model;
+  String? _cachedInputHash;
+  bool _hasLoadedInitialAISuggestions = false;
+  bool _hasLoadedInitialData = false;
+  bool _isFirstLoad = true;
 
   final Map<String, List<String>> _programWorkouts = {
     'Fullbody Workout': [
@@ -61,7 +70,18 @@ class HomePageState extends State<HomePage> {
     super.initState();
     _scrollController = ScrollController();
     _selectedDay = _focusedDay;
-    _initializeApiKey();
+
+    // Only initialize API key on first load
+    if (!_hasLoadedInitialData) {
+      _initializeApiKey();
+    } else {
+      // If we already loaded data, just mark as not loading
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _initializeApiKey() async {
@@ -79,7 +99,7 @@ class HomePageState extends State<HomePage> {
           debugPrint('API key successfully loaded from Firestore');
           _model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
 
-          _initializeData();
+          await _initializeData();
           return;
         }
       }
@@ -90,12 +110,24 @@ class HomePageState extends State<HomePage> {
     }
   }
 
+  bool _hasUserDataChanged() {
+    final currentHash = _computeInputHash();
+    final hasChanged =
+        currentHash != _cachedInputHash && currentHash.isNotEmpty;
+    if (hasChanged) {
+      debugPrint(
+          'User data changed! Old hash: $_cachedInputHash, New hash: $currentHash');
+    }
+    return hasChanged;
+  }
+
   Future<void> reloadAISuggestions() async {
     debugPrint('Manually reloading AI suggestions...');
     // First reload the user plan to get latest data
     await _loadUserPlan();
-    // Then reload AI suggestions (will regenerate if hash changed)
-    await _loadAISuggestions();
+
+    // Always regenerate when manually reloading
+    await _loadAISuggestions(forceRegenerate: true);
   }
 
   void _showApiKeyError() {
@@ -112,7 +144,19 @@ class HomePageState extends State<HomePage> {
   }
 
   Future<void> _initializeData() async {
+    // If already loaded, just return
+    if (_hasLoadedInitialData && _hasLoadedInitialAISuggestions) {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+      return;
+    }
+
     final uid = user!.uid;
+
+    // Load calendar events
     final calendarSnapshot = await FirebaseFirestore.instance
         .collection('users')
         .doc(uid)
@@ -129,17 +173,18 @@ class HomePageState extends State<HomePage> {
       }
     }
 
-    // Load user plan FIRST
+    // Load user plan
     await _loadUserPlan();
 
     if (mounted) {
       setState(() {
         _events = tempEvents;
         _isLoading = false;
+        _hasLoadedInitialData = true;
       });
     }
 
-    // Then load AI suggestions (will use cached if available)
+    // Load AI suggestions (cached by default)
     await _loadAISuggestions();
   }
 
@@ -167,6 +212,30 @@ class HomePageState extends State<HomePage> {
     }
   }
 
+  Future<bool> _loadCachedAISuggestions() async {
+    final savedData = await _loadAISuggestionsFromFirestore();
+    if (savedData != null &&
+        savedData['hash'] == _cachedInputHash &&
+        _cachedInputHash != null) {
+      debugPrint('Loading cached AI suggestions');
+      if (mounted) {
+        setState(() {
+          _suggestedWorkouts = List<String>.from(savedData['workouts']);
+          _workoutDurations = Map<String, int>.from(savedData['durations']);
+          _aiWarmUp = List<String>.from(savedData['warmUp'] ?? []);
+          _aiStretching = List<String>.from(savedData['stretching'] ?? []);
+          _aiBodyFocus =
+              Map<String, List<String>>.from(savedData['bodyFocus'] ?? {});
+          _isLoadingAISuggestions = false;
+          _isAISuggestionFallback = false;
+          _hasLoadedInitialAISuggestions = true;
+        });
+      }
+      return true;
+    }
+    return false;
+  }
+
   Future<void> _saveAISuggestionsToFirestore(List<String> workouts,
       Map<String, int> durations, String? inputHash) async {
     if (user == null) return;
@@ -186,6 +255,8 @@ class HomePageState extends State<HomePage> {
           .collection('workout_plans')
           .doc(user!.uid)
           .set(saveData, SetOptions(merge: true));
+
+      debugPrint('AI suggestions saved to Firestore with hash: $inputHash');
     } catch (e) {
       debugPrint('Error saving AI suggestions: $e');
     }
@@ -235,7 +306,15 @@ class HomePageState extends State<HomePage> {
     }
   }
 
-  Future<void> _loadAISuggestions() async {
+  Future<void> _loadAISuggestions({bool forceRegenerate = false}) async {
+    // If we already have loaded suggestions and not forcing regenerate, just return
+    if (_hasLoadedInitialAISuggestions &&
+        !forceRegenerate &&
+        !_hasUserDataChanged()) {
+      debugPrint('Using existing AI suggestions (already loaded)');
+      return;
+    }
+
     if (mounted) {
       setState(() {
         _isLoadingAISuggestions = true;
@@ -246,71 +325,60 @@ class HomePageState extends State<HomePage> {
       final currentHash = _computeInputHash();
       debugPrint('Current user data hash: $currentHash');
 
-      // Try to load cached suggestions first
-      final savedData = await _loadAISuggestionsFromFirestore();
+      // Update cached hash
+      _cachedInputHash = currentHash;
 
-      if (savedData != null &&
-          savedData['hash'] == currentHash &&
-          currentHash.isNotEmpty) {
-        debugPrint('Using cached AI suggestions');
+      // If no user data, use fallback
+      if (currentHash.isEmpty) {
+        debugPrint('No user data available, using fallback workouts');
         if (mounted) {
           setState(() {
-            _suggestedWorkouts = List<String>.from(savedData['workouts']);
-            _workoutDurations = Map<String, int>.from(savedData['durations']);
-            _aiWarmUp = List<String>.from(savedData['warmUp'] ?? []);
-            _aiStretching = List<String>.from(savedData['stretching'] ?? []);
-            _aiBodyFocus =
-                Map<String, List<String>>.from(savedData['bodyFocus'] ?? {});
+            _suggestedWorkouts = ['Warm-up', 'Squats', 'Yoga', 'Plank'];
+            _workoutDurations = _getDefaultDurations();
+            _aiWarmUp = ['Warm-up'];
+            _aiStretching = ['Yoga'];
+            _aiBodyFocus = {
+              'Abs': ['Plank', 'Crunches'],
+              'Arms': ['Bicep Curls'],
+              'Chest': ['Push-Ups'],
+              'Legs': ['Squats'],
+            };
             _isLoadingAISuggestions = false;
-            _isAISuggestionFallback = false;
+            _isAISuggestionFallback = true;
+            _hasLoadedInitialAISuggestions = true;
           });
         }
         return;
       }
 
-      // Only regenerate if we have user data AND it's different from cached data
-      if (currentHash.isNotEmpty) {
-        debugPrint(
-            'User data changed or no cache available, generating new AI suggestions...');
-        final aiData = await _generateAIDataCombined();
-        if (mounted) {
-          setState(() {
-            _suggestedWorkouts = aiData['workouts'] as List<String>;
-            _workoutDurations = aiData['durations'] as Map<String, int>;
-            _aiWarmUp = List<String>.from(aiData['warmUp'] ?? []);
-            _aiStretching = List<String>.from(aiData['stretching'] ?? []);
-            _aiBodyFocus =
-                Map<String, List<String>>.from(aiData['bodyFocus'] ?? {});
-            _isLoadingAISuggestions = false;
-          });
-          // Save to cache with hash
-          await _saveAISuggestionsToFirestore(
-            _suggestedWorkouts,
-            _workoutDurations,
-            currentHash,
-          );
+      // Try to load cached suggestions first (if not forcing regenerate)
+      if (!forceRegenerate) {
+        final cachedLoaded = await _loadCachedAISuggestions();
+        if (cachedLoaded) {
+          return;
         }
-        return;
       }
 
-      // No user data - use fallback
-      debugPrint('No user data available, using fallback workouts');
+      // Only regenerate if:
+      // 1. We're forcing regeneration (manual reload)
+      // 2. User data has changed
+      // 3. No cached data available
+      debugPrint('Generating new AI suggestions...');
+      final aiData = await _generateAIDataCombined();
+
       if (mounted) {
         setState(() {
-          _suggestedWorkouts = ['Warm-up', 'Squats', 'Yoga', 'Plank'];
-          _workoutDurations = _getDefaultDurations();
-          _aiWarmUp = ['Warm-up'];
-          _aiStretching = ['Yoga'];
-          _aiBodyFocus = {
-            'Abs': ['Plank', 'Crunches'],
-            'Arms': ['Bicep Curls'],
-            'Chest': ['Push-Ups'],
-            'Legs': ['Squats'],
-          };
+          _suggestedWorkouts = aiData['workouts'] as List<String>;
+          _workoutDurations = aiData['durations'] as Map<String, int>;
+          _aiWarmUp = List<String>.from(aiData['warmUp'] ?? []);
+          _aiStretching = List<String>.from(aiData['stretching'] ?? []);
+          _aiBodyFocus =
+              Map<String, List<String>>.from(aiData['bodyFocus'] ?? {});
           _isLoadingAISuggestions = false;
-          _isAISuggestionFallback = true;
+          _hasLoadedInitialAISuggestions = true;
         });
-        // Save fallback to cache
+
+        // Save to cache with hash
         await _saveAISuggestionsToFirestore(
           _suggestedWorkouts,
           _workoutDurations,
@@ -333,6 +401,7 @@ class HomePageState extends State<HomePage> {
           };
           _isLoadingAISuggestions = false;
           _isAISuggestionFallback = true;
+          _hasLoadedInitialAISuggestions = true;
         });
       }
     }
@@ -361,33 +430,27 @@ class HomePageState extends State<HomePage> {
       return '';
     }
 
-    // Load health conditions from Firestore (if available)
-    // We need to load these synchronously or store them in userPlan
-    // For now, we'll use a simpler hash
-    final heightInMeters = height / 100;
-    final bmi = weight / (heightInMeters * heightInMeters);
+    // Create a simple hash based on height and weight only
+    // This ensures AI only regenerates when height/weight changes
+    return '${goal}_${fitnessLevel}_${activityLevel}_${weight}_${height}';
+  }
 
-    String bmiCategory = 'Normal';
-    if (bmi < 18.5) {
-      bmiCategory = 'Underweight';
-    } else if (bmi < 25) {
-      bmiCategory = 'Normal';
-    } else if (bmi < 30) {
-      bmiCategory = 'Overweight';
-    } else {
-      bmiCategory = 'Obese';
+  // Override to prevent unnecessary rebuilds
+  @override
+  void didUpdateWidget(covariant HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Do nothing - we want to keep our state
+  }
+
+  // Override to prevent unnecessary rebuilds
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Only check for updates if we've already loaded initial data
+    // and it's not the first load
+    if (_hasLoadedInitialAISuggestions && _isFirstLoad) {
+      _isFirstLoad = false;
     }
-
-    // Create a hash that changes only when key user data changes
-    return json.encode({
-      'goal': goal,
-      'fitnessLevel': fitnessLevel,
-      'activityLevel': activityLevel,
-      'weight': weight,
-      'height': height,
-      'bmiCategory': bmiCategory,
-      'bmi': bmi.toStringAsFixed(1),
-    });
   }
 
   Future<Map<String, dynamic>> _generateAIDataCombined() async {
@@ -2058,16 +2121,34 @@ Return ONLY valid JSON in this exact format:
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          "Suggested Workout",
-          style: GoogleFonts.poppins(
-            fontSize: 22,
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
-          ),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                "Suggested Workout",
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.black,
+                ),
+              ),
+            ),
+            IconButton(
+              icon: Icon(Icons.refresh, color: Colors.blue),
+              onPressed: () async {
+                await reloadAISuggestions();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Refreshing AI suggestions...'),
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              },
+            ),
+          ],
         ),
         SizedBox(height: 16),
-        if (_isLoadingAISuggestions)
+        if (_isLoadingAISuggestions && _suggestedWorkouts.isEmpty)
           Center(
             child: Container(
               padding: EdgeInsets.all(40),
@@ -2099,14 +2180,17 @@ Return ONLY valid JSON in this exact format:
     );
   }
 
+  // Add this to build method to ensure state is preserved
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Call super.build for AutomaticKeepAliveClientMixin
     return Scaffold(
       backgroundColor: Colors.white,
       body: _isLoading
           ? Center(
               child: CircularProgressIndicator(color: Colors.blue.shade300))
           : SingleChildScrollView(
+              key: PageStorageKey('homePageScroll'), // Add PageStorageKey
               controller: _scrollController,
               padding: EdgeInsets.all(24),
               child: Column(
@@ -2178,6 +2262,8 @@ Return ONLY valid JSON in this exact format:
                         ],
                       ),
                       child: TableCalendar(
+                        key: PageStorageKey(
+                            'homePageCalendar'), // Add key for calendar
                         focusedDay: _focusedDay,
                         firstDay: DateTime.utc(2020, 1, 1),
                         lastDay: DateTime.utc(2030, 12, 31),
@@ -2358,7 +2444,7 @@ Return ONLY valid JSON in this exact format:
   }
 }
 
-// VideoPlayerDialog class (moved to top-level)
+// VideoPlayerDialog class (keep this exactly as it was)
 class VideoPlayerDialog extends StatefulWidget {
   final String videoPath;
   final String workoutName;

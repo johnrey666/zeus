@@ -34,6 +34,7 @@ dependencies:
   flutter_local_notifications: ^17.2.2
   timezone: ^0.9.4
   permission_handler: ^11.3.1
+  lottie: ^2.7.0
 
 dev_dependencies:
   flutter_test:
@@ -61,6 +62,10 @@ flutter:
     - assets/videos/abworkout.mp4
     - assets/videos/workout.mp4
     - assets/videos/
+    - assets/animations/
+    - assets/animations/workout.mp4
+    - assets/animations/rest.mp4
+    - assets/animations/warmup.mp4
 
 flutter_launcher_icons:
   android: true

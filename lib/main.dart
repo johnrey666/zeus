@@ -2,36 +2,40 @@
 
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+// ignore: unused_import
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:zeus/pages/admin_pages/attendance_page.dart';
 import 'firebase_options.dart';
 import 'package:zeus/pages/select_profile_page.dart';
-// ignore: unused_import
-import 'package:intl/intl.dart';
 import 'package:zeus/services/notification_service.dart';
 
 void main() async {
-  WidgetsFlutterBinding
-      .ensureInitialized(); // 🔥 Required before Firebase initialization
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
-  // Initialize notification service (don't block app startup if it fails)
+
+  // Initialize notification service
   try {
     await NotificationService().initialize();
-    
+
     // Schedule daily reminders (non-blocking)
-    NotificationService().scheduleHydrationReminders().catchError((e) {
-      print('Error scheduling hydration reminders: $e');
-    });
-    NotificationService().scheduleStepsReminder().catchError((e) {
-      print('Error scheduling steps reminder: $e');
+    Future.microtask(() async {
+      try {
+        await NotificationService().scheduleHydrationReminders();
+        await NotificationService().scheduleStepsReminder();
+        print('Daily reminders scheduled successfully');
+      } catch (e) {
+        print('Error scheduling daily reminders: $e');
+      }
     });
   } catch (e) {
     print('Error initializing notifications: $e');
     // Continue app startup even if notifications fail
   }
-  
+
   runApp(const ZeusLandingPage());
 }
 

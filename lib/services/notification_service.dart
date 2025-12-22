@@ -2,6 +2,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
 import 'package:permission_handler/permission_handler.dart';
+import 'dart:async';
 
 class NotificationService {
   static final NotificationService _instance = NotificationService._internal();
@@ -12,13 +13,22 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   bool _initialized = false;
 
+  // Stream for notification clicks
+  final StreamController<String> _notificationClickStream =
+      StreamController<String>.broadcast();
+  Stream<String> get notificationClicks => _notificationClickStream.stream;
+
   Future<void> initialize() async {
     if (_initialized) return;
 
+    // Initialize timezone
     tz.initializeTimeZones();
-    tz.setLocalLocation(tz.getLocation('Asia/Manila')); // Adjust to your timezone
+    tz.setLocalLocation(
+        tz.getLocation('Asia/Manila')); // Adjust to your timezone
 
-    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    // Setup local notifications
+    const androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
       requestBadgePermission: true,
@@ -38,18 +48,106 @@ class NotificationService {
     // Request permissions
     await _requestPermissions();
 
+    // Create notification channels
+    await _createNotificationChannels();
+
     _initialized = true;
+    print('Notification service initialized successfully');
   }
 
   Future<void> _requestPermissions() async {
+    // Request local notification permission
     if (await Permission.notification.isDenied) {
       await Permission.notification.request();
     }
   }
 
+  Future<void> _createNotificationChannels() async {
+    // Create notification channels for Android
+    const AndroidNotificationChannel workoutChannel =
+        AndroidNotificationChannel(
+      'workout_reminders',
+      'Workout Reminders',
+      description: 'Notifications for scheduled workout reminders',
+      importance: Importance.high,
+      playSound: true,
+    );
+
+    const AndroidNotificationChannel hydrationChannel =
+        AndroidNotificationChannel(
+      'hydration_reminders',
+      'Hydration Reminders',
+      description: 'Reminders to drink water',
+      importance: Importance.defaultImportance,
+    );
+
+    const AndroidNotificationChannel stepsChannel = AndroidNotificationChannel(
+      'steps_reminders',
+      'Daily Steps Reminders',
+      description: 'Reminders to reach daily step goal',
+      importance: Importance.defaultImportance,
+    );
+
+    // Create channels
+    await _notifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(workoutChannel);
+
+    await _notifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(hydrationChannel);
+
+    await _notifications
+        .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin>()
+        ?.createNotificationChannel(stepsChannel);
+  }
+
   void _onNotificationTapped(NotificationResponse response) {
-    // Handle notification tap
     print('Notification tapped: ${response.payload}');
+    if (response.payload != null) {
+      _notificationClickStream.add(response.payload!);
+    }
+  }
+
+  // Show immediate notification
+  Future<void> showNotification({
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    await initialize();
+
+    const androidDetails = AndroidNotificationDetails(
+      'workout_reminders',
+      'Workout Reminders',
+      channelDescription: 'Notifications for scheduled workout reminders',
+      importance: Importance.high,
+      priority: Priority.high,
+      showWhen: true,
+      playSound: true,
+    );
+
+    const iosDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
+    final notificationDetails = NotificationDetails(
+      android: androidDetails,
+      iOS: iosDetails,
+    );
+
+    await _notifications.show(
+      0,
+      title,
+      body,
+      notificationDetails,
+      payload: payload,
+    );
   }
 
   // Schedule workout reminder
@@ -60,13 +158,14 @@ class NotificationService {
   }) async {
     await initialize();
 
-    final androidDetails = AndroidNotificationDetails(
+    const androidDetails = AndroidNotificationDetails(
       'workout_reminders',
       'Workout Reminders',
       channelDescription: 'Notifications for scheduled workout reminders',
       importance: Importance.high,
       priority: Priority.high,
       showWhen: true,
+      playSound: true,
     );
 
     const iosDetails = DarwinNotificationDetails(
@@ -90,11 +189,12 @@ class NotificationService {
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
         uiLocalNotificationDateInterpretation:
             UILocalNotificationDateInterpretation.absoluteTime,
-        payload: 'workout:$id',
+        payload: 'workout:$id:$workoutName',
       );
+      print('Workout reminder scheduled: $workoutName at $scheduledTime');
     } catch (e) {
       print('Error scheduling workout reminder: $e');
-      // Fallback to inexact scheduling if exact alarms are not permitted
+      // Fallback to inexact scheduling
       try {
         await _notifications.zonedSchedule(
           id,
@@ -105,7 +205,7 @@ class NotificationService {
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
           uiLocalNotificationDateInterpretation:
               UILocalNotificationDateInterpretation.absoluteTime,
-          payload: 'workout:$id',
+          payload: 'workout:$id:$workoutName',
         );
       } catch (e2) {
         print('Error scheduling workout reminder (fallback): $e2');
@@ -122,28 +222,28 @@ class NotificationService {
 
     // Schedule 4 reminders at specific times: 8am, 12pm, 3pm, 8pm
     final reminderTimes = [
-      DateTime(today.year, today.month, today.day, 8, 0),   // 8:00 AM
-      DateTime(today.year, today.month, today.day, 12, 0),  // 12:00 PM (noon)
-      DateTime(today.year, today.month, today.day, 15, 0),  // 3:00 PM
-      DateTime(today.year, today.month, today.day, 20, 0),  // 8:00 PM
+      DateTime(today.year, today.month, today.day, 8, 0), // 8:00 AM
+      DateTime(today.year, today.month, today.day, 12, 0), // 12:00 PM (noon)
+      DateTime(today.year, today.month, today.day, 15, 0), // 3:00 PM
+      DateTime(today.year, today.month, today.day, 20, 0), // 8:00 PM
     ];
-    
+
     final glassNumbers = [1, 2, 3, 4];
-    
+
     for (int i = 0; i < reminderTimes.length; i++) {
       final reminderTime = reminderTimes[i];
-      
+
       // If time has passed today, schedule for tomorrow
       final scheduledTime = reminderTime.isBefore(now)
           ? reminderTime.add(const Duration(days: 1))
           : reminderTime;
-      
+
       // Only schedule if time hasn't passed today (or schedule for tomorrow)
       if (scheduledTime.isAfter(now) || scheduledTime.day != now.day) {
         final androidDetails = AndroidNotificationDetails(
           'hydration_reminders',
           'Hydration Reminders',
-          channelDescription: 'Reminders to drink water (8 glasses daily)',
+          channelDescription: 'Reminders to drink water (4 glasses daily)',
           importance: Importance.defaultImportance,
           priority: Priority.defaultPriority,
         );
@@ -171,9 +271,9 @@ class NotificationService {
                 UILocalNotificationDateInterpretation.absoluteTime,
             payload: 'hydration:${glassNumbers[i]}',
           );
+          print('Hydration reminder scheduled for glass ${glassNumbers[i]}');
         } catch (e) {
           print('Error scheduling hydration reminder ${i + 1}: $e');
-          // Continue with other reminders even if one fails
         }
       }
     }
@@ -222,9 +322,9 @@ class NotificationService {
             UILocalNotificationDateInterpretation.absoluteTime,
         payload: 'steps:10000',
       );
+      print('Steps reminder scheduled');
     } catch (e) {
       print('Error scheduling steps reminder: $e');
-      // App continues even if notification scheduling fails
     }
   }
 
@@ -258,5 +358,9 @@ class NotificationService {
   Future<void> cancelStepsReminder() async {
     await _notifications.cancel(2000);
   }
-}
 
+  // Clean up
+  void dispose() {
+    _notificationClickStream.close();
+  }
+}

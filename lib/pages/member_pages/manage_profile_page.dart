@@ -21,7 +21,6 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
 
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
-  final _phoneController = TextEditingController();
   final _ageController = TextEditingController();
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
@@ -59,26 +58,38 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
       setState(() {
         _firstNameController.text = userData['firstName'] ?? '';
         _lastNameController.text = userData['lastName'] ?? '';
-        _phoneController.text = userData['phone'] ?? '';
-        _ageController.text = userData['age'] ?? '';
+        _ageController.text = userData['age']?.toString() ?? '';
         _selectedGender = userData['gender'];
         if ((userData['profileImagePath'] ?? '').isNotEmpty) {
           _profileImage = File(userData['profileImagePath']);
         }
-
-        _heightController.text = userData['height'] ?? '';
-        _weightController.text = userData['weight'] ?? '';
       });
     }
 
+    // Load height and weight from workout_plans (planning page data)
     if (planDoc.exists) {
       final planData = planDoc.data()!;
       setState(() {
+        // These come from PlanningPage
         if (planData.containsKey('Height')) {
-          _heightController.text = planData['Height'] ?? '';
+          _heightController.text = planData['Height']?.toString() ?? '';
         }
         if (planData.containsKey('Weight')) {
-          _weightController.text = planData['Weight'] ?? '';
+          _weightController.text = planData['Weight']?.toString() ?? '';
+        }
+      });
+    }
+
+    // Also check if height/weight exists in user document (for backward compatibility)
+    if (userDoc.exists) {
+      final userData = userDoc.data()!;
+      setState(() {
+        // Only set if not already set from workout_plans
+        if (_heightController.text.isEmpty && userData['height'] != null) {
+          _heightController.text = userData['height']?.toString() ?? '';
+        }
+        if (_weightController.text.isEmpty && userData['weight'] != null) {
+          _weightController.text = userData['weight']?.toString() ?? '';
         }
       });
     }
@@ -126,12 +137,12 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
     final userData = {
       'firstName': _firstNameController.text.trim(),
       'lastName': _lastNameController.text.trim(),
-      'phone': _phoneController.text.trim(),
       'age': _ageController.text.trim(),
       'gender': _selectedGender,
+      'profileImagePath': _profileImage?.path ?? '',
+      // Save height/weight to user document as well for consistency
       'height': _heightController.text.trim(),
       'weight': _weightController.text.trim(),
-      'profileImagePath': _profileImage?.path ?? '',
     };
 
     final planData = {
@@ -148,7 +159,7 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
           .doc(userId)
           .set(userData, SetOptions(merge: true));
 
-      // 🔹 Update workout_plans collection
+      // 🔹 Update workout_plans collection (from planning page)
       await FirebaseFirestore.instance
           .collection('workout_plans')
           .doc(userId)
@@ -321,21 +332,34 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _buildLabel("Phone Number"),
-                  _buildTextField(
-                      Icons.phone, 'Phone Number', _phoneController),
-                  const SizedBox(height: 16),
                   _buildLabel("Age"),
                   _buildTextField(Icons.cake, 'Age', _ageController),
                   const SizedBox(height: 16),
                   _buildLabel("Gender"),
                   const SizedBox(height: 6),
-                  Row(
-                    children: [
-                      Expanded(child: _buildGenderOption("Male")),
-                      const SizedBox(width: 0),
-                      Expanded(child: _buildGenderOption("Female")),
-                    ],
+                  // Gender display - non-editable
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.person_outline, color: Colors.grey),
+                        const SizedBox(width: 16),
+                        Text(
+                          _selectedGender ?? 'Not specified',
+                          style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              color: _selectedGender != null
+                                  ? Colors.black87
+                                  : Colors.grey),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(height: 20),
                   _buildLabel("Body Info"),
@@ -415,23 +439,6 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
       padding: const EdgeInsets.only(bottom: 6),
       child:
           Text(text, style: GoogleFonts.poppins(fontWeight: FontWeight.w600)),
-    );
-  }
-
-  Widget _buildGenderOption(String gender) {
-    return SizedBox(
-      height: 42,
-      child: ChoiceChip(
-        label: Text(gender, style: GoogleFonts.poppins()),
-        selected: _selectedGender == gender,
-        onSelected: (_) => setState(() => _selectedGender = gender),
-        selectedColor: Colors.blueAccent,
-        backgroundColor: Colors.grey[300],
-        labelStyle: TextStyle(
-          color: _selectedGender == gender ? Colors.white : Colors.black,
-        ),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
     );
   }
 

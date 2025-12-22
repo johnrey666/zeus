@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:lottie/lottie.dart';
 
 class TrainingPage extends StatefulWidget {
   final DateTime? initialDate;
@@ -17,7 +18,8 @@ class TrainingPage extends StatefulWidget {
   State<TrainingPage> createState() => _TrainingPageState();
 }
 
-class _TrainingPageState extends State<TrainingPage> {
+class _TrainingPageState extends State<TrainingPage>
+    with TickerProviderStateMixin {
   final user = FirebaseAuth.instance.currentUser;
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
@@ -944,7 +946,7 @@ class _WorkoutTimerSection extends StatefulWidget {
 }
 
 class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   TimerState _timerState = TimerState.notStarted;
   int _currentSegment = 0;
   int _timeRemaining = 0;
@@ -952,7 +954,9 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
   int _workoutPartDuration = 0;
   int _restDuration = 15;
   late AnimationController _animationController;
-  late Animation<double> _animation;
+  late AnimationController _workoutAnimationController;
+  late AnimationController _restAnimationController;
+  late AnimationController _warmupAnimationController;
   late final bool _isWarmupOrStretch;
 
   @override
@@ -964,12 +968,22 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
       vsync: this,
       duration: const Duration(seconds: 1),
     )..repeat(reverse: true);
-    _animation = Tween<double>(begin: 0.95, end: 1.05).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeInOut,
-      ),
-    );
+
+    _workoutAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+
+    _restAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+
+    _warmupAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+    )..repeat();
+
     _initializeTimer();
   }
 
@@ -992,36 +1006,52 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
       _timerState = TimerState.running;
     });
 
+    // Start animation when timer starts
+    if (_isWarmupOrStretch) {
+      _warmupAnimationController.repeat();
+    } else if (_currentSegment % 2 == 0) {
+      _workoutAnimationController.repeat(reverse: true);
+    } else {
+      _restAnimationController.repeat(reverse: true);
+    }
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_timeRemaining > 0) {
         setState(() {
           _timeRemaining--;
         });
       } else {
-        _timer?.cancel();
-
         if (_isWarmupOrStretch) {
+          _timer?.cancel();
           setState(() {
             _timerState = TimerState.completed;
+            _warmupAnimationController.stop();
           });
           widget.onTimerComplete();
-          _animationController.stop();
         } else if (_currentSegment < 5) {
           setState(() {
             _currentSegment++;
             if (_currentSegment % 2 == 0) {
               _timeRemaining = _workoutPartDuration;
+              _restAnimationController.stop();
+              _workoutAnimationController.repeat(reverse: true);
             } else {
               _timeRemaining = _restDuration;
+              _workoutAnimationController.stop();
+              _restAnimationController.repeat(reverse: true);
             }
           });
-          _startTimer();
+          // Continue the timer for the next segment
+          _timer?.cancel();
+          _startTimer(); // Restart timer for next segment
         } else {
+          _timer?.cancel();
           setState(() {
             _timerState = TimerState.completed;
+            _workoutAnimationController.stop();
+            _restAnimationController.stop();
           });
           widget.onTimerComplete();
-          _animationController.stop();
         }
       }
     });
@@ -1030,6 +1060,12 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
   void _resetTimer() {
     _timer?.cancel();
     _animationController.repeat(reverse: true);
+
+    // Stop all animations
+    _workoutAnimationController.stop();
+    _restAnimationController.stop();
+    _warmupAnimationController.stop();
+
     setState(() {
       _timerState = TimerState.notStarted;
       _currentSegment = 0;
@@ -1098,10 +1134,175 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
     }
   }
 
+  Widget _buildAnimation() {
+    if (_timerState == TimerState.completed) {
+      return Lottie.asset(
+        'assets/animations/workout_completed.json',
+        width: 120,
+        height: 120,
+        fit: BoxFit.contain,
+        errorBuilder: (context, error, stackTrace) => _buildFallbackAnimation(),
+      );
+    }
+
+    if (_timerState != TimerState.running) {
+      return _buildPlaceholderIcon();
+    }
+
+    if (_isWarmupOrStretch) {
+      return AnimatedBuilder(
+        animation: _warmupAnimationController,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: 1.0 + (_warmupAnimationController.value * 0.2),
+            child: child,
+          );
+        },
+        child: Container(
+          width: 120,
+          height: 120,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                Colors.orange.shade100,
+                Colors.orange.shade300,
+                Colors.orange.shade500,
+              ],
+            ),
+          ),
+          child: Center(
+            child: Icon(
+              Icons.whatshot,
+              size: 50,
+              color: Colors.orange.shade800,
+            ),
+          ),
+        ),
+      );
+    }
+
+    if (_currentSegment % 2 == 0) {
+      // Workout animation - muscle flexing
+      return AnimatedBuilder(
+        animation: _workoutAnimationController,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: 1.0 + (_workoutAnimationController.value * 0.1),
+            child: Transform.translate(
+              offset: Offset(0, -_workoutAnimationController.value * 5),
+              child: child,
+            ),
+          );
+        },
+        child: Container(
+          width: 120,
+          height: 120,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                Colors.blue.shade100,
+                Colors.blue.shade300,
+                Colors.blue.shade500,
+              ],
+            ),
+          ),
+          child: Center(
+            child: Icon(
+              Icons.fitness_center,
+              size: 50,
+              color: Colors.blue.shade800,
+            ),
+          ),
+        ),
+      );
+    } else {
+      // Rest animation
+      return AnimatedBuilder(
+        animation: _restAnimationController,
+        builder: (context, child) {
+          return Transform.scale(
+            scale: 1.0 + (_restAnimationController.value * 0.05),
+            child: child,
+          );
+        },
+        child: Container(
+          width: 120,
+          height: 120,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                Colors.green.shade100,
+                Colors.green.shade300,
+                Colors.green.shade500,
+              ],
+            ),
+          ),
+          child: Center(
+            child: Icon(
+              Icons.timer,
+              size: 50,
+              color: Colors.green.shade800,
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildPlaceholderIcon() {
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: _getSegmentColor().withOpacity(0.1),
+        border: Border.all(
+          color: _getSegmentColor().withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+      child: Center(
+        child: Icon(
+          _isWarmupOrStretch
+              ? Icons.whatshot
+              : _currentSegment % 2 == 0
+                  ? Icons.fitness_center
+                  : Icons.timer,
+          size: 50,
+          color: _getSegmentColor().withOpacity(0.5),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFallbackAnimation() {
+    return Container(
+      width: 120,
+      height: 120,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: _getSegmentColor().withOpacity(0.1),
+      ),
+      child: Center(
+        child: Icon(
+          Icons.fitness_center,
+          size: 50,
+          color: _getSegmentColor(),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _timer?.cancel();
     _animationController.dispose();
+    _workoutAnimationController.dispose();
+    _restAnimationController.dispose();
+    _warmupAnimationController.dispose();
     super.dispose();
   }
 
@@ -1146,13 +1347,29 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
           ),
           child: Column(
             children: [
+              // Animation Section
+              Container(
+                height: 140,
+                margin: const EdgeInsets.only(bottom: 16),
+                child: Center(
+                  child: _buildAnimation(),
+                ),
+              ),
+
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
+                  if (_timerState != TimerState.running &&
+                      _timerState != TimerState.completed)
+                    Icon(
+                      _isWarmupOrStretch ? Icons.fitness_center : Icons.timer,
+                      color: _getSegmentColor(),
+                      size: 24,
+                    ),
                   if (_timerState == TimerState.running)
                     Text(
                       _getSegmentIcon(),
-                      style: const TextStyle(fontSize: 20),
+                      style: const TextStyle(fontSize: 24),
                     ),
                   const SizedBox(width: 8),
                   Flexible(
@@ -1193,19 +1410,19 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
                   ],
                 )
               else
-                AnimatedBuilder(
-                  animation: _animationController,
-                  builder: (context, child) {
-                    return Transform.scale(
-                      scale: _timerState == TimerState.running
-                          ? _animation.value
-                          : 1.0,
-                      child: child,
-                    );
-                  },
-                  child: Column(
-                    children: [
-                      Text(
+                Column(
+                  children: [
+                    AnimatedBuilder(
+                      animation: _animationController,
+                      builder: (context, child) {
+                        return Transform.scale(
+                          scale: _timerState == TimerState.running
+                              ? _animationController.value * 0.1 + 0.95
+                              : 1.0,
+                          child: child,
+                        );
+                      },
+                      child: Text(
                         _formatTime(_timeRemaining),
                         style: GoogleFonts.poppins(
                           fontSize: 40,
@@ -1215,64 +1432,64 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
                               : _getSegmentColor().withOpacity(0.8),
                         ),
                       ),
-                      if (!_isWarmupOrStretch &&
-                          _timerState == TimerState.running)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (_currentSegment % 2 == 0)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade50,
-                                    borderRadius: BorderRadius.circular(20),
-                                    border:
-                                        Border.all(color: Colors.blue.shade200),
-                                  ),
-                                  child: Text(
-                                    'WORK',
-                                    style: GoogleFonts.poppins(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.blue.shade700,
-                                    ),
-                                  ),
-                                )
-                              else
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.orange.shade50,
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                        color: Colors.orange.shade200),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.timer,
-                                          size: 11,
-                                          color: Colors.orange.shade700),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'REST',
-                                        style: GoogleFonts.poppins(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.orange.shade700,
-                                        ),
-                                      ),
-                                    ],
+                    ),
+                    if (!_isWarmupOrStretch &&
+                        _timerState == TimerState.running)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            if (_currentSegment % 2 == 0)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.blue.shade50,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border:
+                                      Border.all(color: Colors.blue.shade200),
+                                ),
+                                child: Text(
+                                  'WORK',
+                                  style: GoogleFonts.poppins(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.blue.shade700,
                                   ),
                                 ),
-                            ],
-                          ),
+                              )
+                            else
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade50,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border:
+                                      Border.all(color: Colors.orange.shade200),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.timer,
+                                        size: 11,
+                                        color: Colors.orange.shade700),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'REST',
+                                      style: GoogleFonts.poppins(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.orange.shade700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
                         ),
-                    ],
-                  ),
+                      ),
+                  ],
                 ),
               const SizedBox(height: 16),
               Row(
