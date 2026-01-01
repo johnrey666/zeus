@@ -9,6 +9,8 @@ import 'package:table_calendar/table_calendar.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:lottie/lottie.dart';
+import 'package:video_player/video_player.dart';
+import 'package:chewie/chewie.dart';
 
 class TrainingPage extends StatefulWidget {
   final DateTime? initialDate;
@@ -129,6 +131,62 @@ class _TrainingPageState extends State<TrainingPage>
     for (var doc in calendarQuery.docs) {
       await doc.reference.update({'completed': true});
     }
+  }
+
+  Future<void> _deleteWorkout(Map<String, dynamic> workout) async {
+    final uid = user!.uid;
+    final trainingId = workout['id'];
+    final workoutTitle = workout['title'];
+    final workoutTimestamp = workout['timestamp'] as DateTime;
+
+    // Delete from training collection
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('training')
+        .doc(trainingId)
+        .delete();
+
+    // Delete from calendar collection
+    final calendarQuery = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(uid)
+        .collection('calendar')
+        .where('timestamp', isEqualTo: Timestamp.fromDate(workoutTimestamp))
+        .where('workout', isEqualTo: workoutTitle)
+        .get();
+
+    for (var doc in calendarQuery.docs) {
+      await doc.reference.delete();
+    }
+
+    // Refresh the workouts list
+    _fetchAllWorkouts();
+  }
+
+  String _getWorkoutVideo(String title) {
+    final lower = title.toLowerCase();
+    if (lower.contains('plank')) return 'assets/videos/plank.mp4';
+    if (lower.contains('crunch')) return 'assets/videos/crunches.mp4';
+    if (lower.contains('push-up') ||
+        lower.contains('push up') ||
+        lower.contains('incline push-ups')) return 'assets/videos/push_up.mp4';
+    if (lower.contains('bench')) return 'assets/videos/bench_press.mp4';
+    if (lower.contains('yoga')) return 'assets/videos/yoga.mp4';
+    if (lower.contains('cardio') ||
+        lower.contains('jump') ||
+        lower.contains('jumping') ||
+        lower.contains('jumping jack'))
+      return 'assets/videos/jumping_jacks.mp4';
+    if (lower.contains('squat')) return 'assets/videos/squat.mp4';
+    if (lower.contains('lunge')) return 'assets/videos/lunge.mp4';
+    if (lower.contains('bicep') || lower.contains('dumbbell curl'))
+      return 'assets/videos/bicep_curl.mp4';
+    if (lower.contains('cable')) return 'assets/videos/cable_flyes.mp4';
+    if (lower.contains('warm-up')) return 'assets/videos/warm_up.mp4';
+    if (lower.contains('dumbbell press'))
+      return 'assets/videos/dumbbell_press.mp4';
+    return 'assets/videos/dumbbell_press.mp4';
   }
 
   bool _isToday(DateTime date) {
@@ -321,9 +379,85 @@ class _TrainingPageState extends State<TrainingPage>
                           timerStarted = true;
                         });
                       },
-                    )
-                  else if (isCompleted)
+                    ),
+                  const SizedBox(height: 16),
+                  // Delete button
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text(
+                              'Delete Workout',
+                              style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            content: Text(
+                              'Are you sure you want to delete this workout?',
+                              style: GoogleFonts.poppins(),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, false),
+                                child: Text(
+                                  'Cancel',
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.grey.shade700,
+                                  ),
+                                ),
+                              ),
+                              TextButton(
+                                onPressed: () => Navigator.pop(context, true),
+                                child: Text(
+                                  'Delete',
+                                  style: GoogleFonts.poppins(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true) {
+                          Navigator.pop(context);
+                          await _deleteWorkout(workout);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Workout deleted successfully',
+                                  style: GoogleFonts.poppins(),
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          }
+                        }
+                      },
+                      icon: Icon(Icons.delete_outline, color: Colors.red),
+                      label: Text(
+                        'Delete Workout',
+                        style: GoogleFonts.poppins(
+                          color: Colors.red,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.red.shade300),
+                        padding: EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (isCompleted)
                     Container(
+                      margin: const EdgeInsets.only(top: 16),
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: Colors.green.shade50,
@@ -829,35 +963,100 @@ class _TrainingPageState extends State<TrainingPage>
                                   ],
                                 ),
                               ),
-                              if (workout['completed'])
-                                const Icon(Icons.check_circle,
-                                    color: Colors.green, size: 24)
-                              else if (isToday)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.blue.shade100,
-                                    borderRadius: BorderRadius.circular(20),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(Icons.play_arrow,
-                                          color: Colors.blue.shade800,
-                                          size: 14),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Start',
-                                        style: GoogleFonts.poppins(
-                                          color: Colors.blue.shade800,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  if (workout['completed'])
+                                    const Icon(Icons.check_circle,
+                                        color: Colors.green, size: 24)
+                                  else if (isToday)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 10, vertical: 6),
+                                      decoration: BoxDecoration(
+                                        color: Colors.blue.shade100,
+                                        borderRadius: BorderRadius.circular(20),
                                       ),
-                                    ],
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.play_arrow,
+                                              color: Colors.blue.shade800,
+                                              size: 14),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Start',
+                                            style: GoogleFonts.poppins(
+                                              color: Colors.blue.shade800,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  const SizedBox(width: 8),
+                                  IconButton(
+                                    icon: Icon(Icons.delete_outline,
+                                        color: Colors.red.shade400, size: 20),
+                                    onPressed: () async {
+                                      final confirm = await showDialog<bool>(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: Text(
+                                            'Delete Workout',
+                                            style: GoogleFonts.poppins(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          content: Text(
+                                            'Are you sure you want to delete this workout?',
+                                            style: GoogleFonts.poppins(),
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, false),
+                                              child: Text(
+                                                'Cancel',
+                                                style: GoogleFonts.poppins(
+                                                  color: Colors.grey.shade700,
+                                                ),
+                                              ),
+                                            ),
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context, true),
+                                              child: Text(
+                                                'Delete',
+                                                style: GoogleFonts.poppins(
+                                                  color: Colors.red,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                      if (confirm == true) {
+                                        await _deleteWorkout(workout);
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            SnackBar(
+                                              content: Text(
+                                                'Workout deleted successfully',
+                                                style: GoogleFonts.poppins(),
+                                              ),
+                                              backgroundColor: Colors.green,
+                                            ),
+                                          );
+                                        }
+                                      }
+                                    },
                                   ),
-                                ),
+                                ],
+                              ),
                             ],
                           ),
                         )
@@ -935,10 +1134,11 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
   int _workoutPartDuration = 0;
   int _restDuration = 15;
   late AnimationController _animationController;
-  late AnimationController _workoutAnimationController;
-  late AnimationController _restAnimationController;
-  late AnimationController _warmupAnimationController;
   late final bool _isWarmupOrStretch;
+  VideoPlayerController? _videoController;
+  ChewieController? _chewieController;
+  bool _isVideoLoading = true;
+  String? _videoError;
 
   @override
   void initState() {
@@ -950,22 +1150,93 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
       duration: const Duration(seconds: 1),
     )..repeat(reverse: true);
 
-    _workoutAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat(reverse: true);
-
-    _restAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
-
-    _warmupAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 2000),
-    )..repeat();
-
     _initializeTimer();
+    _loadWorkoutVideo();
+  }
+
+  Future<void> _loadWorkoutVideo() async {
+    final workoutTitle = widget.workout['title'] as String;
+    final videoPath = _getWorkoutVideo(workoutTitle);
+    
+    List<String> pathsToTry = [videoPath];
+    final fallbackPath = 'assets/videos/dumbbell_press.mp4';
+    if (videoPath != fallbackPath) {
+      pathsToTry.add(fallbackPath);
+    }
+
+    for (final path in pathsToTry) {
+      VideoPlayerController? videoController;
+      try {
+        await Future.delayed(const Duration(milliseconds: 50));
+        videoController = VideoPlayerController.asset(path);
+        await videoController.initialize();
+        
+        _chewieController = ChewieController(
+          videoPlayerController: videoController,
+          autoPlay: true,
+          looping: true,
+          allowFullScreen: false,
+          allowMuting: true,
+          showControls: false,
+          aspectRatio: videoController.value.aspectRatio,
+          materialProgressColors: ChewieProgressColors(
+            playedColor: Colors.blue,
+            handleColor: Colors.blue.shade300,
+            backgroundColor: Colors.grey,
+            bufferedColor: Colors.blue.shade100,
+          ),
+          placeholder: Container(
+            color: Colors.black,
+            child: Center(
+              child: CircularProgressIndicator(color: Colors.blue.shade300),
+            ),
+          ),
+        );
+
+        if (mounted) {
+          setState(() {
+            _videoController = videoController;
+            _isVideoLoading = false;
+            _videoError = null;
+          });
+        }
+        return;
+      } catch (e) {
+        debugPrint('Video init failed for $path: $e');
+        videoController?.dispose();
+        if (mounted && path == pathsToTry.last) {
+          setState(() {
+            _isVideoLoading = false;
+            _videoError = 'Failed to load video';
+          });
+        }
+      }
+    }
+  }
+
+  String _getWorkoutVideo(String title) {
+    final lower = title.toLowerCase();
+    if (lower.contains('plank')) return 'assets/videos/plank.mp4';
+    if (lower.contains('crunch')) return 'assets/videos/crunches.mp4';
+    if (lower.contains('push-up') ||
+        lower.contains('push up') ||
+        lower.contains('incline push-ups')) return 'assets/videos/push_up.mp4';
+    if (lower.contains('bench')) return 'assets/videos/bench_press.mp4';
+    if (lower.contains('yoga')) return 'assets/videos/yoga.mp4';
+    if (lower.contains('cardio') ||
+        lower.contains('jump') ||
+        lower.contains('jumping') ||
+        lower.contains('jumping jack'))
+      return 'assets/videos/jumping_jacks.mp4';
+    if (lower.contains('squat')) return 'assets/videos/squat.mp4';
+    if (lower.contains('lunge')) return 'assets/videos/lunge.mp4';
+    if (lower.contains('bicep') || lower.contains('dumbbell curl'))
+      return 'assets/videos/bicep_curl.mp4';
+    if (lower.contains('cable')) return 'assets/videos/cable_flyes.mp4';
+    if (lower.contains('warm-up')) return 'assets/videos/warm_up.mp4';
+    if (lower.contains('dumbbell press'))
+      return 'assets/videos/dumbbell_press.mp4';
+    return 'assets/videos/dumbbell_press.mp4';
   }
 
   void _initializeTimer() {
@@ -987,13 +1258,9 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
       _timerState = TimerState.running;
     });
 
-    // Start animation when timer starts
-    if (_isWarmupOrStretch) {
-      _warmupAnimationController.repeat();
-    } else if (_currentSegment % 2 == 0) {
-      _workoutAnimationController.repeat(reverse: true);
-    } else {
-      _restAnimationController.repeat(reverse: true);
+    // Ensure video is playing when timer starts
+    if (_chewieController != null && !_chewieController!.videoPlayerController.value.isPlaying) {
+      _chewieController!.play();
     }
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -1006,7 +1273,6 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
           _timer?.cancel();
           setState(() {
             _timerState = TimerState.completed;
-            _warmupAnimationController.stop();
           });
           widget.onTimerComplete();
         } else if (_currentSegment < 5) {
@@ -1014,12 +1280,8 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
             _currentSegment++;
             if (_currentSegment % 2 == 0) {
               _timeRemaining = _workoutPartDuration;
-              _restAnimationController.stop();
-              _workoutAnimationController.repeat(reverse: true);
             } else {
               _timeRemaining = _restDuration;
-              _workoutAnimationController.stop();
-              _restAnimationController.repeat(reverse: true);
             }
           });
           // Continue the timer for the next segment
@@ -1029,8 +1291,6 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
           _timer?.cancel();
           setState(() {
             _timerState = TimerState.completed;
-            _workoutAnimationController.stop();
-            _restAnimationController.stop();
           });
           widget.onTimerComplete();
         }
@@ -1042,10 +1302,11 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
     _timer?.cancel();
     _animationController.repeat(reverse: true);
 
-    // Stop all animations
-    _workoutAnimationController.stop();
-    _restAnimationController.stop();
-    _warmupAnimationController.stop();
+    // Reset video to beginning but keep it playing
+    _videoController?.seekTo(Duration.zero);
+    if (_chewieController != null && !_chewieController!.videoPlayerController.value.isPlaying) {
+      _chewieController!.play();
+    }
 
     setState(() {
       _timerState = TimerState.notStarted;
@@ -1126,111 +1387,45 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
       );
     }
 
-    if (_timerState != TimerState.running) {
-      return _buildPlaceholderIcon();
-    }
-
-    if (_isWarmupOrStretch) {
-      return AnimatedBuilder(
-        animation: _warmupAnimationController,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: 1.0 + (_warmupAnimationController.value * 0.2),
-            child: child,
-          );
-        },
-        child: Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                Colors.orange.shade100,
-                Colors.orange.shade300,
-                Colors.orange.shade500,
-              ],
+    // Show video player if available
+    if (_chewieController != null && !_isVideoLoading && _videoError == null) {
+      return Container(
+        width: double.infinity,
+        height: 200,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 8,
+              offset: Offset(0, 4),
             ),
-          ),
-          child: Center(
-            child: Icon(
-              Icons.whatshot,
-              size: 50,
-              color: Colors.orange.shade800,
-            ),
-          ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Chewie(controller: _chewieController!),
         ),
       );
     }
 
-    if (_currentSegment % 2 == 0) {
-      // Workout animation - muscle flexing
-      return AnimatedBuilder(
-        animation: _workoutAnimationController,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: 1.0 + (_workoutAnimationController.value * 0.1),
-            child: Transform.translate(
-              offset: Offset(0, -_workoutAnimationController.value * 5),
-              child: child,
-            ),
-          );
-        },
-        child: Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                Colors.blue.shade100,
-                Colors.blue.shade300,
-                Colors.blue.shade500,
-              ],
-            ),
-          ),
-          child: Center(
-            child: Icon(
-              Icons.fitness_center,
-              size: 50,
-              color: Colors.blue.shade800,
-            ),
-          ),
+    // Show loading or error state
+    if (_isVideoLoading) {
+      return Container(
+        width: 200,
+        height: 200,
+        decoration: BoxDecoration(
+          color: Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(16),
         ),
-      );
-    } else {
-      // Rest animation
-      return AnimatedBuilder(
-        animation: _restAnimationController,
-        builder: (context, child) {
-          return Transform.scale(
-            scale: 1.0 + (_restAnimationController.value * 0.05),
-            child: child,
-          );
-        },
-        child: Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: RadialGradient(
-              colors: [
-                Colors.green.shade100,
-                Colors.green.shade300,
-                Colors.green.shade500,
-              ],
-            ),
-          ),
-          child: Center(
-            child: Icon(
-              Icons.timer,
-              size: 50,
-              color: Colors.green.shade800,
-            ),
-          ),
+        child: Center(
+          child: CircularProgressIndicator(color: Colors.blue.shade300),
         ),
       );
     }
+
+    // Fallback to placeholder if video fails
+    return _buildPlaceholderIcon();
   }
 
   Widget _buildPlaceholderIcon() {
@@ -1281,9 +1476,8 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
   void dispose() {
     _timer?.cancel();
     _animationController.dispose();
-    _workoutAnimationController.dispose();
-    _restAnimationController.dispose();
-    _warmupAnimationController.dispose();
+    _chewieController?.dispose();
+    _videoController?.dispose();
     super.dispose();
   }
 
@@ -1328,9 +1522,9 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
           ),
           child: Column(
             children: [
-              // Animation Section
+              // Video/Animation Section
               Container(
-                height: 140,
+                height: 200,
                 margin: const EdgeInsets.only(bottom: 16),
                 child: Center(
                   child: _buildAnimation(),

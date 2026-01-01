@@ -33,8 +33,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
   final TextEditingController _confirmPasswordController =
       TextEditingController();
   final TextEditingController _codeController = TextEditingController();
-  final TextEditingController _ageController = TextEditingController();
-  String? _selectedGender;
+  DateTime? _selectedBirthday;
+  String? _selectedSex;
 
   final Color primaryColor = const Color(0xFF4A90E2);
 
@@ -208,7 +208,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       ),
                       SizedBox(height: 4),
                       Text(
-                        "Account created successfully. Let’s personalize your workout.",
+                        "Account created successfully. Let's personalize your workout.",
                         style: TextStyle(fontSize: 13, color: Colors.black87),
                       ),
                     ],
@@ -223,6 +223,46 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
 
     overlay.insert(entry);
     Future.delayed(const Duration(seconds: 3), () => entry.remove());
+  }
+
+  Future<void> _selectBirthday(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
+      firstDate: DateTime(1900),
+      lastDate: DateTime.now().subtract(const Duration(days: 365 * 13)),
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF4A90E2),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+            dialogBackgroundColor: Colors.white,
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null && picked != _selectedBirthday) {
+      setState(() {
+        _selectedBirthday = picked;
+      });
+    }
+  }
+
+  int _calculateAge(DateTime birthDate) {
+    final now = DateTime.now();
+    int age = now.year - birthDate.year;
+    final monthDifference = now.month - birthDate.month;
+    if (monthDifference < 0 ||
+        (monthDifference == 0 && now.day < birthDate.day)) {
+      age--;
+    }
+    return age;
   }
 
   void _signUp() async {
@@ -242,15 +282,15 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
         email.isEmpty ||
         password.isEmpty ||
         confirmPassword.isEmpty ||
-        _ageController.text.trim().isEmpty ||
-        _selectedGender == null) {
-      _showMessage("All fields are required, including age and gender.");
+        _selectedBirthday == null ||
+        _selectedSex == null) {
+      _showMessage("All fields are required, including birthday and sex.");
       return;
     }
 
-    final age = int.tryParse(_ageController.text.trim());
-    if (age == null || age < 13 || age > 120) {
-      _showMessage("Please enter a valid age (13-120).");
+    final age = _calculateAge(_selectedBirthday!);
+    if (age < 13 || age > 120) {
+      _showMessage("You must be between 13 and 120 years old to sign up.");
       return;
     }
 
@@ -277,8 +317,9 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
           'email': email,
           'userType': 'Member',
           'memberId': generatedMemberId,
+          'birthday': _selectedBirthday,
           'age': age,
-          'gender': _selectedGender,
+          'sex': _selectedSex,
           'createdAt': FieldValue.serverTimestamp(),
           'qrCode': qrCodeValue,
         });
@@ -309,8 +350,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
         _emailController.text.trim().isNotEmpty &&
         _passwordController.text.isNotEmpty &&
         _confirmPasswordController.text.isNotEmpty &&
-        _ageController.text.trim().isNotEmpty &&
-        _selectedGender != null &&
+        _selectedBirthday != null &&
+        _selectedSex != null &&
         _isCodeVerified;
   }
 
@@ -322,7 +363,6 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _codeController.dispose();
-    _ageController.dispose();
     super.dispose();
   }
 
@@ -489,34 +529,68 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
-                      controller: _ageController,
-                      keyboardType: TextInputType.number,
-                      cursorColor: Colors.blue,
-                      decoration: _inputDecoration(Icons.calendar_today, "Age"),
-                      onChanged: (_) => setState(() {}),
+                    child: GestureDetector(
+                      onTap: () => _selectBirthday(context),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 14, horizontal: 16),
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.calendar_today,
+                                color: Colors.grey.shade600),
+                            const SizedBox(width: 12),
+                            Text(
+                              _selectedBirthday != null
+                                  ? '${_selectedBirthday!.day}/${_selectedBirthday!.month}/${_selectedBirthday!.year}'
+                                  : 'Birthday',
+                              style: TextStyle(
+                                color: _selectedBirthday != null
+                                    ? Colors.black
+                                    : Colors.grey.shade600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _selectedGender,
-                      decoration: _inputDecoration(Icons.person, "Gender"),
-                      items: ['Male', 'Female', 'Other'].map((String gender) {
+                      value: _selectedSex,
+                      decoration: _inputDecoration(Icons.person, "Sex"),
+                      items: ['Male', 'Female', 'Other'].map((String sex) {
                         return DropdownMenuItem<String>(
-                          value: gender,
-                          child: Text(gender),
+                          value: sex,
+                          child: Text(sex),
                         );
                       }).toList(),
                       onChanged: (String? value) {
                         setState(() {
-                          _selectedGender = value;
+                          _selectedSex = value;
                         });
                       },
                     ),
                   ),
                 ],
               ),
+              if (_selectedBirthday != null) ...[
+                const SizedBox(height: 10),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'Age: ${_calculateAge(_selectedBirthday!)} years old',
+                    style: TextStyle(
+                      color: Colors.grey.shade700,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 20),
               TextField(
                 controller: _passwordController,
