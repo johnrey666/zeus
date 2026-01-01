@@ -1135,6 +1135,7 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
   int _restDuration = 15;
   late AnimationController _animationController;
   late final bool _isWarmupOrStretch;
+  late int _totalSets;
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
   bool _isVideoLoading = true;
@@ -1144,6 +1145,8 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
   void initState() {
     super.initState();
     _isWarmupOrStretch = widget.workout['isWarmupOrStretch'] as bool? ?? false;
+    _totalSets = widget.workout['sets'] as int? ?? 3;
+    _restDuration = widget.workout['restSeconds'] as int? ?? 15;
 
     _animationController = AnimationController(
       vsync: this,
@@ -1245,8 +1248,11 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
     if (_isWarmupOrStretch) {
       _workoutPartDuration = totalDuration;
     } else {
+      // Calculate workout duration per set: (total - rest periods) / number of sets
+      // Rest periods = (sets - 1) because there's a rest between each set
+      final totalRestDuration = (_totalSets - 1) * _restDuration;
       _workoutPartDuration =
-          ((totalDuration - (2 * _restDuration)) / 3).floor();
+          ((totalDuration - totalRestDuration) / _totalSets).floor();
     }
 
     _timeRemaining = _workoutPartDuration;
@@ -1275,19 +1281,22 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
             _timerState = TimerState.completed;
           });
           widget.onTimerComplete();
-        } else if (_currentSegment < 5) {
-          setState(() {
-            _currentSegment++;
-            if (_currentSegment % 2 == 0) {
-              _timeRemaining = _workoutPartDuration;
-            } else {
-              _timeRemaining = _restDuration;
-            }
-          });
-          // Continue the timer for the next segment
-          _timer?.cancel();
-          _startTimer(); // Restart timer for next segment
         } else {
+          // Calculate total segments: sets * 2 - 1 (each set has a workout segment, and there are sets-1 rest segments)
+          final totalSegments = (_totalSets * 2) - 1;
+          if (_currentSegment < totalSegments) {
+            setState(() {
+              _currentSegment++;
+              if (_currentSegment % 2 == 0) {
+                _timeRemaining = _workoutPartDuration;
+              } else {
+                _timeRemaining = _restDuration;
+              }
+            });
+            // Continue the timer for the next segment
+            _timer?.cancel();
+            _startTimer(); // Restart timer for next segment
+          } else {
           _timer?.cancel();
           setState(() {
             _timerState = TimerState.completed;
@@ -1320,15 +1329,16 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
       return 'Warm-up/Stretching';
     }
 
-    final totalSegments = 5;
+    final totalSegments = (_totalSets * 2) - 1;
     if (_currentSegment >= totalSegments) return 'Complete';
 
     if (_currentSegment % 2 == 0) {
       final setNumber = (_currentSegment ~/ 2) + 1;
-      return 'Set $setNumber/3';
+      return 'Set $setNumber/$_totalSets';
     } else {
       final restNumber = ((_currentSegment + 1) ~/ 2);
-      return 'Rest $restNumber/2';
+      final totalRests = _totalSets - 1;
+      return 'Rest $restNumber/$totalRests';
     }
   }
 
@@ -1337,7 +1347,8 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
       return '🔥';
     }
 
-    if (_currentSegment >= 5) return '🏁';
+    final totalSegments = (_totalSets * 2) - 1;
+    if (_currentSegment >= totalSegments) return '🏁';
 
     if (_currentSegment % 2 == 0) {
       return '💪';
@@ -1358,7 +1369,7 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
       return 1 - (_timeRemaining / totalDuration);
     }
 
-    final totalSegments = 5;
+    final totalSegments = (_totalSets * 2) - 1;
     final segmentProgress = 1 -
         (_timeRemaining /
             (_currentSegment % 2 == 0 ? _workoutPartDuration : _restDuration));
