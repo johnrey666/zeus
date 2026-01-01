@@ -1297,11 +1297,12 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
             _timer?.cancel();
             _startTimer(); // Restart timer for next segment
           } else {
-          _timer?.cancel();
-          setState(() {
-            _timerState = TimerState.completed;
-          });
-          widget.onTimerComplete();
+            _timer?.cancel();
+            setState(() {
+              _timerState = TimerState.completed;
+            });
+            widget.onTimerComplete();
+          }
         }
       }
     });
