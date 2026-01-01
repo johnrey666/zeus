@@ -296,32 +296,6 @@ class _TrainingPageState extends State<TrainingPage>
                       ),
                     ],
                   ),
-                  // Display sets/reps info
-                  if (!isWarmupOrStretch)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: [
-                          _buildSetInfoItem(
-                            icon: Icons.repeat,
-                            text: "${workout['sets']} sets",
-                            color: Colors.blue.shade700,
-                          ),
-                        ],
-                      ),
-                    )
-                  else
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12),
-                      child: _buildSetInfoItem(
-                        icon: Icons.whatshot,
-                        text: "Warm-up/Stretching",
-                        color: Colors.orange.shade700,
-                        isWarmup: true,
-                      ),
-                    ),
                   if (!isToday && !isCompleted)
                     Container(
                       margin: const EdgeInsets.only(top: 16),
@@ -934,32 +908,6 @@ class _TrainingPageState extends State<TrainingPage>
                                         fontSize: 13,
                                       ),
                                     ),
-                                    if (workout['sets'] != null &&
-                                        !isWarmupOrStretch)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: Wrap(
-                                          spacing: 6,
-                                          runSpacing: 4,
-                                          children: [
-                                            _buildMiniSetInfo(
-                                              icon: Icons.repeat,
-                                              text: "$sets sets",
-                                              color: Colors.blue.shade700,
-                                            ),
-                              
-                                          ],
-                                        ),
-                                      )
-                                    else if (isWarmupOrStretch)
-                                      Padding(
-                                        padding: const EdgeInsets.only(top: 4),
-                                        child: _buildMiniSetInfo(
-                                          icon: Icons.whatshot,
-                                          text: "Warm-up/Stretching",
-                                          color: Colors.orange.shade700,
-                                        ),
-                                      ),
                                   ],
                                 ),
                               ),
@@ -1135,7 +1083,6 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
   int _restDuration = 15;
   late AnimationController _animationController;
   late final bool _isWarmupOrStretch;
-  late int _totalSets;
   VideoPlayerController? _videoController;
   ChewieController? _chewieController;
   bool _isVideoLoading = true;
@@ -1145,8 +1092,6 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
   void initState() {
     super.initState();
     _isWarmupOrStretch = widget.workout['isWarmupOrStretch'] as bool? ?? false;
-    _totalSets = widget.workout['sets'] as int? ?? 3;
-    _restDuration = widget.workout['restSeconds'] as int? ?? 15;
 
     _animationController = AnimationController(
       vsync: this,
@@ -1181,7 +1126,6 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
           allowFullScreen: false,
           allowMuting: true,
           showControls: false,
-          aspectRatio: videoController.value.aspectRatio,
           materialProgressColors: ChewieProgressColors(
             playedColor: Colors.blue,
             handleColor: Colors.blue.shade300,
@@ -1248,11 +1192,8 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
     if (_isWarmupOrStretch) {
       _workoutPartDuration = totalDuration;
     } else {
-      // Calculate workout duration per set: (total - rest periods) / number of sets
-      // Rest periods = (sets - 1) because there's a rest between each set
-      final totalRestDuration = (_totalSets - 1) * _restDuration;
       _workoutPartDuration =
-          ((totalDuration - totalRestDuration) / _totalSets).floor();
+          ((totalDuration - (2 * _restDuration)) / 3).floor();
     }
 
     _timeRemaining = _workoutPartDuration;
@@ -1264,10 +1205,8 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
       _timerState = TimerState.running;
     });
 
-    // Ensure video is playing when timer starts
-    if (_chewieController != null && !_chewieController!.videoPlayerController.value.isPlaying) {
-      _chewieController!.play();
-    }
+    // Start video playback when timer starts
+    _chewieController?.play();
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_timeRemaining > 0) {
@@ -1281,28 +1220,24 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
             _timerState = TimerState.completed;
           });
           widget.onTimerComplete();
+        } else if (_currentSegment < 5) {
+          setState(() {
+            _currentSegment++;
+            if (_currentSegment % 2 == 0) {
+              _timeRemaining = _workoutPartDuration;
+            } else {
+              _timeRemaining = _restDuration;
+            }
+          });
+          // Continue the timer for the next segment
+          _timer?.cancel();
+          _startTimer(); // Restart timer for next segment
         } else {
-          // Calculate total segments: sets * 2 - 1 (each set has a workout segment, and there are sets-1 rest segments)
-          final totalSegments = (_totalSets * 2) - 1;
-          if (_currentSegment < totalSegments) {
-            setState(() {
-              _currentSegment++;
-              if (_currentSegment % 2 == 0) {
-                _timeRemaining = _workoutPartDuration;
-              } else {
-                _timeRemaining = _restDuration;
-              }
-            });
-            // Continue the timer for the next segment
-            _timer?.cancel();
-            _startTimer(); // Restart timer for next segment
-          } else {
-            _timer?.cancel();
-            setState(() {
-              _timerState = TimerState.completed;
-            });
-            widget.onTimerComplete();
-          }
+          _timer?.cancel();
+          setState(() {
+            _timerState = TimerState.completed;
+          });
+          widget.onTimerComplete();
         }
       }
     });
@@ -1312,11 +1247,9 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
     _timer?.cancel();
     _animationController.repeat(reverse: true);
 
-    // Reset video to beginning but keep it playing
+    // Reset video to beginning
     _videoController?.seekTo(Duration.zero);
-    if (_chewieController != null && !_chewieController!.videoPlayerController.value.isPlaying) {
-      _chewieController!.play();
-    }
+    _chewieController?.pause();
 
     setState(() {
       _timerState = TimerState.notStarted;
@@ -1330,16 +1263,15 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
       return 'Warm-up/Stretching';
     }
 
-    final totalSegments = (_totalSets * 2) - 1;
+    final totalSegments = 5;
     if (_currentSegment >= totalSegments) return 'Complete';
 
     if (_currentSegment % 2 == 0) {
       final setNumber = (_currentSegment ~/ 2) + 1;
-      return 'Set $setNumber/$_totalSets';
+      return 'Set $setNumber/3';
     } else {
       final restNumber = ((_currentSegment + 1) ~/ 2);
-      final totalRests = _totalSets - 1;
-      return 'Rest $restNumber/$totalRests';
+      return 'Rest $restNumber/2';
     }
   }
 
@@ -1348,8 +1280,7 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
       return '🔥';
     }
 
-    final totalSegments = (_totalSets * 2) - 1;
-    if (_currentSegment >= totalSegments) return '🏁';
+    if (_currentSegment >= 5) return '🏁';
 
     if (_currentSegment % 2 == 0) {
       return '💪';
@@ -1370,7 +1301,7 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
       return 1 - (_timeRemaining / totalDuration);
     }
 
-    final totalSegments = (_totalSets * 2) - 1;
+    final totalSegments = 5;
     final segmentProgress = 1 -
         (_timeRemaining /
             (_currentSegment % 2 == 0 ? _workoutPartDuration : _restDuration));
@@ -1402,7 +1333,7 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
     // Show video player if available
     if (_chewieController != null && !_isVideoLoading && _videoError == null) {
       return Container(
-        width: double.infinity,
+        width: 200,
         height: 200,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
@@ -1534,9 +1465,9 @@ class __WorkoutTimerSectionState extends State<_WorkoutTimerSection>
           ),
           child: Column(
             children: [
-              // Video/Animation Section
+              // Animation Section
               Container(
-                height: 200,
+                height: 140,
                 margin: const EdgeInsets.only(bottom: 16),
                 child: Center(
                   child: _buildAnimation(),
