@@ -317,8 +317,10 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
           'email': email,
           'userType': 'Member',
           'memberId': generatedMemberId,
-          'birthday': _selectedBirthday,
-          'age': age,
+          'birthday': _selectedBirthday != null
+              ? Timestamp.fromDate(_selectedBirthday!)
+              : null,
+          'age': age, // Keep for backward compatibility
           'sex': _selectedSex,
           'createdAt': FieldValue.serverTimestamp(),
           'qrCode': qrCodeValue,

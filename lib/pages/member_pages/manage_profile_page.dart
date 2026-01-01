@@ -17,11 +17,11 @@ class ManageProfilePage extends StatefulWidget {
 
 class _ManageProfilePageState extends State<ManageProfilePage> {
   File? _profileImage;
-  String? _selectedGender;
+  String? _selectedSex;
+  DateTime? _birthday;
 
   final _firstNameController = TextEditingController();
   final _lastNameController = TextEditingController();
-  final _ageController = TextEditingController();
   final _heightController = TextEditingController();
   final _weightController = TextEditingController();
 
@@ -58,8 +58,15 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
       setState(() {
         _firstNameController.text = userData['firstName'] ?? '';
         _lastNameController.text = userData['lastName'] ?? '';
-        _ageController.text = userData['age']?.toString() ?? '';
-        _selectedGender = userData['gender'];
+        _selectedSex = userData['sex'];
+        // Load birthday - could be Timestamp or DateTime
+        if (userData['birthday'] != null) {
+          if (userData['birthday'] is Timestamp) {
+            _birthday = (userData['birthday'] as Timestamp).toDate();
+          } else if (userData['birthday'] is DateTime) {
+            _birthday = userData['birthday'] as DateTime;
+          }
+        }
         if ((userData['profileImagePath'] ?? '').isNotEmpty) {
           _profileImage = File(userData['profileImagePath']);
         }
@@ -131,14 +138,26 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
     }
   }
 
+  int _calculateAge(DateTime? birthDate) {
+    if (birthDate == null) return 0;
+    final now = DateTime.now();
+    int age = now.year - birthDate.year;
+    final monthDifference = now.month - birthDate.month;
+    if (monthDifference < 0 ||
+        (monthDifference == 0 && now.day < birthDate.day)) {
+      age--;
+    }
+    return age;
+  }
+
   Future<void> _saveProfile() async {
     if (user == null) return;
 
     final userData = {
       'firstName': _firstNameController.text.trim(),
       'lastName': _lastNameController.text.trim(),
-      'age': _ageController.text.trim(),
-      'gender': _selectedGender,
+      'sex': _selectedSex,
+      'birthday': _birthday != null ? Timestamp.fromDate(_birthday!) : null,
       'profileImagePath': _profileImage?.path ?? '',
       // Save height/weight to user document as well for consistency
       'height': _heightController.text.trim(),
@@ -333,11 +352,37 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
                   ),
                   const SizedBox(height: 16),
                   _buildLabel("Age"),
-                  _buildTextField(Icons.cake, 'Age', _ageController),
-                  const SizedBox(height: 16),
-                  _buildLabel("Gender"),
                   const SizedBox(height: 6),
-                  // Gender display - non-editable
+                  // Age display - non-editable (calculated from birthday)
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 14),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.cake, color: Colors.grey),
+                        const SizedBox(width: 16),
+                        Text(
+                          _birthday != null
+                              ? '${_calculateAge(_birthday)} years old'
+                              : 'Not specified',
+                          style: GoogleFonts.poppins(
+                              fontSize: 16,
+                              color: _birthday != null
+                                  ? Colors.black87
+                                  : Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildLabel("Sex"),
+                  const SizedBox(height: 6),
+                  // Sex display - non-editable
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
@@ -351,10 +396,10 @@ class _ManageProfilePageState extends State<ManageProfilePage> {
                         const Icon(Icons.person_outline, color: Colors.grey),
                         const SizedBox(width: 16),
                         Text(
-                          _selectedGender ?? 'Not specified',
+                          _selectedSex ?? 'Not specified',
                           style: GoogleFonts.poppins(
                               fontSize: 16,
-                              color: _selectedGender != null
+                              color: _selectedSex != null
                                   ? Colors.black87
                                   : Colors.grey),
                         ),
