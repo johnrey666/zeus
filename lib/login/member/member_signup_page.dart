@@ -7,8 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:mailer/mailer.dart';
 import 'package:mailer/smtp_server.dart';
 import 'member_login_page.dart';
-// ignore: unused_import
-import 'package:zeus/pages/member_pages/planning_page.dart';
 import 'package:zeus/pages/member_pages/health_declaration_page.dart';
 
 class MemberSignUpPage extends StatefulWidget {
@@ -370,11 +368,31 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 360;
+
+    // Calculate responsive button width
+    double responsiveButtonWidth() {
+      if (screenWidth < 340) return 90;
+      if (screenWidth < 380) return 100;
+      if (screenWidth < 420) return 110;
+      return 120;
+    }
+
+    double responsiveHorizontalPadding() {
+      if (screenWidth < 340) return 20;
+      if (screenWidth < 380) return 24;
+      return 28;
+    }
+
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 20),
+          padding: EdgeInsets.symmetric(
+            horizontal: responsiveHorizontalPadding(),
+            vertical: 20,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -407,7 +425,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                     Text(
                       'Member Sign Up',
                       style: TextStyle(
-                        fontSize: 22,
+                        fontSize: isSmallScreen ? 20 : 22,
                         fontWeight: FontWeight.bold,
                         color: Colors.grey.shade800,
                       ),
@@ -416,6 +434,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                 ),
               ),
               const SizedBox(height: 40),
+              // First Name & Last Name Row - Made responsive
               Row(
                 children: [
                   Expanded(
@@ -426,21 +445,23 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: isSmallScreen ? 8 : 10),
                   Expanded(
                     child: TextField(
                       controller: _lastNameController,
                       cursorColor: Colors.blue,
                       decoration: _inputDecoration(Icons.person, "Last Name"),
-                      onChanged: (_) => setState({} as VoidCallback),
+                      onChanged: (_) => setState(() {}),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 20),
+              // Email with Send Code Button - Fixed overflow
               Row(
                 children: [
                   Expanded(
+                    flex: 2,
                     child: TextField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
@@ -450,15 +471,19 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       onChanged: (_) => setState(() {}),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: isSmallScreen ? 8 : 10),
                   SizedBox(
-                    width: 100,
+                    width: responsiveButtonWidth(),
                     child: ElevatedButton(
                       onPressed: _isLoading ? null : _sendVerificationCode,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: primaryColor,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                          horizontal: isSmallScreen ? 8 : 12,
+                          vertical: 14,
                         ),
                       ),
                       child: _isLoading
@@ -470,10 +495,15 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                                 strokeWidth: 2,
                               ),
                             )
-                          : const Text(
-                              "Send Code",
-                              style:
-                                  TextStyle(color: Colors.white, fontSize: 12),
+                          : FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                "Send Code",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: isSmallScreen ? 11 : 12,
+                                ),
+                              ),
                             ),
                     ),
                   ),
@@ -481,9 +511,11 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
               ),
               if (_isVerificationCodeSent) ...[
                 const SizedBox(height: 20),
+                // Verification Code Row - Fixed overflow
                 Row(
                   children: [
                     Expanded(
+                      flex: 2,
                       child: TextField(
                         controller: _codeController,
                         keyboardType: TextInputType.number,
@@ -493,9 +525,9 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                         onChanged: (_) => setState(() {}),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    SizedBox(width: isSmallScreen ? 8 : 10),
                     SizedBox(
-                      width: 100,
+                      width: responsiveButtonWidth(),
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _verifyCode,
                         style: ElevatedButton.styleFrom(
@@ -503,10 +535,20 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 8 : 12,
+                            vertical: 14,
+                          ),
                         ),
-                        child: const Text(
-                          "Verify",
-                          style: TextStyle(color: Colors.white, fontSize: 12),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            "Verify",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: isSmallScreen ? 11 : 12,
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -514,7 +556,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                 ),
                 const SizedBox(height: 10),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: isSmallScreen ? 12 : 16),
                   child: Text(
                     _isCodeVerified
                         ? "Code verified successfully!"
@@ -522,20 +565,23 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                     style: TextStyle(
                       color:
                           _isCodeVerified ? Colors.green : Colors.grey.shade600,
-                      fontSize: 12,
+                      fontSize: isSmallScreen ? 11 : 12,
                     ),
                   ),
                 ),
               ],
               const SizedBox(height: 20),
+              // Birthday and Sex Row - Fixed date overflow
               Row(
                 children: [
                   Expanded(
                     child: GestureDetector(
                       onTap: () => _selectBirthday(context),
                       child: Container(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 14, horizontal: 16),
+                        padding: EdgeInsets.symmetric(
+                          vertical: 14,
+                          horizontal: isSmallScreen ? 12 : 16,
+                        ),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(12),
@@ -543,16 +589,21 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                         child: Row(
                           children: [
                             Icon(Icons.calendar_today,
-                                color: Colors.grey.shade600),
-                            const SizedBox(width: 12),
-                            Text(
-                              _selectedBirthday != null
-                                  ? '${_selectedBirthday!.day}/${_selectedBirthday!.month}/${_selectedBirthday!.year}'
-                                  : 'Birthday',
-                              style: TextStyle(
-                                color: _selectedBirthday != null
-                                    ? Colors.black
-                                    : Colors.grey.shade600,
+                                color: Colors.grey.shade600,
+                                size: isSmallScreen ? 20 : 24),
+                            SizedBox(width: isSmallScreen ? 8 : 12),
+                            Expanded(
+                              child: Text(
+                                _selectedBirthday != null
+                                    ? '${_selectedBirthday!.day}/${_selectedBirthday!.month}/${_selectedBirthday!.year}'
+                                    : 'Birthday',
+                                style: TextStyle(
+                                  fontSize: isSmallScreen ? 14 : 16,
+                                  color: _selectedBirthday != null
+                                      ? Colors.black
+                                      : Colors.grey.shade600,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
@@ -560,7 +611,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  SizedBox(width: isSmallScreen ? 8 : 10),
                   Expanded(
                     child: DropdownButtonFormField<String>(
                       value: _selectedSex,
@@ -568,7 +619,10 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       items: ['Male', 'Female', 'Other'].map((String sex) {
                         return DropdownMenuItem<String>(
                           value: sex,
-                          child: Text(sex),
+                          child: Text(
+                            sex,
+                            style: TextStyle(fontSize: isSmallScreen ? 14 : 16),
+                          ),
                         );
                       }).toList(),
                       onChanged: (String? value) {
@@ -583,12 +637,13 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
               if (_selectedBirthday != null) ...[
                 const SizedBox(height: 10),
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding:
+                      EdgeInsets.symmetric(horizontal: isSmallScreen ? 12 : 16),
                   child: Text(
                     'Age: ${_calculateAge(_selectedBirthday!)} years old',
                     style: TextStyle(
                       color: Colors.grey.shade700,
-                      fontSize: 12,
+                      fontSize: isSmallScreen ? 11 : 12,
                     ),
                   ),
                 ),
@@ -667,12 +722,12 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                                 strokeWidth: 2,
                               ),
                             )
-                          : const Text(
+                          : Text(
                               "Sign Up",
                               style: TextStyle(
                                 color: Colors.white,
                                 fontWeight: FontWeight.w600,
-                                fontSize: 16,
+                                fontSize: isSmallScreen ? 15 : 16,
                               ),
                             ),
                     ),
@@ -683,9 +738,12 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
               Center(
                 child: Wrap(
                   children: [
-                    const Text(
+                    Text(
                       "Already have an account? ",
-                      style: TextStyle(color: Colors.black),
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontSize: isSmallScreen ? 13 : 14,
+                      ),
                     ),
                     GestureDetector(
                       onTap: () {
@@ -695,12 +753,13 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                               builder: (_) => const MemberLoginPage()),
                         );
                       },
-                      child: const Text(
+                      child: Text(
                         "Login",
                         style: TextStyle(
                           color: Colors.blue,
                           decoration: TextDecoration.underline,
                           fontWeight: FontWeight.w600,
+                          fontSize: isSmallScreen ? 13 : 14,
                         ),
                       ),
                     ),
