@@ -240,7 +240,20 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
             ),
             dialogBackgroundColor: Colors.white,
           ),
-          child: child!,
+          child: Dialog(
+            insetPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.7,
+                minWidth: MediaQuery.of(context).size.width * 0.9,
+              ),
+              child: child,
+            ),
+          ),
         );
       },
     );
@@ -370,6 +383,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
+    final bool isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     // Calculate responsive button width
     double responsiveButtonWidth() {
@@ -387,12 +401,9 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      // Add resizeToAvoidBottomInset to handle keyboard properly
       resizeToAvoidBottomInset: true,
       body: SafeArea(
-        // Ensure keyboard doesn't overflow
         child: SingleChildScrollView(
-          // Add physics for smooth scrolling
           physics: const BouncingScrollPhysics(),
           padding: EdgeInsets.symmetric(
             horizontal: responsiveHorizontalPadding(),
@@ -805,9 +816,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                 ),
               ),
               // Add extra bottom padding for safety when keyboard is open
-              SizedBox(
-                  height:
-                      MediaQuery.of(context).viewInsets.bottom > 0 ? 80 : 20),
+              SizedBox(height: isKeyboardOpen ? 80 : 20),
             ],
           ),
         ),

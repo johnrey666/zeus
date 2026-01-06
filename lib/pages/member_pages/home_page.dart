@@ -1209,13 +1209,22 @@ Return ONLY valid JSON in this exact format:
                                   Colors.green.withOpacity(0.1)),
                             ),
                           ),
-                          dialogTheme: DialogTheme(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Dialog(
+                          insetPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 24),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight:
+                                  MediaQuery.of(context).size.height * 0.7,
+                              minWidth: MediaQuery.of(context).size.width * 0.9,
                             ),
+                            child: child,
                           ),
                         ),
-                        child: child!,
                       );
                     },
                   );
@@ -1586,13 +1595,22 @@ Return ONLY valid JSON in this exact format:
                                   Colors.green.withOpacity(0.1)),
                             ),
                           ),
-                          dialogTheme: DialogTheme(
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Dialog(
+                          insetPadding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 24),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight:
+                                  MediaQuery.of(context).size.height * 0.7,
+                              minWidth: MediaQuery.of(context).size.width * 0.9,
                             ),
+                            child: child,
                           ),
                         ),
-                        child: child!,
                       );
                     },
                   );
