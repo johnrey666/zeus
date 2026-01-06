@@ -387,8 +387,13 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
+      // Add resizeToAvoidBottomInset to handle keyboard properly
+      resizeToAvoidBottomInset: true,
       body: SafeArea(
+        // Ensure keyboard doesn't overflow
         child: SingleChildScrollView(
+          // Add physics for smooth scrolling
+          physics: const BouncingScrollPhysics(),
           padding: EdgeInsets.symmetric(
             horizontal: responsiveHorizontalPadding(),
             vertical: 20,
@@ -434,7 +439,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                 ),
               ),
               const SizedBox(height: 40),
-              // First Name & Last Name Row - Made responsive
+              // First Name & Last Name Row
               Row(
                 children: [
                   Expanded(
@@ -457,7 +462,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                 ],
               ),
               const SizedBox(height: 20),
-              // Email with Send Code Button - Fixed overflow
+              // Email with Send Code Button
               Row(
                 children: [
                   Expanded(
@@ -511,7 +516,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
               ),
               if (_isVerificationCodeSent) ...[
                 const SizedBox(height: 20),
-                // Verification Code Row - Fixed overflow
+                // Verification Code Row
                 Row(
                   children: [
                     Expanded(
@@ -571,7 +576,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                 ),
               ],
               const SizedBox(height: 20),
-              // Birthday and Sex Row - Fixed date overflow
+              // Birthday and Sex Row - Fixed to prevent overflow
               Row(
                 children: [
                   Expanded(
@@ -580,7 +585,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       child: Container(
                         padding: EdgeInsets.symmetric(
                           vertical: 14,
-                          horizontal: isSmallScreen ? 12 : 16,
+                          horizontal: isSmallScreen ? 10 : 14,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade100,
@@ -588,21 +593,24 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.calendar_today,
-                                color: Colors.grey.shade600,
-                                size: isSmallScreen ? 20 : 24),
-                            SizedBox(width: isSmallScreen ? 8 : 12),
+                            Icon(
+                              Icons.calendar_today,
+                              color: Colors.grey.shade600,
+                              size: isSmallScreen ? 18 : 22,
+                            ),
+                            SizedBox(width: isSmallScreen ? 6 : 10),
                             Expanded(
                               child: Text(
                                 _selectedBirthday != null
                                     ? '${_selectedBirthday!.day}/${_selectedBirthday!.month}/${_selectedBirthday!.year}'
                                     : 'Birthday',
                                 style: TextStyle(
-                                  fontSize: isSmallScreen ? 14 : 16,
+                                  fontSize: isSmallScreen ? 14 : 15,
                                   color: _selectedBirthday != null
                                       ? Colors.black
                                       : Colors.grey.shade600,
                                 ),
+                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
@@ -613,23 +621,53 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                   ),
                   SizedBox(width: isSmallScreen ? 8 : 10),
                   Expanded(
-                    child: DropdownButtonFormField<String>(
-                      value: _selectedSex,
-                      decoration: _inputDecoration(Icons.person, "Sex"),
-                      items: ['Male', 'Female', 'Other'].map((String sex) {
-                        return DropdownMenuItem<String>(
-                          value: sex,
-                          child: Text(
-                            sex,
-                            style: TextStyle(fontSize: isSmallScreen ? 14 : 16),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedSex,
+                          isExpanded: true,
+                          padding: EdgeInsets.symmetric(
+                            horizontal: isSmallScreen ? 10 : 14,
                           ),
-                        );
-                      }).toList(),
-                      onChanged: (String? value) {
-                        setState(() {
-                          _selectedSex = value;
-                        });
-                      },
+                          icon: Padding(
+                            padding:
+                                EdgeInsets.only(right: isSmallScreen ? 8 : 12),
+                            child: Icon(Icons.arrow_drop_down,
+                                color: Colors.grey.shade600),
+                          ),
+                          hint: Padding(
+                            padding:
+                                EdgeInsets.only(left: isSmallScreen ? 4 : 6),
+                            child: Text(
+                              'Sex',
+                              style: TextStyle(
+                                color: Colors.grey.shade600,
+                                fontSize: isSmallScreen ? 14 : 15,
+                              ),
+                            ),
+                          ),
+                          items: ['Male', 'Female', 'Other'].map((String sex) {
+                            return DropdownMenuItem<String>(
+                              value: sex,
+                              child: Text(
+                                sex,
+                                style: TextStyle(
+                                  fontSize: isSmallScreen ? 14 : 15,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: (String? value) {
+                            setState(() {
+                              _selectedSex = value;
+                            });
+                          },
+                        ),
+                      ),
                     ),
                   ),
                 ],
@@ -766,6 +804,10 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                   ],
                 ),
               ),
+              // Add extra bottom padding for safety when keyboard is open
+              SizedBox(
+                  height:
+                      MediaQuery.of(context).viewInsets.bottom > 0 ? 80 : 20),
             ],
           ),
         ),
@@ -783,6 +825,14 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: primaryColor, width: 1.5),
       ),
     );
   }
@@ -802,6 +852,14 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide.none,
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: primaryColor, width: 1.5),
       ),
       suffixIcon: IconButton(
         icon: Icon(
