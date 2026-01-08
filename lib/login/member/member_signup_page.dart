@@ -239,19 +239,115 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
               onSurface: Colors.black,
             ),
             dialogBackgroundColor: Colors.white,
+            dialogTheme: DialogTheme(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              backgroundColor: Colors.white,
+            ),
           ),
           child: Dialog(
             insetPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(12),
             ),
-            child: ConstrainedBox(
+            child: Container(
               constraints: BoxConstraints(
-                maxHeight: MediaQuery.of(context).size.height * 0.7,
-                minWidth: MediaQuery.of(context).size.width * 0.9,
+                maxWidth: MediaQuery.of(context).size.width * 0.85,
               ),
-              child: child,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 12, horizontal: 16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF4A90E2),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Select Birth Date',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close,
+                              color: Colors.white, size: 20),
+                          onPressed: () => Navigator.of(context).pop(),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Calendar - Reduced padding
+                  SizedBox(
+                    height: 300,
+                    child: child,
+                  ),
+                  // Footer with minimal padding
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      border: Border(
+                        top: BorderSide(color: Colors.grey.shade300, width: 1),
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(12),
+                        bottomRight: Radius.circular(12),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            minimumSize: Size.zero,
+                          ),
+                          child: const Text(
+                            'CANCEL',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF4A90E2),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 16, vertical: 8),
+                            minimumSize: Size.zero,
+                          ),
+                          child: const Text(
+                            'SELECT',
+                            style: TextStyle(fontSize: 14),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -383,7 +479,6 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
-    final bool isKeyboardOpen = MediaQuery.of(context).viewInsets.bottom > 0;
 
     // Calculate responsive button width
     double responsiveButtonWidth() {
@@ -401,10 +496,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
 
     return Scaffold(
       backgroundColor: Colors.white,
-      resizeToAvoidBottomInset: true,
       body: SafeArea(
         child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
           padding: EdgeInsets.symmetric(
             horizontal: responsiveHorizontalPadding(),
             vertical: 20,
@@ -450,7 +543,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                 ),
               ),
               const SizedBox(height: 40),
-              // First Name & Last Name Row
+              // First Name & Last Name Row - Made responsive
               Row(
                 children: [
                   Expanded(
@@ -473,7 +566,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                 ],
               ),
               const SizedBox(height: 20),
-              // Email with Send Code Button
+              // Email with Send Code Button - Fixed overflow
               Row(
                 children: [
                   Expanded(
@@ -527,7 +620,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
               ),
               if (_isVerificationCodeSent) ...[
                 const SizedBox(height: 20),
-                // Verification Code Row
+                // Verification Code Row - Fixed overflow
                 Row(
                   children: [
                     Expanded(
@@ -587,7 +680,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                 ),
               ],
               const SizedBox(height: 20),
-              // Birthday and Sex Row - Fixed to prevent overflow
+              // Birthday and Sex Row - Fixed date overflow
               Row(
                 children: [
                   Expanded(
@@ -596,20 +689,28 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       child: Container(
                         padding: EdgeInsets.symmetric(
                           vertical: 14,
-                          horizontal: isSmallScreen ? 10 : 14,
+                          horizontal: isSmallScreen ? 12 : 16,
                         ),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: _selectedBirthday != null
+                                ? primaryColor.withOpacity(0.3)
+                                : Colors.transparent,
+                            width: 1.5,
+                          ),
                         ),
                         child: Row(
                           children: [
                             Icon(
                               Icons.calendar_today,
-                              color: Colors.grey.shade600,
-                              size: isSmallScreen ? 18 : 22,
+                              color: _selectedBirthday != null
+                                  ? primaryColor
+                                  : Colors.grey.shade600,
+                              size: 20,
                             ),
-                            SizedBox(width: isSmallScreen ? 6 : 10),
+                            SizedBox(width: isSmallScreen ? 8 : 12),
                             Expanded(
                               child: Text(
                                 _selectedBirthday != null
@@ -620,9 +721,12 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                                   color: _selectedBirthday != null
                                       ? Colors.black
                                       : Colors.grey.shade600,
+                                  fontWeight: _selectedBirthday != null
+                                      ? FontWeight.w500
+                                      : FontWeight.normal,
                                 ),
-                                maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
                               ),
                             ),
                           ],
@@ -636,29 +740,30 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       decoration: BoxDecoration(
                         color: Colors.grey.shade100,
                         borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: _selectedSex != null
+                              ? primaryColor.withOpacity(0.3)
+                              : Colors.transparent,
+                          width: 1.5,
+                        ),
                       ),
                       child: DropdownButtonHideUnderline(
                         child: DropdownButton<String>(
                           value: _selectedSex,
                           isExpanded: true,
-                          padding: EdgeInsets.symmetric(
-                            horizontal: isSmallScreen ? 10 : 14,
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          icon: Icon(
+                            Icons.arrow_drop_down,
+                            color: _selectedSex != null
+                                ? primaryColor
+                                : Colors.grey.shade600,
+                            size: 24,
                           ),
-                          icon: Padding(
-                            padding:
-                                EdgeInsets.only(right: isSmallScreen ? 8 : 12),
-                            child: Icon(Icons.arrow_drop_down,
-                                color: Colors.grey.shade600),
-                          ),
-                          hint: Padding(
-                            padding:
-                                EdgeInsets.only(left: isSmallScreen ? 4 : 6),
-                            child: Text(
-                              'Sex',
-                              style: TextStyle(
-                                color: Colors.grey.shade600,
-                                fontSize: isSmallScreen ? 14 : 15,
-                              ),
+                          hint: Text(
+                            'Sex',
+                            style: TextStyle(
+                              color: Colors.grey.shade600,
+                              fontSize: isSmallScreen ? 14 : 15,
                             ),
                           ),
                           items: ['Male', 'Female', 'Other'].map((String sex) {
@@ -668,6 +773,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                                 sex,
                                 style: TextStyle(
                                   fontSize: isSmallScreen ? 14 : 15,
+                                  color: Colors.black,
                                 ),
                               ),
                             );
@@ -684,15 +790,16 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                 ],
               ),
               if (_selectedBirthday != null) ...[
-                const SizedBox(height: 10),
+                const SizedBox(height: 8),
                 Padding(
                   padding:
                       EdgeInsets.symmetric(horizontal: isSmallScreen ? 12 : 16),
                   child: Text(
                     'Age: ${_calculateAge(_selectedBirthday!)} years old',
                     style: TextStyle(
-                      color: Colors.grey.shade700,
-                      fontSize: isSmallScreen ? 11 : 12,
+                      color: primaryColor,
+                      fontSize: isSmallScreen ? 12 : 13,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
@@ -815,8 +922,6 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                   ],
                 ),
               ),
-              // Add extra bottom padding for safety when keyboard is open
-              SizedBox(height: isKeyboardOpen ? 80 : 20),
             ],
           ),
         ),
@@ -830,7 +935,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       hintText: hint,
       filled: true,
       fillColor: Colors.grey.shade100,
-      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
@@ -857,7 +962,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       hintText: hint,
       filled: true,
       fillColor: Colors.grey.shade100,
-      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+      contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
         borderSide: BorderSide.none,
