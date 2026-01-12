@@ -1,6 +1,7 @@
 // ignore_for_file: use_build_context_synchronously, prefer_const_constructors, curly_braces_in_flow_control_structures, invalid_return_type_for_catch_error
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -1083,6 +1084,48 @@ Return ONLY valid JSON in this exact format:
     );
   }
 
+  Future<void> _selectDate(
+      BuildContext context, Function(DateTime) onDateSelected) async {
+    final screenHeight = MediaQuery.of(context).size.height;
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    // Calculate safe dialog height based on screen size
+    final maxDialogHeight = screenHeight * 0.7; // Use max 70% of screen height
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (BuildContext context, Widget? child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF4A90E2),
+              onPrimary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
+            ),
+            dialogBackgroundColor: Colors.white,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: maxDialogHeight,
+                maxWidth: screenWidth * 0.9,
+              ),
+              child: child!,
+            ),
+          ),
+        );
+      },
+    );
+
+    if (picked != null) {
+      onDateSelected(picked);
+    }
+  }
+
   void _showWorkoutDetails(String workoutName, bool isFromSuggested) {
     final now = DateTime.now();
     DateTime selectedDate = now;
@@ -1185,79 +1228,77 @@ Return ONLY valid JSON in this exact format:
                 ],
               ),
               SizedBox(height: 8),
-              GestureDetector(
+              // FIXED: Use TextField with readOnly: true to prevent keyboard
+              TextField(
+                readOnly: true, // This prevents keyboard from showing
+                controller: TextEditingController(
+                  text:
+                      "${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}",
+                ),
                 onTap: () async {
+                  // Dismiss any existing focus
+                  FocusScope.of(context).unfocus();
+                  await Future.delayed(Duration(milliseconds: 100));
+
                   final pickedDate = await showDatePicker(
                     context: context,
-                    initialDate: now,
-                    firstDate: now,
-                    lastDate: DateTime(now.year + 1),
+                    initialDate: selectedDate,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(Duration(days: 365)),
                     builder: (context, child) {
+                      final screenHeight = MediaQuery.of(context).size.height;
+                      final screenWidth = MediaQuery.of(context).size.width;
+                      final maxDialogHeight = screenHeight * 0.7;
+
                       return Theme(
-                        data: Theme.of(context).copyWith(
-                          dialogBackgroundColor: Colors.white,
+                        data: ThemeData.light().copyWith(
                           colorScheme: ColorScheme.light(
-                            primary: Colors.blue.shade100,
+                            primary: Color(0xFF4A90E2),
                             onPrimary: Colors.white,
+                            surface: Colors.white,
                             onSurface: Colors.black,
                           ),
-                          textButtonTheme: TextButtonThemeData(
-                            style: ButtonStyle(
-                              foregroundColor:
-                                  MaterialStateProperty.all(Colors.green),
-                              overlayColor: MaterialStateProperty.all(
-                                  Colors.green.withOpacity(0.1)),
-                            ),
-                          ),
+                          dialogBackgroundColor: Colors.white,
                         ),
-                        child: Dialog(
-                          insetPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 24),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
+                        child: Center(
                           child: ConstrainedBox(
                             constraints: BoxConstraints(
-                              maxHeight:
-                                  MediaQuery.of(context).size.height * 0.7,
-                              minWidth: MediaQuery.of(context).size.width * 0.9,
+                              maxHeight: maxDialogHeight,
+                              maxWidth: screenWidth * 0.9,
                             ),
-                            child: child,
+                            child: child!,
                           ),
                         ),
                       );
                     },
                   );
-                  if (pickedDate != null) {
-                    setModalState(() => selectedDate = pickedDate);
+
+                  if (pickedDate != null && pickedDate != selectedDate) {
+                    setModalState(() {
+                      selectedDate = pickedDate;
+                    });
                   }
                 },
-                child: Container(
-                  height: 52,
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
+                decoration: InputDecoration(
+                  suffixIcon: Icon(Icons.calendar_today_outlined,
+                      size: 18, color: Colors.blue.shade300),
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          "${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}",
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: Colors.black,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Icon(Icons.calendar_today_outlined,
-                          size: 18, color: Colors.blue.shade300),
-                    ],
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                        BorderSide(color: Colors.blue.shade300, width: 1.5),
+                  ),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  filled: true,
+                  fillColor: Colors.white,
                 ),
               ),
               SizedBox(height: 24),
@@ -1571,79 +1612,77 @@ Return ONLY valid JSON in this exact format:
                 ],
               ),
               SizedBox(height: 8),
-              GestureDetector(
+              // FIXED: Use TextField with readOnly: true to prevent keyboard
+              TextField(
+                readOnly: true, // This prevents keyboard from showing
+                controller: TextEditingController(
+                  text:
+                      "${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}",
+                ),
                 onTap: () async {
+                  // Dismiss any existing focus
+                  FocusScope.of(context).unfocus();
+                  await Future.delayed(Duration(milliseconds: 100));
+
                   final pickedDate = await showDatePicker(
                     context: context,
-                    initialDate: now,
-                    firstDate: now,
-                    lastDate: DateTime(now.year + 1),
+                    initialDate: selectedDate,
+                    firstDate: DateTime.now(),
+                    lastDate: DateTime.now().add(Duration(days: 365)),
                     builder: (context, child) {
+                      final screenHeight = MediaQuery.of(context).size.height;
+                      final screenWidth = MediaQuery.of(context).size.width;
+                      final maxDialogHeight = screenHeight * 0.7;
+
                       return Theme(
-                        data: Theme.of(context).copyWith(
-                          dialogBackgroundColor: Colors.white,
+                        data: ThemeData.light().copyWith(
                           colorScheme: ColorScheme.light(
-                            primary: Colors.blue.shade100,
+                            primary: Color(0xFF4A90E2),
                             onPrimary: Colors.white,
+                            surface: Colors.white,
                             onSurface: Colors.black,
                           ),
-                          textButtonTheme: TextButtonThemeData(
-                            style: ButtonStyle(
-                              foregroundColor:
-                                  MaterialStateProperty.all(Colors.green),
-                              overlayColor: MaterialStateProperty.all(
-                                  Colors.green.withOpacity(0.1)),
-                            ),
-                          ),
+                          dialogBackgroundColor: Colors.white,
                         ),
-                        child: Dialog(
-                          insetPadding: const EdgeInsets.symmetric(
-                              horizontal: 16, vertical: 24),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
-                          ),
+                        child: Center(
                           child: ConstrainedBox(
                             constraints: BoxConstraints(
-                              maxHeight:
-                                  MediaQuery.of(context).size.height * 0.7,
-                              minWidth: MediaQuery.of(context).size.width * 0.9,
+                              maxHeight: maxDialogHeight,
+                              maxWidth: screenWidth * 0.9,
                             ),
-                            child: child,
+                            child: child!,
                           ),
                         ),
                       );
                     },
                   );
-                  if (pickedDate != null) {
-                    setModalState(() => selectedDate = pickedDate);
+
+                  if (pickedDate != null && pickedDate != selectedDate) {
+                    setModalState(() {
+                      selectedDate = pickedDate;
+                    });
                   }
                 },
-                child: Container(
-                  height: 52,
-                  padding: EdgeInsets.symmetric(horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
+                decoration: InputDecoration(
+                  suffixIcon: Icon(Icons.calendar_today_outlined,
+                      size: 18, color: Colors.blue.shade300),
+                  border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Flexible(
-                        child: Text(
-                          "${selectedDate.year}-${selectedDate.month.toString().padLeft(2, '0')}-${selectedDate.day.toString().padLeft(2, '0')}",
-                          style: GoogleFonts.poppins(
-                            fontSize: 14,
-                            color: Colors.black,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      SizedBox(width: 8),
-                      Icon(Icons.calendar_today_outlined,
-                          size: 18, color: Colors.blue.shade300),
-                    ],
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide(color: Colors.grey.shade300),
                   ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide:
+                        BorderSide(color: Colors.blue.shade300, width: 1.5),
+                  ),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  filled: true,
+                  fillColor: Colors.white,
                 ),
               ),
               SizedBox(height: 24),

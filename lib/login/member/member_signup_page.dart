@@ -37,9 +37,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
   final Color primaryColor = const Color(0xFF4A90E2);
 
   // Replace with your Gmail credentials
-  final String gmailUsername = 'ayaeubion@gmail.com'; // Your Gmail address
-  final String gmailAppPassword =
-      'nesq ezsj dqmn sunf'; // Your 16-character App Password
+  final String gmailUsername = 'ayaeubion@gmail.com';
+  final String gmailAppPassword = 'nesq ezsj dqmn sunf';
 
   String _generateRandomMemberId() {
     final rand = Random.secure();
@@ -49,7 +48,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
 
   String _generateVerificationCode() {
     final rand = Random();
-    return (100000 + rand.nextInt(900000)).toString(); // 6-digit code
+    return (100000 + rand.nextInt(900000)).toString();
   }
 
   Future<bool> _checkInternetConnection() async {
@@ -74,7 +73,6 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       _isLoading = true;
     });
 
-    // Check internet connection first
     final hasInternet = await _checkInternetConnection();
     if (!hasInternet) {
       setState(() {
@@ -86,20 +84,15 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     }
 
     try {
-      // Generate verification code
       _generatedCode = _generateVerificationCode();
-
-      // Set up Gmail SMTP server with timeout
       final smtpServer = gmail(gmailUsername, gmailAppPassword);
 
-      // Create the email message
       final message = Message()
         ..from = Address(gmailUsername, 'Zeus Fitness App')
         ..recipients.add(email)
         ..subject = 'Your Verification Code'
         ..text = 'Your verification code is: $_generatedCode';
 
-      // Send the email with timeout
       final sendReport = await send(message, smtpServer)
           .timeout(const Duration(seconds: 30), onTimeout: () {
         throw TimeoutException(
@@ -110,7 +103,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
 
       setState(() {
         _isVerificationCodeSent = true;
-        _isLoading = false; // Reset loading state on success
+        _isLoading = false;
       });
       _showMessage(
           "Verification code sent to $email. Please check your inbox or spam folder.");
@@ -136,7 +129,6 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       }
       print('Error: $e');
     } finally {
-      // Always reset loading state
       if (mounted) {
         setState(() {
           _isLoading = false;
@@ -227,9 +219,6 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
-    // Calculate safe dialog height based on screen size
-    final maxDialogHeight = screenHeight * 0.7; // Use max 70% of screen height
-
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
@@ -249,7 +238,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
           child: Center(
             child: ConstrainedBox(
               constraints: BoxConstraints(
-                maxHeight: maxDialogHeight,
+                maxHeight: screenHeight * 0.7,
                 maxWidth: screenWidth * 0.9,
               ),
               child: child!,
@@ -314,7 +303,6 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     setState(() => _isLoading = true);
 
     try {
-      // Create user in Firebase Auth
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: password);
       final user = userCredential.user;
@@ -332,7 +320,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
           'birthday': _selectedBirthday != null
               ? Timestamp.fromDate(_selectedBirthday!)
               : null,
-          'age': age, // Keep for backward compatibility
+          'age': age,
           'sex': _selectedSex,
           'createdAt': FieldValue.serverTimestamp(),
           'qrCode': qrCodeValue,
@@ -341,7 +329,6 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
         _showWelcomeBanner();
         await Future.delayed(const Duration(milliseconds: 1000));
 
-        // Navigate to health declaration first, then planning
         if (mounted) {
           Navigator.pushReplacement(
             context,
@@ -385,7 +372,6 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 360;
 
-    // Calculate responsive button width
     double responsiveButtonWidth() {
       if (screenWidth < 340) return 90;
       if (screenWidth < 380) return 100;
@@ -399,143 +385,94 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       return 28;
     }
 
-    return Scaffold(
-      backgroundColor: Colors.white,
-      body: SafeArea(
-        child: SingleChildScrollView(
-          padding: EdgeInsets.symmetric(
-            horizontal: responsiveHorizontalPadding(),
-            vertical: 20,
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new),
-                onPressed: () => Navigator.pop(context),
-              ),
-              const SizedBox(height: 30),
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      width: 130,
-                      height: 130,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.grey.shade200,
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 10,
-                            offset: const Offset(0, 5),
-                          ),
-                        ],
+    return GestureDetector(
+      onTap: () {
+        // Dismiss keyboard when tapping outside
+        FocusScope.of(context).unfocus();
+      },
+      child: Scaffold(
+        backgroundColor: Colors.white,
+        resizeToAvoidBottomInset: true,
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.symmetric(
+              horizontal: responsiveHorizontalPadding(),
+              vertical: 20,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_ios_new),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                const SizedBox(height: 30),
+                Center(
+                  child: Column(
+                    children: [
+                      Container(
+                        width: 130,
+                        height: 130,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.grey.shade200,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 10,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: const Icon(Icons.person_add,
+                            size: 70, color: Colors.black54),
                       ),
-                      child: const Icon(Icons.person_add,
-                          size: 70, color: Colors.black54),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Member Sign Up',
+                        style: TextStyle(
+                          fontSize: isSmallScreen ? 20 : 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 40),
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _firstNameController,
+                        cursorColor: Colors.blue,
+                        decoration:
+                            _inputDecoration(Icons.person, "First Name"),
+                        onChanged: (_) => setState(() {}),
+                      ),
                     ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Member Sign Up',
-                      style: TextStyle(
-                        fontSize: isSmallScreen ? 20 : 22,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey.shade800,
+                    SizedBox(width: isSmallScreen ? 8 : 10),
+                    Expanded(
+                      child: TextField(
+                        controller: _lastNameController,
+                        cursorColor: Colors.blue,
+                        decoration: _inputDecoration(Icons.person, "Last Name"),
+                        onChanged: (_) => setState(() {}),
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 40),
-              // First Name & Last Name Row - Made responsive
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _firstNameController,
-                      cursorColor: Colors.blue,
-                      decoration: _inputDecoration(Icons.person, "First Name"),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                  SizedBox(width: isSmallScreen ? 8 : 10),
-                  Expanded(
-                    child: TextField(
-                      controller: _lastNameController,
-                      cursorColor: Colors.blue,
-                      decoration: _inputDecoration(Icons.person, "Last Name"),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              // Email with Send Code Button - Fixed overflow
-              Row(
-                children: [
-                  Expanded(
-                    flex: 2,
-                    child: TextField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      cursorColor: Colors.blue,
-                      decoration:
-                          _inputDecoration(Icons.email_outlined, "Email"),
-                      onChanged: (_) => setState(() {}),
-                    ),
-                  ),
-                  SizedBox(width: isSmallScreen ? 8 : 10),
-                  SizedBox(
-                    width: responsiveButtonWidth(),
-                    child: ElevatedButton(
-                      onPressed: _isLoading ? null : _sendVerificationCode,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: primaryColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: EdgeInsets.symmetric(
-                          horizontal: isSmallScreen ? 8 : 12,
-                          vertical: 14,
-                        ),
-                      ),
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                "Send Code",
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: isSmallScreen ? 11 : 12,
-                                ),
-                              ),
-                            ),
-                    ),
-                  ),
-                ],
-              ),
-              if (_isVerificationCodeSent) ...[
                 const SizedBox(height: 20),
-                // Verification Code Row - Fixed overflow
                 Row(
                   children: [
                     Expanded(
                       flex: 2,
                       child: TextField(
-                        controller: _codeController,
-                        keyboardType: TextInputType.number,
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
                         cursorColor: Colors.blue,
-                        decoration: _inputDecoration(
-                            Icons.vpn_key, "Enter Verification Code"),
+                        decoration:
+                            _inputDecoration(Icons.email_outlined, "Email"),
                         onChanged: (_) => setState(() {}),
                       ),
                     ),
@@ -543,7 +480,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                     SizedBox(
                       width: responsiveButtonWidth(),
                       child: ElevatedButton(
-                        onPressed: _isLoading ? null : _verifyCode,
+                        onPressed: _isLoading ? null : _sendVerificationCode,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,
                           shape: RoundedRectangleBorder(
@@ -554,280 +491,351 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                             vertical: 14,
                           ),
                         ),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
-                            "Verify",
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : FittedBox(
+                                fit: BoxFit.scaleDown,
+                                child: Text(
+                                  "Send Code",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: isSmallScreen ? 11 : 12,
+                                  ),
+                                ),
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_isVerificationCodeSent) ...[
+                  const SizedBox(height: 20),
+                  Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: TextField(
+                          controller: _codeController,
+                          keyboardType: TextInputType.number,
+                          cursorColor: Colors.blue,
+                          decoration: _inputDecoration(
+                              Icons.vpn_key, "Enter Verification Code"),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      SizedBox(width: isSmallScreen ? 8 : 10),
+                      SizedBox(
+                        width: responsiveButtonWidth(),
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _verifyCode,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: primaryColor,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isSmallScreen ? 8 : 12,
+                              vertical: 14,
+                            ),
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              "Verify",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: isSmallScreen ? 11 : 12,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: isSmallScreen ? 12 : 16),
+                    child: Text(
+                      _isCodeVerified
+                          ? "Code verified successfully!"
+                          : "Please enter the 6-digit code sent to your email.",
+                      style: TextStyle(
+                        color: _isCodeVerified
+                            ? Colors.green
+                            : Colors.grey.shade600,
+                        fontSize: isSmallScreen ? 11 : 12,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: () {
+                          FocusScope.of(context).unfocus();
+                          Future.delayed(const Duration(milliseconds: 50), () {
+                            _selectBirthday(context);
+                          });
+                        },
+                        child: AbsorbPointer(
+                          child: TextField(
+                            readOnly: true,
+                            decoration: InputDecoration(
+                              prefixIcon: Icon(
+                                Icons.calendar_today,
+                                color: _selectedBirthday != null
+                                    ? primaryColor
+                                    : Colors.grey.shade600,
+                                size: 20,
+                              ),
+                              hintText: 'Birthday',
+                              hintStyle: TextStyle(
+                                fontSize: isSmallScreen ? 14 : 15,
+                                color: Colors.grey.shade600,
+                              ),
+                              filled: true,
+                              fillColor: Colors.grey.shade100,
+                              contentPadding: EdgeInsets.symmetric(
+                                vertical: 14,
+                                horizontal: isSmallScreen ? 12 : 16,
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none,
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: _selectedBirthday != null
+                                    ? BorderSide(
+                                        color: primaryColor.withOpacity(0.3),
+                                        width: 1.5,
+                                      )
+                                    : BorderSide.none,
+                              ),
+                              disabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: _selectedBirthday != null
+                                    ? BorderSide(
+                                        color: primaryColor.withOpacity(0.3),
+                                        width: 1.5,
+                                      )
+                                    : BorderSide.none,
+                              ),
+                            ),
+                            controller: TextEditingController(
+                              text: _selectedBirthday != null
+                                  ? '${_selectedBirthday!.day}/${_selectedBirthday!.month}/${_selectedBirthday!.year}'
+                                  : '',
+                            ),
                             style: TextStyle(
-                              color: Colors.white,
-                              fontSize: isSmallScreen ? 11 : 12,
+                              fontSize: isSmallScreen ? 14 : 15,
+                              color: Colors.black,
+                              fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: isSmallScreen ? 12 : 16),
-                  child: Text(
-                    _isCodeVerified
-                        ? "Code verified successfully!"
-                        : "Please enter the 6-digit code sent to your email.",
-                    style: TextStyle(
-                      color:
-                          _isCodeVerified ? Colors.green : Colors.grey.shade600,
-                      fontSize: isSmallScreen ? 11 : 12,
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 20),
-              // Birthday and Sex Row - Fixed date overflow
-              Row(
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: () => _selectBirthday(context),
+                    SizedBox(width: isSmallScreen ? 8 : 10),
+                    Expanded(
                       child: Container(
-                        padding: EdgeInsets.symmetric(
-                          vertical: 14,
-                          horizontal: isSmallScreen ? 12 : 16,
-                        ),
                         decoration: BoxDecoration(
                           color: Colors.grey.shade100,
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                            color: _selectedBirthday != null
+                            color: _selectedSex != null
                                 ? primaryColor.withOpacity(0.3)
                                 : Colors.transparent,
                             width: 1.5,
                           ),
                         ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.calendar_today,
-                              color: _selectedBirthday != null
+                        child: DropdownButtonHideUnderline(
+                          child: DropdownButton<String>(
+                            value: _selectedSex,
+                            isExpanded: true,
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            icon: Icon(
+                              Icons.arrow_drop_down,
+                              color: _selectedSex != null
                                   ? primaryColor
                                   : Colors.grey.shade600,
-                              size: 20,
+                              size: 24,
                             ),
-                            SizedBox(width: isSmallScreen ? 8 : 12),
-                            Expanded(
-                              child: Text(
-                                _selectedBirthday != null
-                                    ? '${_selectedBirthday!.day}/${_selectedBirthday!.month}/${_selectedBirthday!.year}'
-                                    : 'Birthday',
-                                style: TextStyle(
-                                  fontSize: isSmallScreen ? 14 : 15,
-                                  color: _selectedBirthday != null
-                                      ? Colors.black
-                                      : Colors.grey.shade600,
-                                  fontWeight: _selectedBirthday != null
-                                      ? FontWeight.w500
-                                      : FontWeight.normal,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                                maxLines: 1,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: isSmallScreen ? 8 : 10),
-                  Expanded(
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: _selectedSex != null
-                              ? primaryColor.withOpacity(0.3)
-                              : Colors.transparent,
-                          width: 1.5,
-                        ),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          value: _selectedSex,
-                          isExpanded: true,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          icon: Icon(
-                            Icons.arrow_drop_down,
-                            color: _selectedSex != null
-                                ? primaryColor
-                                : Colors.grey.shade600,
-                            size: 24,
-                          ),
-                          hint: Text(
-                            'Sex',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: isSmallScreen ? 14 : 15,
-                            ),
-                          ),
-                          items: ['Male', 'Female', 'Other'].map((String sex) {
-                            return DropdownMenuItem<String>(
-                              value: sex,
-                              child: Text(
-                                sex,
-                                style: TextStyle(
-                                  fontSize: isSmallScreen ? 14 : 15,
-                                  color: Colors.black,
-                                ),
-                              ),
-                            );
-                          }).toList(),
-                          onChanged: (String? value) {
-                            setState(() {
-                              _selectedSex = value;
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (_selectedBirthday != null) ...[
-                const SizedBox(height: 8),
-                Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: isSmallScreen ? 12 : 16),
-                  child: Text(
-                    'Age: ${_calculateAge(_selectedBirthday!)} years old',
-                    style: TextStyle(
-                      color: primaryColor,
-                      fontSize: isSmallScreen ? 12 : 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-              ],
-              const SizedBox(height: 20),
-              TextField(
-                controller: _passwordController,
-                obscureText: _isPasswordHidden,
-                cursorColor: Colors.blue,
-                decoration: _passwordDecoration(
-                  Icons.lock_outline,
-                  "Create password",
-                  _isPasswordHidden,
-                  () {
-                    setState(() {
-                      _isPasswordHidden = !_isPasswordHidden;
-                    });
-                  },
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: _confirmPasswordController,
-                obscureText: _isConfirmPasswordHidden,
-                cursorColor: Colors.blue,
-                decoration: _passwordDecoration(
-                  Icons.lock_outline,
-                  "Confirm password",
-                  _isConfirmPasswordHidden,
-                  () {
-                    setState(() {
-                      _isConfirmPasswordHidden = !_isConfirmPasswordHidden;
-                    });
-                  },
-                ),
-                onChanged: (_) => setState(() {}),
-              ),
-              const SizedBox(height: 40),
-              Center(
-                child: SizedBox(
-                  width: double.infinity,
-                  child: GestureDetector(
-                    onTap: _isLoading || !_isSignUpButtonEnabled()
-                        ? null
-                        : _signUp,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: _isSignUpButtonEnabled()
-                              ? [
-                                  const Color(0xFF9DCEFF),
-                                  const Color(0xFF92A3FD)
-                                ]
-                              : [Colors.grey.shade400, Colors.grey.shade400],
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 6,
-                            offset: const Offset(2, 3),
-                          ),
-                        ],
-                      ),
-                      alignment: Alignment.center,
-                      child: _isLoading
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(
-                                color: Colors.white,
-                                strokeWidth: 2,
-                              ),
-                            )
-                          : Text(
-                              "Sign Up",
+                            hint: Text(
+                              'Sex',
                               style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w600,
-                                fontSize: isSmallScreen ? 15 : 16,
+                                color: Colors.grey.shade600,
+                                fontSize: isSmallScreen ? 14 : 15,
                               ),
                             ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 20),
-              Center(
-                child: Wrap(
-                  children: [
-                    Text(
-                      "Already have an account? ",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: isSmallScreen ? 13 : 14,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const MemberLoginPage()),
-                        );
-                      },
-                      child: Text(
-                        "Login",
-                        style: TextStyle(
-                          color: Colors.blue,
-                          decoration: TextDecoration.underline,
-                          fontWeight: FontWeight.w600,
-                          fontSize: isSmallScreen ? 13 : 14,
+                            items:
+                                ['Male', 'Female', 'Other'].map((String sex) {
+                              return DropdownMenuItem<String>(
+                                value: sex,
+                                child: Text(
+                                  sex,
+                                  style: TextStyle(
+                                    fontSize: isSmallScreen ? 14 : 15,
+                                    color: Colors.black,
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                            onChanged: (String? value) {
+                              setState(() {
+                                _selectedSex = value;
+                              });
+                            },
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
-              ),
-            ],
+                if (_selectedBirthday != null) ...[
+                  const SizedBox(height: 8),
+                  Padding(
+                    padding: EdgeInsets.symmetric(
+                        horizontal: isSmallScreen ? 12 : 16),
+                    child: Text(
+                      'Age: ${_calculateAge(_selectedBirthday!)} years old',
+                      style: TextStyle(
+                        color: primaryColor,
+                        fontSize: isSmallScreen ? 12 : 13,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _passwordController,
+                  obscureText: _isPasswordHidden,
+                  cursorColor: Colors.blue,
+                  decoration: _passwordDecoration(
+                    Icons.lock_outline,
+                    "Create password",
+                    _isPasswordHidden,
+                    () {
+                      setState(() {
+                        _isPasswordHidden = !_isPasswordHidden;
+                      });
+                    },
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 20),
+                TextField(
+                  controller: _confirmPasswordController,
+                  obscureText: _isConfirmPasswordHidden,
+                  cursorColor: Colors.blue,
+                  decoration: _passwordDecoration(
+                    Icons.lock_outline,
+                    "Confirm password",
+                    _isConfirmPasswordHidden,
+                    () {
+                      setState(() {
+                        _isConfirmPasswordHidden = !_isConfirmPasswordHidden;
+                      });
+                    },
+                  ),
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 40),
+                Center(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: GestureDetector(
+                      onTap: _isLoading || !_isSignUpButtonEnabled()
+                          ? null
+                          : _signUp,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: _isSignUpButtonEnabled()
+                                ? [
+                                    const Color(0xFF9DCEFF),
+                                    const Color(0xFF92A3FD)
+                                  ]
+                                : [Colors.grey.shade400, Colors.grey.shade400],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.1),
+                              blurRadius: 6,
+                              offset: const Offset(2, 3),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: _isLoading
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Text(
+                                "Sign Up",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: isSmallScreen ? 15 : 16,
+                                ),
+                              ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Center(
+                  child: Wrap(
+                    children: [
+                      Text(
+                        "Already have an account? ",
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontSize: isSmallScreen ? 13 : 14,
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const MemberLoginPage()),
+                          );
+                        },
+                        child: Text(
+                          "Login",
+                          style: TextStyle(
+                            color: Colors.blue,
+                            decoration: TextDecoration.underline,
+                            fontWeight: FontWeight.w600,
+                            fontSize: isSmallScreen ? 13 : 14,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
