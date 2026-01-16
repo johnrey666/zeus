@@ -31,6 +31,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
   final TextEditingController _confirmPasswordController =
       TextEditingController();
   final TextEditingController _codeController = TextEditingController();
+  final TextEditingController _birthdayController = TextEditingController();
+
   DateTime? _selectedBirthday;
   String? _selectedSex;
 
@@ -62,7 +64,6 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
 
   Future<void> _sendVerificationCode() async {
     final email = _emailController.text.trim();
-
     if (email.isEmpty ||
         !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
       _showMessage("Please enter a valid email.");
@@ -86,7 +87,6 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     try {
       _generatedCode = _generateVerificationCode();
       final smtpServer = gmail(gmailUsername, gmailAppPassword);
-
       final message = Message()
         ..from = Address(gmailUsername, 'Zeus Fitness App')
         ..recipients.add(email)
@@ -100,7 +100,6 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       });
 
       print('Message sent: $sendReport');
-
       setState(() {
         _isVerificationCodeSent = true;
         _isLoading = false;
@@ -194,7 +193,9 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       Text(
                         "Welcome!",
                         style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
                       ),
                       SizedBox(height: 4),
                       Text(
@@ -210,12 +211,14 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
         ),
       ),
     );
-
     overlay.insert(entry);
     Future.delayed(const Duration(seconds: 3), () => entry.remove());
   }
 
   Future<void> _selectBirthday(BuildContext context) async {
+    // FIX 1: Hide keyboard before opening date picker
+    FocusScope.of(context).unfocus();
+
     final screenHeight = MediaQuery.of(context).size.height;
     final screenWidth = MediaQuery.of(context).size.width;
 
@@ -235,13 +238,16 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
             ),
             dialogBackgroundColor: Colors.white,
           ),
-          child: Center(
+          child: Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
             child: ConstrainedBox(
               constraints: BoxConstraints(
                 maxHeight: screenHeight * 0.7,
                 maxWidth: screenWidth * 0.9,
               ),
-              child: child!,
+              child: child,
             ),
           ),
         );
@@ -251,6 +257,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     if (picked != null && picked != _selectedBirthday) {
       setState(() {
         _selectedBirthday = picked;
+        _birthdayController.text =
+            '${picked.day}/${picked.month}/${picked.year}';
       });
     }
   }
@@ -305,8 +313,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     try {
       UserCredential userCredential = await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: email, password: password);
-      final user = userCredential.user;
 
+      final user = userCredential.user;
       if (user != null) {
         final generatedMemberId = _generateRandomMemberId();
         final qrCodeValue = 'member:${user.uid}:$generatedMemberId';
@@ -364,6 +372,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _codeController.dispose();
+    _birthdayController.dispose();
     super.dispose();
   }
 
@@ -385,15 +394,14 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       return 28;
     }
 
-    return GestureDetector(
-      onTap: () {
-        // Dismiss keyboard when tapping outside
-        FocusScope.of(context).unfocus();
-      },
-      child: Scaffold(
-        backgroundColor: Colors.white,
-        resizeToAvoidBottomInset: true,
-        body: SafeArea(
+    return Scaffold(
+      backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: true,
+      body: SafeArea(
+        child: GestureDetector(
+          onTap: () {
+            FocusScope.of(context).unfocus();
+          },
           child: SingleChildScrollView(
             padding: EdgeInsets.symmetric(
               horizontal: responsiveHorizontalPadding(),
@@ -561,7 +569,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                   const SizedBox(height: 10),
                   Padding(
                     padding: EdgeInsets.symmetric(
-                        horizontal: isSmallScreen ? 12 : 16),
+                      horizontal: isSmallScreen ? 12 : 16,
+                    ),
                     child: Text(
                       _isCodeVerified
                           ? "Code verified successfully!"
@@ -580,15 +589,11 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                   children: [
                     Expanded(
                       child: GestureDetector(
-                        onTap: () {
-                          FocusScope.of(context).unfocus();
-                          Future.delayed(const Duration(milliseconds: 50), () {
-                            _selectBirthday(context);
-                          });
-                        },
+                        onTap: () => _selectBirthday(context),
                         child: AbsorbPointer(
                           child: TextField(
                             readOnly: true,
+                            controller: _birthdayController,
                             decoration: InputDecoration(
                               prefixIcon: Icon(
                                 Icons.calendar_today,
@@ -630,11 +635,6 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                                       )
                                     : BorderSide.none,
                               ),
-                            ),
-                            controller: TextEditingController(
-                              text: _selectedBirthday != null
-                                  ? '${_selectedBirthday!.day}/${_selectedBirthday!.month}/${_selectedBirthday!.year}'
-                                  : '',
                             ),
                             style: TextStyle(
                               fontSize: isSmallScreen ? 14 : 15,
@@ -705,7 +705,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                   const SizedBox(height: 8),
                   Padding(
                     padding: EdgeInsets.symmetric(
-                        horizontal: isSmallScreen ? 12 : 16),
+                      horizontal: isSmallScreen ? 12 : 16,
+                    ),
                     child: Text(
                       'Age: ${_calculateAge(_selectedBirthday!)} years old',
                       style: TextStyle(
