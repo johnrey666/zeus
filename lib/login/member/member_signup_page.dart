@@ -216,7 +216,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
   }
 
   Future<void> _selectBirthday(BuildContext context) async {
-    // FIX 1: Hide keyboard before opening date picker
+    // Hide keyboard before opening date picker
     FocusScope.of(context).unfocus();
 
     final screenHeight = MediaQuery.of(context).size.height;
@@ -227,6 +227,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       initialDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
       firstDate: DateTime(1900),
       lastDate: DateTime.now().subtract(const Duration(days: 365 * 13)),
+      initialEntryMode:
+          DatePickerEntryMode.calendarOnly, // This removes the edit icon
       builder: (BuildContext context, Widget? child) {
         return Theme(
           data: ThemeData.light().copyWith(
