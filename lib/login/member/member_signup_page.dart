@@ -234,217 +234,25 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       lastDate: DateTime.now().subtract(const Duration(days: 365 * 13)),
       initialEntryMode: DatePickerEntryMode.calendarOnly,
       builder: (BuildContext context, Widget? child) {
+        final maxDialogHeight = screenHeight * 0.7;
+
         return Theme(
           data: ThemeData.light().copyWith(
-            colorScheme: ColorScheme.light(
-              primary: primaryColor,
+            colorScheme: const ColorScheme.light(
+              primary: Color(0xFF4A90E2),
               onPrimary: Colors.white,
-              surface: surfaceColor,
-              onSurface: textColor,
-              background: backgroundColor,
-              onBackground: textColor,
-              secondary: accentColor,
-              onSecondary: Colors.white,
+              surface: Colors.white,
+              onSurface: Colors.black,
             ),
-            dialogBackgroundColor: surfaceColor,
-            dialogTheme: DialogTheme(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              elevation: 0,
-              backgroundColor: surfaceColor,
-            ),
-            textTheme: const TextTheme(
-              titleLarge: TextStyle(
-                fontSize: 20,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF333333),
-              ),
-              bodyMedium: TextStyle(
-                fontSize: 16,
-                color: Color(0xFF333333),
-                fontWeight: FontWeight.w400,
-              ),
-              labelMedium: TextStyle(
-                fontSize: 14,
-                color: Color(0xFF6C757D),
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            textButtonTheme: TextButtonThemeData(
-              style: TextButton.styleFrom(
-                foregroundColor: primaryColor,
-                textStyle: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              ),
-            ),
+            dialogBackgroundColor: Colors.white,
           ),
-          child: Dialog(
-            insetPadding: EdgeInsets.symmetric(
-              horizontal: max(20, screenWidth * 0.05),
-              vertical: max(40, screenHeight * 0.1),
-            ),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            backgroundColor: surfaceColor,
-            child: Container(
-              width: min(400, screenWidth * 0.9),
+          child: Center(
+            child: ConstrainedBox(
               constraints: BoxConstraints(
-                maxHeight: min(520, screenHeight * 0.75),
+                maxHeight: maxDialogHeight,
+                maxWidth: screenWidth * 0.9,
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Header
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 20, horizontal: 24),
-                    decoration: BoxDecoration(
-                      color: surfaceColor,
-                      border: Border(
-                        bottom: BorderSide(
-                          color: Colors.grey.shade200,
-                          width: 1,
-                        ),
-                      ),
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(12),
-                        topRight: Radius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Select Birthday',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w600,
-                            color: textColor,
-                            letterSpacing: -0.5,
-                          ),
-                        ),
-                        if (_selectedBirthday != null)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: primaryColor.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(6),
-                              border: Border.all(
-                                color: primaryColor.withOpacity(0.2),
-                                width: 1,
-                              ),
-                            ),
-                            child: Text(
-                              '${_selectedBirthday!.day}/${_selectedBirthday!.month}/${_selectedBirthday!.year}',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: primaryColor,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-
-                  // Calendar Content
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 20),
-                      child: child,
-                    ),
-                  ),
-
-                  // Footer
-                  Container(
-                    padding: const EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: backgroundColor,
-                      border: Border(
-                        top: BorderSide(
-                          color: Colors.grey.shade200,
-                          width: 1,
-                        ),
-                      ),
-                      borderRadius: const BorderRadius.only(
-                        bottomLeft: Radius.circular(12),
-                        bottomRight: Radius.circular(12),
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Selected age: ${_selectedBirthday != null ? _calculateAge(_selectedBirthday!).toString() : '--'} years',
-                          style: TextStyle(
-                            color: subtitleColor,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 14,
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            TextButton(
-                              onPressed: () {
-                                Navigator.of(context).pop();
-                              },
-                              style: TextButton.styleFrom(
-                                foregroundColor: subtitleColor,
-                                backgroundColor: Colors.transparent,
-                                side: BorderSide(
-                                  color: Colors.grey.shade300,
-                                  width: 1,
-                                ),
-                              ),
-                              child: const Text('Cancel'),
-                            ),
-                            const SizedBox(width: 12),
-                            ElevatedButton(
-                              onPressed: _selectedBirthday != null
-                                  ? () {
-                                      Navigator.of(context)
-                                          .pop(_selectedBirthday);
-                                    }
-                                  : null,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: primaryColor,
-                                foregroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 24,
-                                  vertical: 12,
-                                ),
-                                elevation: 0,
-                                shadowColor: Colors.transparent,
-                              ),
-                              child: const Text(
-                                'Confirm',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
+              child: child!,
             ),
           ),
         );

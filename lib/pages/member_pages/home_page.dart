@@ -1,4 +1,4 @@
-// ignore_for_file: use_build_context_synchronously, prefer_const_constructors, curly_braces_in_flow_control_structures, invalid_return_type_for_catch_error
+// ignore_for_file: use_build_context_synchronously, prefer_const_constructors, curly_braces_in_flow_control_structures, invalid_return_type_for_catch_error, unused_import
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -1097,6 +1097,7 @@ Return ONLY valid JSON in this exact format:
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      initialEntryMode: DatePickerEntryMode.calendarOnly, // REMOVES EDIT ICON
       builder: (BuildContext context, Widget? child) {
         return Theme(
           data: ThemeData.light().copyWith(
@@ -1245,6 +1246,8 @@ Return ONLY valid JSON in this exact format:
                     initialDate: selectedDate,
                     firstDate: DateTime.now(),
                     lastDate: DateTime.now().add(Duration(days: 365)),
+                    initialEntryMode:
+                        DatePickerEntryMode.calendarOnly, // REMOVES EDIT ICON
                     builder: (context, child) {
                       final screenHeight = MediaQuery.of(context).size.height;
                       final screenWidth = MediaQuery.of(context).size.width;
@@ -1629,6 +1632,8 @@ Return ONLY valid JSON in this exact format:
                     initialDate: selectedDate,
                     firstDate: DateTime.now(),
                     lastDate: DateTime.now().add(Duration(days: 365)),
+                    initialEntryMode:
+                        DatePickerEntryMode.calendarOnly, // REMOVES EDIT ICON
                     builder: (context, child) {
                       final screenHeight = MediaQuery.of(context).size.height;
                       final screenWidth = MediaQuery.of(context).size.width;
