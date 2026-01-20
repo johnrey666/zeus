@@ -37,6 +37,11 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
   String? _selectedSex;
 
   final Color primaryColor = const Color(0xFF4A90E2);
+  final Color accentColor = const Color(0xFF9DCEFF);
+  final Color backgroundColor = const Color(0xFFF8F9FA);
+  final Color surfaceColor = Colors.white;
+  final Color textColor = const Color(0xFF333333);
+  final Color subtitleColor = const Color(0xFF6C757D);
 
   // Replace with your Gmail credentials
   final String gmailUsername = 'ayaeubion@gmail.com';
@@ -227,29 +232,219 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       initialDate: DateTime.now().subtract(const Duration(days: 365 * 18)),
       firstDate: DateTime(1900),
       lastDate: DateTime.now().subtract(const Duration(days: 365 * 13)),
-      initialEntryMode:
-          DatePickerEntryMode.calendarOnly, // This removes the edit icon
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
       builder: (BuildContext context, Widget? child) {
         return Theme(
           data: ThemeData.light().copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: Color(0xFF4A90E2),
+            colorScheme: ColorScheme.light(
+              primary: primaryColor,
               onPrimary: Colors.white,
-              surface: Colors.white,
-              onSurface: Colors.black,
+              surface: surfaceColor,
+              onSurface: textColor,
+              background: backgroundColor,
+              onBackground: textColor,
+              secondary: accentColor,
+              onSecondary: Colors.white,
             ),
-            dialogBackgroundColor: Colors.white,
+            dialogBackgroundColor: surfaceColor,
+            dialogTheme: DialogTheme(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              elevation: 0,
+              backgroundColor: surfaceColor,
+            ),
+            textTheme: const TextTheme(
+              titleLarge: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF333333),
+              ),
+              bodyMedium: TextStyle(
+                fontSize: 16,
+                color: Color(0xFF333333),
+                fontWeight: FontWeight.w400,
+              ),
+              labelMedium: TextStyle(
+                fontSize: 14,
+                color: Color(0xFF6C757D),
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            textButtonTheme: TextButtonThemeData(
+              style: TextButton.styleFrom(
+                foregroundColor: primaryColor,
+                textStyle: const TextStyle(
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              ),
+            ),
           ),
           child: Dialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+            insetPadding: EdgeInsets.symmetric(
+              horizontal: max(20, screenWidth * 0.05),
+              vertical: max(40, screenHeight * 0.1),
             ),
-            child: ConstrainedBox(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+            backgroundColor: surfaceColor,
+            child: Container(
+              width: min(400, screenWidth * 0.9),
               constraints: BoxConstraints(
-                maxHeight: screenHeight * 0.7,
-                maxWidth: screenWidth * 0.9,
+                maxHeight: min(520, screenHeight * 0.75),
               ),
-              child: child,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Header
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        vertical: 20, horizontal: 24),
+                    decoration: BoxDecoration(
+                      color: surfaceColor,
+                      border: Border(
+                        bottom: BorderSide(
+                          color: Colors.grey.shade200,
+                          width: 1,
+                        ),
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(12),
+                        topRight: Radius.circular(12),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Select Birthday',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: textColor,
+                            letterSpacing: -0.5,
+                          ),
+                        ),
+                        if (_selectedBirthday != null)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: primaryColor.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: primaryColor.withOpacity(0.2),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              '${_selectedBirthday!.day}/${_selectedBirthday!.month}/${_selectedBirthday!.year}',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w500,
+                                color: primaryColor,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  // Calendar Content
+                  Expanded(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 20),
+                      child: child,
+                    ),
+                  ),
+
+                  // Footer
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: backgroundColor,
+                      border: Border(
+                        top: BorderSide(
+                          color: Colors.grey.shade200,
+                          width: 1,
+                        ),
+                      ),
+                      borderRadius: const BorderRadius.only(
+                        bottomLeft: Radius.circular(12),
+                        bottomRight: Radius.circular(12),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Selected age: ${_selectedBirthday != null ? _calculateAge(_selectedBirthday!).toString() : '--'} years',
+                          style: TextStyle(
+                            color: subtitleColor,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 14,
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop();
+                              },
+                              style: TextButton.styleFrom(
+                                foregroundColor: subtitleColor,
+                                backgroundColor: Colors.transparent,
+                                side: BorderSide(
+                                  color: Colors.grey.shade300,
+                                  width: 1,
+                                ),
+                              ),
+                              child: const Text('Cancel'),
+                            ),
+                            const SizedBox(width: 12),
+                            ElevatedButton(
+                              onPressed: _selectedBirthday != null
+                                  ? () {
+                                      Navigator.of(context)
+                                          .pop(_selectedBirthday);
+                                    }
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: primaryColor,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                  vertical: 12,
+                                ),
+                                elevation: 0,
+                                shadowColor: Colors.transparent,
+                              ),
+                              child: const Text(
+                                'Confirm',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -260,7 +455,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
       setState(() {
         _selectedBirthday = picked;
         _birthdayController.text =
-            '${picked.day}/${picked.month}/${picked.year}';
+            '${picked.day.toString().padLeft(2, '0')}/${picked.month.toString().padLeft(2, '0')}/${picked.year}';
       });
     }
   }
@@ -425,25 +620,30 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                         height: 130,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: Colors.grey.shade200,
+                          color: Colors.grey.shade100,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 8,
+                              offset: const Offset(0, 4),
                             ),
                           ],
+                          border: Border.all(
+                            color: Colors.grey.shade200,
+                            width: 1,
+                          ),
                         ),
-                        child: const Icon(Icons.person_add,
-                            size: 70, color: Colors.black54),
+                        child: Icon(Icons.person_add,
+                            size: 70, color: Colors.grey.shade600),
                       ),
                       const SizedBox(height: 16),
                       Text(
                         'Member Sign Up',
                         style: TextStyle(
                           fontSize: isSmallScreen ? 20 : 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade800,
+                          fontWeight: FontWeight.w600,
+                          color: textColor,
+                          letterSpacing: -0.5,
                         ),
                       ),
                     ],
@@ -455,9 +655,9 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                     Expanded(
                       child: TextField(
                         controller: _firstNameController,
-                        cursorColor: Colors.blue,
-                        decoration:
-                            _inputDecoration(Icons.person, "First Name"),
+                        cursorColor: primaryColor,
+                        decoration: _inputDecoration(
+                            Icons.person_outline, "First Name"),
                         onChanged: (_) => setState(() {}),
                       ),
                     ),
@@ -465,8 +665,9 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                     Expanded(
                       child: TextField(
                         controller: _lastNameController,
-                        cursorColor: Colors.blue,
-                        decoration: _inputDecoration(Icons.person, "Last Name"),
+                        cursorColor: primaryColor,
+                        decoration:
+                            _inputDecoration(Icons.person_outline, "Last Name"),
                         onChanged: (_) => setState(() {}),
                       ),
                     ),
@@ -480,7 +681,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       child: TextField(
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
-                        cursorColor: Colors.blue,
+                        cursorColor: primaryColor,
                         decoration:
                             _inputDecoration(Icons.email_outlined, "Email"),
                         onChanged: (_) => setState(() {}),
@@ -494,12 +695,13 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: primaryColor,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           padding: EdgeInsets.symmetric(
                             horizontal: isSmallScreen ? 8 : 12,
                             vertical: 14,
                           ),
+                          elevation: 0,
                         ),
                         child: _isLoading
                             ? const SizedBox(
@@ -517,6 +719,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                                   style: TextStyle(
                                     color: Colors.white,
                                     fontSize: isSmallScreen ? 11 : 12,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
@@ -533,9 +736,9 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                         child: TextField(
                           controller: _codeController,
                           keyboardType: TextInputType.number,
-                          cursorColor: Colors.blue,
+                          cursorColor: primaryColor,
                           decoration: _inputDecoration(
-                              Icons.vpn_key, "Enter Verification Code"),
+                              Icons.vpn_key_outlined, "Verification Code"),
                           onChanged: (_) => setState(() {}),
                         ),
                       ),
@@ -545,22 +748,26 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _verifyCode,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
+                            backgroundColor: _isCodeVerified
+                                ? const Color(0xFF10B981)
+                                : primaryColor,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
+                              borderRadius: BorderRadius.circular(8),
                             ),
                             padding: EdgeInsets.symmetric(
                               horizontal: isSmallScreen ? 8 : 12,
                               vertical: 14,
                             ),
+                            elevation: 0,
                           ),
                           child: FittedBox(
                             fit: BoxFit.scaleDown,
                             child: Text(
-                              "Verify",
+                              _isCodeVerified ? "Verified" : "Verify",
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: isSmallScreen ? 11 : 12,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
@@ -575,13 +782,15 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                     ),
                     child: Text(
                       _isCodeVerified
-                          ? "Code verified successfully!"
+                          ? "✓ Code verified successfully!"
                           : "Please enter the 6-digit code sent to your email.",
                       style: TextStyle(
                         color: _isCodeVerified
-                            ? Colors.green
-                            : Colors.grey.shade600,
+                            ? const Color(0xFF10B981)
+                            : subtitleColor,
                         fontSize: isSmallScreen ? 11 : 12,
+                        fontWeight:
+                            _isCodeVerified ? FontWeight.w600 : FontWeight.w400,
                       ),
                     ),
                   ),
@@ -598,7 +807,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                             controller: _birthdayController,
                             decoration: InputDecoration(
                               prefixIcon: Icon(
-                                Icons.calendar_today,
+                                Icons.calendar_today_outlined,
                                 color: _selectedBirthday != null
                                     ? primaryColor
                                     : Colors.grey.shade600,
@@ -610,26 +819,21 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                                 color: Colors.grey.shade600,
                               ),
                               filled: true,
-                              fillColor: Colors.grey.shade100,
+                              fillColor: backgroundColor,
                               contentPadding: EdgeInsets.symmetric(
                                 vertical: 14,
                                 horizontal: isSmallScreen ? 12 : 16,
                               ),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(8),
                                 borderSide: BorderSide.none,
                               ),
                               enabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: _selectedBirthday != null
-                                    ? BorderSide(
-                                        color: primaryColor.withOpacity(0.3),
-                                        width: 1.5,
-                                      )
-                                    : BorderSide.none,
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none,
                               ),
                               disabledBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(8),
                                 borderSide: _selectedBirthday != null
                                     ? BorderSide(
                                         color: primaryColor.withOpacity(0.3),
@@ -640,7 +844,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                             ),
                             style: TextStyle(
                               fontSize: isSmallScreen ? 14 : 15,
-                              color: Colors.black,
+                              color: textColor,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -651,8 +855,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                     Expanded(
                       child: Container(
                         decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
+                          color: backgroundColor,
+                          borderRadius: BorderRadius.circular(8),
                           border: Border.all(
                             color: _selectedSex != null
                                 ? primaryColor.withOpacity(0.3)
@@ -687,7 +891,8 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                                   sex,
                                   style: TextStyle(
                                     fontSize: isSmallScreen ? 14 : 15,
-                                    color: Colors.black,
+                                    color: textColor,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               );
@@ -714,7 +919,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       style: TextStyle(
                         color: primaryColor,
                         fontSize: isSmallScreen ? 12 : 13,
-                        fontWeight: FontWeight.w500,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -723,7 +928,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                 TextField(
                   controller: _passwordController,
                   obscureText: _isPasswordHidden,
-                  cursorColor: Colors.blue,
+                  cursorColor: primaryColor,
                   decoration: _passwordDecoration(
                     Icons.lock_outline,
                     "Create password",
@@ -740,7 +945,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                 TextField(
                   controller: _confirmPasswordController,
                   obscureText: _isConfirmPasswordHidden,
-                  cursorColor: Colors.blue,
+                  cursorColor: primaryColor,
                   decoration: _passwordDecoration(
                     Icons.lock_outline,
                     "Confirm password",
@@ -764,24 +969,19 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: _isSignUpButtonEnabled()
-                                ? [
-                                    const Color(0xFF9DCEFF),
-                                    const Color(0xFF92A3FD)
-                                  ]
-                                : [Colors.grey.shade400, Colors.grey.shade400],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 6,
-                              offset: const Offset(2, 3),
-                            ),
-                          ],
+                          color: _isSignUpButtonEnabled()
+                              ? primaryColor
+                              : Colors.grey.shade400,
+                          borderRadius: BorderRadius.circular(8),
+                          boxShadow: _isSignUpButtonEnabled()
+                              ? [
+                                  BoxShadow(
+                                    color: primaryColor.withOpacity(0.3),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ]
+                              : null,
                         ),
                         alignment: Alignment.center,
                         child: _isLoading
@@ -812,8 +1012,9 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                       Text(
                         "Already have an account? ",
                         style: TextStyle(
-                          color: Colors.black,
+                          color: subtitleColor,
                           fontSize: isSmallScreen ? 13 : 14,
+                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       GestureDetector(
@@ -827,8 +1028,7 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
                         child: Text(
                           "Login",
                           style: TextStyle(
-                            color: Colors.blue,
-                            decoration: TextDecoration.underline,
+                            color: primaryColor,
                             fontWeight: FontWeight.w600,
                             fontSize: isSmallScreen ? 13 : 14,
                           ),
@@ -847,21 +1047,22 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
 
   InputDecoration _inputDecoration(IconData icon, String hint) {
     return InputDecoration(
-      prefixIcon: Icon(icon),
+      prefixIcon: Icon(icon, color: Colors.grey.shade600),
       hintText: hint,
+      hintStyle: TextStyle(color: Colors.grey.shade600),
       filled: true,
-      fillColor: Colors.grey.shade100,
+      fillColor: backgroundColor,
       contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide(color: primaryColor, width: 1.5),
       ),
     );
@@ -874,27 +1075,28 @@ class _MemberSignUpPageState extends State<MemberSignUpPage> {
     VoidCallback toggleVisibility,
   ) {
     return InputDecoration(
-      prefixIcon: Icon(icon),
+      prefixIcon: Icon(icon, color: Colors.grey.shade600),
       hintText: hint,
+      hintStyle: TextStyle(color: Colors.grey.shade600),
       filled: true,
-      fillColor: Colors.grey.shade100,
+      fillColor: backgroundColor,
       contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide.none,
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide.none,
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide(color: primaryColor, width: 1.5),
       ),
       suffixIcon: IconButton(
         icon: Icon(
-          isHidden ? Icons.visibility_off : Icons.visibility,
-          color: Colors.grey,
+          isHidden ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+          color: Colors.grey.shade600,
         ),
         onPressed: toggleVisibility,
       ),
